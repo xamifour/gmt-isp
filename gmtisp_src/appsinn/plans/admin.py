@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+from django.contrib.admin import SimpleListFilter
 from django.contrib.admin.utils import model_ngettext
 from django.core.exceptions import PermissionDenied
 
@@ -25,7 +26,10 @@ from plans.base.models import (
     AbstractUserPlan,
 )
 
-from .models import BandwidthSettings
+from payments import PaymentStatus
+from related_admin import RelatedFieldAdmin
+
+from .models import BandwidthSettings, Payment
 from .signals import account_automatic_renewal
 
 Invoice = AbstractInvoice.get_concrete_model()
@@ -375,3 +379,66 @@ admin.site.register(Pricing)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(BillingInfo, BillingInfoAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
+
+
+
+# ---------------------------------------------------------------- Plan payment
+class FaultyPaymentsFilter(SimpleListFilter):
+    title = "faulty_payments"
+    parameter_name = "faulty_payments"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("unconfirmed_order", "Confirmed payment unconfirmed order"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == "unconfirmed_order":
+            return queryset.filter(status=PaymentStatus.CONFIRMED).exclude(
+                order__status=Order.STATUS.COMPLETED
+            )
+        return queryset
+
+
+@admin.register(Payment)
+class PaymentAdmin(RelatedFieldAdmin):
+    list_display = (
+        "id",
+        "transaction_id",
+        "token",
+        "order__user",
+        "variant",
+        "status",
+        "fraud_status",
+        "currency",
+        "total",
+        "customer_ip_address",
+        "tax",
+        "transaction_fee",
+        "captured_amount",
+        "created",
+        "modified",
+        "autorenewed_payment",
+    )
+    list_filter = (
+        "status",
+        "variant",
+        "fraud_status",
+        "currency",
+        "autorenewed_payment",
+        FaultyPaymentsFilter,
+    )
+    search_fields = (
+        "order__user__first_name",
+        "order__user__last_name",
+        "order__user__email",
+        "transaction_id",
+        "extra_data",
+        "token",
+    )
+    list_select_related = ("order__user",)
+    autocomplete_fields = ("order",)
+    readonly_fields = (
+        "created",
+        "modified",
+    )

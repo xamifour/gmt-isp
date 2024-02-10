@@ -3,7 +3,6 @@ from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
 
 from openwisp_utils.admin_theme.menu import register_menu_group
-
 from swapper import get_model_name
 
 from . import conf as app_settings
@@ -56,6 +55,12 @@ class PlansConfig(AppConfig):
             5: {
                 'label': _('Pricing'),
                 'model': get_model_name(self.label, 'Pricing'),
+                'name': 'changelist',
+                'icon': 'ow-radius-checks',
+            },
+            6: {
+                'label': _('Payments'),
+                'model': get_model_name(self.label, 'Payment'),
                 'name': 'changelist',
                 'icon': 'ow-radius-checks',
             },

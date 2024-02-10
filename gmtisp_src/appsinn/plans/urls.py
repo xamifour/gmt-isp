@@ -19,6 +19,9 @@ from plans.views import (
     UpgradePlanView,
 )
 
+from .views import CreatePaymentView, PaymentDetailView
+
+
 urlpatterns = [
     path("pricing/", PricingView.as_view(), name="pricing"),
     path("account/", CurrentPlanView.as_view(), name="current_plan"),
@@ -63,6 +66,18 @@ urlpatterns = [
         "invoice/<int:pk>/preview/html/",
         InvoiceDetailView.as_view(),
         name="invoice_preview_html",
+    ),
+
+    # ----------------------------------------------------------------- Plan payment
+    path(
+        "payment_details/<int:payment_id>/",
+        PaymentDetailView.as_view(),
+        name="payment_details",
+    ),
+    path(
+        "create_payment/<str:payment_variant>/<int:order_id>/",
+        CreatePaymentView.as_view(),
+        name="create_payment",
     ),
 ]
 

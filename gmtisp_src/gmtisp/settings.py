@@ -30,7 +30,7 @@ INSTALLED_APPS = [
     # ---------------------------------- openwisp admin theme
     # must come before the django admin
     # to override the admin login page
-    'openwisp_utils.admin_theme',
+    'appsinn.openwisp_utils.admin_theme',
     'openwisp_users.accounts',
 
     # all-auth
@@ -54,10 +54,10 @@ INSTALLED_APPS = [
     # ---------------------------------- self
     'openwisp_users',
     'openwisp_radius',
-    'openwisp_utils',
+    'appsinn.openwisp_utils',
     # ---------------------------------- plans and payments
     # 'related_admin',
-    'plans_payments',
+    # 'plans_payments',
     'plans',
     'ordered_model',
     # 'bootstrap3',
@@ -507,7 +507,7 @@ PLANS_VALIDATORS = {
 # ------------------------------------------------------------------ plans payments
 from typing import Dict, Tuple
 
-PAYMENT_MODEL = 'plans_payments.Payment'
+PAYMENT_MODEL = 'plans.Payment'
 
 PAYMENT_VARIANTS: Dict[str, Tuple[str, Dict]] = {
     'default': ('payments.dummy.DummyProvider', {}),

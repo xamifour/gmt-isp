@@ -53,8 +53,8 @@ urlpatterns = [
     path('api/v1/', include('openwisp_users.api.urls')),
     path('accounts/', include('openwisp_users.accounts.urls')),
     radius_urls,
-
     path('testapp/', include('testing_app.api.urls')),
+    path('planp/', include('plans.urls')),
     path(
         'captive-portal-mock/login/',
         views.captive_portal_login,
