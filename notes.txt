@@ -1,20 +1,28 @@
-# Freeradius
-ln -s /etc/raddb/mods-available/rest /etc/raddb/mods-enabled/rest
-ln -s /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/sql
 
-#	in my case
+# freeradius installed location my mac OS /usr/local/etc/raddb
+
+
+# OpenWISP settings
 ln -s /usr/local/etc/raddb/mods-available/rest /usr/local/etc/raddb/mods-enabled/rest
 ln -s /usr/local/etc/raddb/mods-available/sql /usr/local/etc/raddb/mods-enabled/sql
 
+# Additional configuration files are in the
+/usr/local/etc/raddb/sites-available/
 
-#	The main configuration file for FreeRADIUS is located at 
+
+# Default locations used by the radius server are configured
+# Or The main configuration file for FreeRADIUS is located at 
 /usr/local/etc/raddb/radiusd.conf
 
-#	Additional configuration files are in the
-/usr/local/etc/raddb/sites-available/
+# The defualt server site config is in
+/usr/local/etc/raddb/sites-enabled/default
+
+# Adding a user 
+/usr/local/etc/raddb/mods-config/files/authorize
 
 #	The logs are usually located in 
 /usr/local/var/log/radius/radius.log
+
 
 
 #	Test

@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Q
 from django.http import Http404, HttpResponseForbidden, HttpResponseRedirect
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import CreateView, RedirectView, TemplateView, View
@@ -23,17 +23,30 @@ from django.views.generic.edit import (
     ProcessFormView,
 )
 from django.views.generic.list import ListView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.template.response import TemplateResponse
+
 from next_url_mixin.mixin import NextUrlMixin
 
-from plans.base.models import (
-    AbstractBillingInfo,
-    AbstractInvoice,
-    AbstractOrder,
-    AbstractPlan,
-    AbstractPlanPricing,
-    AbstractQuota,
-    AbstractUserPlan,
-)
+from payments import RedirectNeeded, get_payment_model
+
+# from plans.base.models import (
+#     AbstractBillingInfo,
+#     AbstractInvoice,
+#     AbstractOrder,
+#     AbstractPlan,
+#     AbstractPlanPricing,
+#     AbstractQuota,
+#     AbstractUserPlan,
+# )
+# UserPlan = AbstractUserPlan.get_concrete_model()
+# PlanPricing = AbstractPlanPricing.get_concrete_model()
+# Plan = AbstractPlan.get_concrete_model()
+# Order = AbstractOrder.get_concrete_model()
+# BillingInfo = AbstractBillingInfo.get_concrete_model()
+# Quota = AbstractQuota.get_concrete_model()
+# Invoice = AbstractInvoice.get_concrete_model()
+
 from plans.forms import BillingInfoForm, CreateOrderForm, FakePaymentsForm
 from plans.importer import import_name
 from plans.mixins import LoginRequired
@@ -41,13 +54,15 @@ from plans.signals import order_started
 from plans.utils import get_currency
 from plans.validators import plan_validation
 
-UserPlan = AbstractUserPlan.get_concrete_model()
-PlanPricing = AbstractPlanPricing.get_concrete_model()
-Plan = AbstractPlan.get_concrete_model()
-Order = AbstractOrder.get_concrete_model()
-BillingInfo = AbstractBillingInfo.get_concrete_model()
-Quota = AbstractQuota.get_concrete_model()
-Invoice = AbstractInvoice.get_concrete_model()
+from .models import (
+    UserPlan,
+    PlanPricing,
+    Plan,
+    Order,
+    BillingInfo,
+    Quota,
+    Invoice,
+)
 
 
 class AccountActivationView(LoginRequired, TemplateView):
@@ -588,16 +603,6 @@ class FakePaymentsView(LoginRequired, SingleObjectMixin, FormView):
 
 
 # ---------------------------------------------------------- Plan payment
-from decimal import Decimal
-
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import get_object_or_404, redirect
-from django.template.response import TemplateResponse
-from django.urls import reverse, reverse_lazy
-from django.views.generic import View
-from payments import RedirectNeeded, get_payment_model
-from plans.models import Order
-
 
 class PaymentDetailView(LoginRequiredMixin, View):
     login_url = reverse_lazy("auth_login")

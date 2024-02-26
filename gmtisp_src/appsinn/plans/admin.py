@@ -10,38 +10,51 @@ from django.contrib.admin.utils import model_ngettext
 from django.core.exceptions import PermissionDenied
 
 from ordered_model.admin import OrderedModelAdmin
-
 from openwisp_users.multitenancy import MultitenantOrgFilter
 
-from plans.base.models import (
-    AbstractBillingInfo,
-    AbstractInvoice,
-    AbstractOrder,
-    AbstractPlan,
-    AbstractPlanPricing,
-    AbstractPlanQuota,
-    AbstractPricing,
-    AbstractQuota,
-    AbstractRecurringUserPlan,
-    AbstractUserPlan,
-)
+# from plans.base.models import (
+#     AbstractBillingInfo,
+#     AbstractInvoice,
+#     AbstractOrder,
+#     AbstractPlan,
+#     AbstractPlanPricing,
+#     AbstractPlanQuota,
+#     AbstractPricing,
+#     AbstractQuota,
+#     AbstractRecurringUserPlan,
+#     AbstractUserPlan,
+# )
+# Invoice = AbstractInvoice.get_concrete_model()
+# UserPlan = AbstractUserPlan.get_concrete_model()
+# Plan = AbstractPlan.get_concrete_model()
+# PlanQuota = AbstractPlanQuota.get_concrete_model()
+# Quota = AbstractQuota.get_concrete_model()
+# PlanPricing = AbstractPlanPricing.get_concrete_model()
+# Pricing = AbstractPricing.get_concrete_model()
+# RecurringUserPlan = AbstractRecurringUserPlan.get_concrete_model()
+# Order = AbstractOrder.get_concrete_model()
+# BillingInfo = AbstractBillingInfo.get_concrete_model()
 
 from payments import PaymentStatus
 from related_admin import RelatedFieldAdmin
 
-from .models import BandwidthSettings, Payment
+from .models import (
+    BandwidthSettings, 
+    Payment,
+    Plan,
+    PlanPricing,
+    PlanQuota,
+    Pricing,
+    Quota,
+    RecurringUserPlan,
+    UserPlan,
+    BillingInfo,
+    Order,
+    Invoice,
+)
 from .signals import account_automatic_renewal
 
-Invoice = AbstractInvoice.get_concrete_model()
-UserPlan = AbstractUserPlan.get_concrete_model()
-Plan = AbstractPlan.get_concrete_model()
-PlanQuota = AbstractPlanQuota.get_concrete_model()
-Quota = AbstractQuota.get_concrete_model()
-PlanPricing = AbstractPlanPricing.get_concrete_model()
-Pricing = AbstractPricing.get_concrete_model()
-RecurringUserPlan = AbstractRecurringUserPlan.get_concrete_model()
-Order = AbstractOrder.get_concrete_model()
-BillingInfo = AbstractBillingInfo.get_concrete_model()
+
 
 
 class UserLinkMixin(object):

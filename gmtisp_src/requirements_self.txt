@@ -32,6 +32,7 @@ django-private-storage==3.1.1
 django-ipware==6.0.2
 django-model-utils==4.3.1
 django-sendsms==0.5
+django-environ
 drf-link-header-pagination==0.2.0
 djangosaml2==1.8.0
 jsonfield==3.1.0
@@ -50,4 +51,5 @@ django-bootstrap3
 
 # plan payment
 django-related-admin
+# django-payments
 # django-plans-payments

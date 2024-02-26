@@ -1,20 +1,30 @@
 import os
 import sys
+import environ
 
+from pathlib import Path
 from celery.schedules import crontab
 from decimal import Decimal
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
+BASE_DIR = Path(__file__).resolve(strict=True).parent
+APPS_DIR = BASE_DIR / 'appsinn'
+
+env = environ.Env()
+env.read_env() # read the .env file
+# environ.Env.read_env() # read the .env file
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = str(env('DEBUG')) == '1' # 1 == True, 0 == False
+SECRET_KEY = env.str('SECRET_KEY', default='98Yt456^&%@!+)7748*&_?><HTE~lrl%606smticbu20=pvr')
+# ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+ALLOWED_HOSTS = ['*']
 
 TESTING = sys.argv[1] == 'test'
 SHELL = 'shell' in sys.argv or 'shell_plus' in sys.argv
 
-# Set DEBUG to False in production
-DEBUG = True
-
-SECRET_KEY = '&a@f(0@lrl%606smticbu20=pvribdvubk5=gjti8&n1y%bi&4'
-
-ALLOWED_HOSTS = []
 OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 OPENWISP_RADIUS_COA_ENABLED = True
 OPENWISP_RADIUS_ALLOWED_MOBILE_PREFIXES = ['+44', '+39', '+237', '+595', '+233']
@@ -144,12 +154,12 @@ DATABASES = {
     }
 }
 
-# POSTGRES_ENGINE='django.db.backends.postgresql'
-# POSTGRES_DB='gmtispradius'
-# POSTGRES_USER='postgres'
-# POSTGRES_PASSWORD='aaaAAA123'
-# POSTGRES_HOST='localhost'
-# POSTGRES_PORT='5432'
+# POSTGRES_ENGINE = env("POSTGRES_ENGINE") # database engine
+# POSTGRES_DB = env("POSTGRES_DB") # database name
+# POSTGRES_PASSWORD = env("POSTGRES_PASSWORD") # database user password
+# POSTGRES_USER = env("POSTGRES_USER") # database username
+# POSTGRES_HOST = env("POSTGRES_HOST") # database host
+# POSTGRES_PORT = env("POSTGRES_PORT") # database port
 
 # POSTGRES_READY = (
 #     POSTGRES_DB is not None
@@ -241,10 +251,9 @@ TIME_ZONE = 'America/Asuncion'  # used to replicate timezone related bug, do not
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
+
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
-DEFAULT_FROM_EMAIL = 'wqkQk@example.com'
-EMAIL_PORT = '1025'
 MEDIA_URL = '/media/'
 STATIC_URL = '/static/'
 
@@ -253,6 +262,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # for development only
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+EMAIL_PORT = env('EMAIL_PORT')
+EMAIL_USE_TLS = env('EMAIL_USE_TLS')
+EMAIL_SUBJECT_PREFIX = env('EMAIL_SUBJECT_PREFIX')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+NOTIFY_EMAIL = env('NOTIFY_EMAIL')
+EMAIL_TIMEOUT = 5
+EMAIL_PORT = '1025'
+
 
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {

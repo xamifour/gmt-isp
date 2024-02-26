@@ -19,9 +19,7 @@ from openwisp_utils.admin_theme.filters import (
 from .models import (
     Book,
     Operator,
-    # OrganizationRadiusSettings,
     Project,
-    # RadiusAccounting,
     Shelf,
 )
 
