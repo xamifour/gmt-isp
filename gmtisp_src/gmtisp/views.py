@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
 
-from openwisp_radius.utils import load_model
+from appsinn.openwisp_radius.utils import load_model
 
 RadiusAccounting = load_model('RadiusAccounting')
 RadiusToken = load_model('RadiusToken')

@@ -52,16 +52,16 @@ class Plan(OrgMixin, AbstractPlan):
     """
     The base plan object
 
-    There's three kinds of gmt_subscriptions; they're distinguished by the structure
+    There's three kinds of plans; they're distinguished by the structure
     field.
 
     - A stand alone plan. Regular plan that lives by itself.
-    - A child plan. All child gmt_subscriptions have a parent plan. They're a
+    - A child plan. All child plans have a parent plan. They're a
       specific version of the parent.
-    - A parent plan. It essentially represents a set of gmt_subscriptions.
+    - A parent plan. It essentially represents a set of plans.
 
     An example could be a yoga course, which is a parent plan. The different
-    times/locations of the courses would be associated with the child gmt_subscriptions.
+    times/locations of the courses would be associated with the child plans.
     """
 
     STANDALONE, PARENT, CHILD = 'standalone', 'parent', 'child'

@@ -30,21 +30,22 @@ OPENWISP_RADIUS_COA_ENABLED = True
 OPENWISP_RADIUS_ALLOWED_MOBILE_PREFIXES = ['+44', '+39', '+237', '+595', '+233']
 
 INSTALLED_APPS = [
+    # Django
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'django.contrib.sites',
 
     # ---------------------------------- openwisp admin theme
     # must come before the django admin
     # to override the admin login page
-    'appsinn.openwisp_utils.admin_theme',
+    'openwisp_utils.admin_theme',
     'openwisp_users.accounts',
 
     # all-auth
-    'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -59,26 +60,27 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.google',
     
-    # test app
-    'testing_app',
-    # ---------------------------------- self
+    # admin
+    'admin_auto_filters',
+    'django.contrib.admin',
+
+   # ---------------------------------- self
+    'testing_app',    
     'openwisp_users',
     'openwisp_radius',
-    'appsinn.openwisp_utils',
-    # ---------------------------------- plans and payments
+    'openwisp_utils',
+
+    # plans
     # 'related_admin',
-    # 'plans_payments',
     'plans',
     'ordered_model',
     # 'bootstrap3',
     
-    # admin
-    'admin_auto_filters',
-    'django.contrib.admin',
+    # other
     'private_storage',
     'drf_yasg',
     'django_extensions',
-    'integrations',
+    # 'integrations',
     'djangosaml2',
 ]
 
@@ -182,7 +184,6 @@ DATABASES = {
 #         }
 #     }
 
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': TESTING,
@@ -244,7 +245,7 @@ if not TESTING and SHELL:
         },
     }
 
-AUTH_PASSWORD_VALIDATORS = [] # WARNING: for development only!
+# AUTH_PASSWORD_VALIDATORS = [] # WARNING: for development only!
 
 LANGUAGE_CODE = 'en-gb'
 TIME_ZONE = 'America/Asuncion'  # used to replicate timezone related bug, do not change!
@@ -352,7 +353,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 SENDSMS_BACKEND = 'sendsms.backends.console.SmsBackend'
-OPENWISP_RADIUS_EXTRA_NAS_TYPES = (('cisco', 'Cisco Router'),)
+OPENWISP_RADIUS_EXTRA_NAS_TYPES = (('cisco', 'Cisco Router'),('mikrotik', 'Mikrotik'),)
 
 REST_AUTH = {
     'SESSION_LOGIN': False,
@@ -381,11 +382,11 @@ else:
 OPENWISP_USERS_AUTH_API = True
 
 # if os.environ.get('SAMPLE_APP', False):
-#     # INSTALLED_APPS.remove('openwisp_radius')
-#     # INSTALLED_APPS.append('openwisp_radius')
-#     # INSTALLED_APPS.remove('openwisp_users')
-#     # INSTALLED_APPS.append('openwisp_users')
-#     # EXTENDED_APPS = ('openwisp_utils', 'openwisp_users ',)
+#     INSTALLED_APPS.remove('openwisp_radius')
+#     INSTALLED_APPS.append('openwisp_radius')
+#     INSTALLED_APPS.remove('openwisp_users')
+#     INSTALLED_APPS.append('openwisp_users')
+#     EXTENDED_APPS = ('openwisp_utils', 'openwisp_users', 'plans')
 #     OPENWISP_USERS_GROUP_MODEL = 'openwisp_users.Group'
 #     OPENWISP_USERS_ORGANIZATION_MODEL = 'openwisp_users.Organization'
 #     OPENWISP_USERS_ORGANIZATIONUSER_MODEL = 'openwisp_users.OrganizationUser'
@@ -453,6 +454,11 @@ try:
     CORS_ORIGIN_ALLOW_ALL = True
 except ImportError:
     pass
+
+
+# ------------------------------------------------------------------ admin
+OPENWISP_ADMIN_SITE_HEADER = 'GMTISP'
+OPENWISP_ADMIN_SITE_TITLE = 'GMTISP Admin'
 
 
 

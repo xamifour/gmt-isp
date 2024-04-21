@@ -43,6 +43,53 @@ class TestingAppConfig(ApiAppConfig):
         register_dashboard_chart(
             position=0,
             config={
+                'name': _('Nas'),
+                'query_params': {
+                    'app_label': 'openwisp_radius',
+                    'model': 'nas',
+                    'annotate': {
+                        'with_nas': Count(
+                            Case(
+                                When(
+                                    server__isnull=False,
+                                    then=1,
+                                )
+                            )
+                        ),
+                        'without_nas': Count(
+                            Case(
+                                When(
+                                    server__isnull=True,
+                                    then=1,
+                                )
+                            )
+                        ),
+                    },
+                    'aggregate': {
+                        'with_nas__sum': Sum('with_nas'),
+                        'without_nas__sum': Sum('without_nas'),
+                    },
+                },
+                'colors': {
+                    'with_nas__sum': '#267126',
+                    'without_nas__sum': '#353c44',
+                },
+                'labels': {
+                    # the <strong> is for testing purposes to
+                    # verify it's being HTML escaped correctly
+                    'with_nas__sum': _('<strong>Projects with operators</strong>'),
+                    'without_nas__sum': _('Projects without Nas'),
+                },
+                'filters': {
+                    'key': 'with_nas',
+                    'with_nas__sum': 'true',
+                    'without_nas__sum': 'false',
+                },
+            },
+        )
+        register_dashboard_chart(
+            position=1,
+            config={
                 'name': _('Operator Project Distribution'),
                 'query_params': {
                     'app_label': 'testing_app',
@@ -59,53 +106,54 @@ class TestingAppConfig(ApiAppConfig):
                 },
             },
         )
-        register_dashboard_chart(
-            position=1,
-            config={
-                'name': _('Operator presence in projects'),
-                'query_params': {
-                    'app_label': 'testing_app',
-                    'model': 'project',
-                    'annotate': {
-                        'with_operator': Count(
-                            Case(
-                                When(
-                                    operator__isnull=False,
-                                    then=1,
-                                )
-                            )
-                        ),
-                        'without_operator': Count(
-                            Case(
-                                When(
-                                    operator__isnull=True,
-                                    then=1,
-                                )
-                            )
-                        ),
-                    },
-                    'aggregate': {
-                        'with_operator__sum': Sum('with_operator'),
-                        'without_operator__sum': Sum('without_operator'),
-                    },
-                },
-                'colors': {
-                    'with_operator__sum': '#267126',
-                    'without_operator__sum': '#353c44',
-                },
-                'labels': {
-                    # the <strong> is for testing purposes to
-                    # verify it's being HTML escaped correctly
-                    'with_operator__sum': _('<strong>Projects with operators</strong>'),
-                    'without_operator__sum': _('Projects without operators'),
-                },
-                'filters': {
-                    'key': 'with_operator',
-                    'with_operator__sum': 'true',
-                    'without_operator__sum': 'false',
-                },
-            },
-        )
+        
+        # register_dashboard_chart(
+        #     position=2,
+        #     config={
+        #         'name': _('Operator presence in projects'),
+        #         'query_params': {
+        #             'app_label': 'testing_app',
+        #             'model': 'project',
+        #             'annotate': {
+        #                 'with_operator': Count(
+        #                     Case(
+        #                         When(
+        #                             operator__isnull=False,
+        #                             then=1,
+        #                         )
+        #                     )
+        #                 ),
+        #                 'without_operator': Count(
+        #                     Case(
+        #                         When(
+        #                             operator__isnull=True,
+        #                             then=1,
+        #                         )
+        #                     )
+        #                 ),
+        #             },
+        #             'aggregate': {
+        #                 'with_operator__sum': Sum('with_operator'),
+        #                 'without_operator__sum': Sum('without_operator'),
+        #             },
+        #         },
+        #         'colors': {
+        #             'with_operator__sum': '#267126',
+        #             'without_operator__sum': '#353c44',
+        #         },
+        #         'labels': {
+        #             # the <strong> is for testing purposes to
+        #             # verify it's being HTML escaped correctly
+        #             'with_operator__sum': _('<strong>Projects with operators</strong>'),
+        #             'without_operator__sum': _('Projects without operators'),
+        #         },
+        #         'filters': {
+        #             'key': 'with_operator',
+        #             'with_operator__sum': 'true',
+        #             'without_operator__sum': 'false',
+        #         },
+        #     },
+        # )
         register_dashboard_chart(
             position=3,
             config={

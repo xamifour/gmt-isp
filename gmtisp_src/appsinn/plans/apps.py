@@ -3,27 +3,23 @@ from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
 
 from openwisp_utils.admin_theme.menu import register_menu_group
+# from openwisp_utils.api.apps import ApiAppConfig
 from swapper import get_model_name
 
 from . import conf as app_settings
 logger = logging.getLogger(__name__)
 
 
-# class PlansConfig(AppConfig):
-#     name = "plans"
-#     verbose_name = app_settings.APP_VERBOSE_NAME
-
-#     def ready(self):
-#         # noinspection PyUnresolvedReferences
-#         import plans.listeners  # noqa
-
 class PlansConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'plans'
     label = 'plans'
     verbose_name = _('Subscriptions')
+    # verbose_name = _(app_settings.APP_VERBOSE_NAME)
 
     def ready(self):
+        # noinspection PyUnresolvedReferences
+        # import plans.listeners  # noqa
         self.register_menu_group()
 
     def register_menu_group(self):
@@ -67,9 +63,10 @@ class PlansConfig(AppConfig):
 
         }
         register_menu_group(
-            position=14,
+            position=23,
             config={'label': _('Subscriptions'), 'items': items, 'icon': 'ow-radius'},
         )
 
 
 # del PlansConfig
+# del ApiAppConfig

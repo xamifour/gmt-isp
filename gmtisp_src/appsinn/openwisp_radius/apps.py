@@ -1,6 +1,7 @@
 import swapper
 from allauth.account.apps import AccountConfig
 from allauth.socialaccount.apps import SocialAccountConfig
+
 from django.contrib.auth import get_user_model
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.utils.translation import gettext_lazy as _
@@ -29,7 +30,7 @@ from .utils import load_model, update_user_related_records
 class OpenwispRadiusConfig(ApiAppConfig):
     name = 'openwisp_radius'
     label = 'openwisp_radius'
-    verbose_name = 'Freeradius'
+    verbose_name = _('Freeradius')
 
     API_ENABLED = True
     REST_FRAMEWORK_SETTINGS = {
@@ -201,7 +202,7 @@ class OpenwispRadiusConfig(ApiAppConfig):
                 'icon': 'ow-radius-token',
             }
         register_menu_group(
-            position=13,
+            position=22,
             config={'label': _('RADIUS'), 'items': items, 'icon': 'ow-radius'},
         )
 

@@ -3,6 +3,7 @@
   text-align: center;
   overflow-x: hidden;
 }
+
 .js-plotly-plot {
   display: inline-block;
 }

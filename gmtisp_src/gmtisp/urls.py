@@ -25,7 +25,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path
 from django.views.generic import TemplateView
 
-from openwisp_radius.urls import get_urls
+from appsinn.openwisp_radius.urls import get_urls
 
 from . import views
 
@@ -33,9 +33,9 @@ if os.environ.get('SAMPLE_APP', False):
     # If you are extending the API views or social views,
     # please import them, otherwise pass `None` in place
     # of these values
-    from openwisp_radius.api import views as api_views
-    from openwisp_radius.saml import views as saml_views
-    from openwisp_radius.social import views as social_views
+    from appsinn.openwisp_radius.api import views as api_views
+    from appsinn.openwisp_radius.saml import views as saml_views
+    from appsinn.openwisp_radius.social import views as social_views
 
     radius_urls = path(
         '', include((get_urls(api_views, social_views, saml_views), 'radius'))

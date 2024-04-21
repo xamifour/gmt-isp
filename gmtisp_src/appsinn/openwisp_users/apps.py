@@ -63,7 +63,7 @@ class OpenwispUsersConfig(AppConfig):
                 'icon': 'ow-org-user',
             }
         register_menu_group(
-            position=12,
+            position=21,
             config={
                 'label': _('Users & Organizations'),
                 'items': items,

@@ -23,67 +23,68 @@ from .views import CreatePaymentView, PaymentDetailView
 
 
 urlpatterns = [
-    path("pricing/", PricingView.as_view(), name="pricing"),
-    path("account/", CurrentPlanView.as_view(), name="current_plan"),
+    # ----------------------------------------------------------------- Plans
+    path('', PricingView.as_view(), name='pricing'),
+    path('account/', CurrentPlanView.as_view(), name='current_plan'),
     path(
-        "account/activation/",
+        'account/activation/',
         AccountActivationView.as_view(),
-        name="account_activation",
+        name='account_activation',
     ),
-    path("upgrade/", UpgradePlanView.as_view(), name="upgrade_plan"),
+    path('upgrade/', UpgradePlanView.as_view(), name='upgrade_plan'),
     path(
-        "order/extend/new/<int:pk>/",
+        'order/extend/new/<int:pk>/',
         CreateOrderView.as_view(),
-        name="create_order_plan",
+        name='create_order_plan',
     ),
     path(
-        "order/upgrade/new/<int:pk>/",
+        'order/upgrade/new/<int:pk>/',
         CreateOrderPlanChangeView.as_view(),
-        name="create_order_plan_change",
+        name='create_order_plan_change',
     ),
-    path("change/<int:pk>/", ChangePlanView.as_view(), name="change_plan"),
-    path("order/", OrderListView.as_view(), name="order_list"),
-    path("order/<int:pk>/", OrderView.as_view(), name="order"),
+    path('change/<int:pk>/', ChangePlanView.as_view(), name='change_plan'),
+    path('order/', OrderListView.as_view(), name='order_list'),
+    path('order/<int:pk>/', OrderView.as_view(), name='order'),
     path(
-        "order/<int:pk>/payment/success/",
-        OrderPaymentReturnView.as_view(status="success"),
-        name="order_payment_success",
+        'order/<int:pk>/payment/success/',
+        OrderPaymentReturnView.as_view(status='success'),
+        name='order_payment_success',
     ),
     path(
-        "order/<int:pk>/payment/failure/",
-        OrderPaymentReturnView.as_view(status="failure"),
-        name="order_payment_failure",
+        'order/<int:pk>/payment/failure/',
+        OrderPaymentReturnView.as_view(status='failure'),
+        name='order_payment_failure',
     ),
     # Redirect for backward compatibility:
-    path("billing/create/", RedirectToBilling.as_view(), name="billing_info_create"),
+    path('billing/create/', RedirectToBilling.as_view(), name='billing_info_create'),
     # Redirect for backward compatibility:
-    path("billing/update/", RedirectToBilling.as_view(), name="billing_info_update"),
-    path("billing/", BillingInfoCreateOrUpdateView.as_view(), name="billing_info"),
+    path('billing/update/', RedirectToBilling.as_view(), name='billing_info_update'),
+    path('billing/', BillingInfoCreateOrUpdateView.as_view(), name='billing_info'),
     path(
-        "billing/delete/", BillingInfoDeleteView.as_view(), name="billing_info_delete"
+        'billing/delete/', BillingInfoDeleteView.as_view(), name='billing_info_delete'
     ),
     path(
-        "invoice/<int:pk>/preview/html/",
+        'invoice/<int:pk>/preview/html/',
         InvoiceDetailView.as_view(),
-        name="invoice_preview_html",
+        name='invoice_preview_html',
     ),
 
     # ----------------------------------------------------------------- Plan payment
     path(
-        "payment_details/<int:payment_id>/",
+        'payment_details/<int:payment_id>/',
         PaymentDetailView.as_view(),
-        name="payment_details",
+        name='payment_details',
     ),
     path(
-        "create_payment/<str:payment_variant>/<int:order_id>/",
+        'create_payment/<str:payment_variant>/<int:order_id>/',
         CreatePaymentView.as_view(),
-        name="create_payment",
+        name='create_payment',
     ),
 ]
 
-if getattr(settings, "DEBUG", False) or getattr(settings, "ENABLE_FAKE_PAYMENTS", True):
+if getattr(settings, 'DEBUG', False) or getattr(settings, 'ENABLE_FAKE_PAYMENTS', True):
     urlpatterns += [
         path(
-            "fakepayments/<int:pk>/", FakePaymentsView.as_view(), name="fake_payments"
+            'fakepayments/<int:pk>/', FakePaymentsView.as_view(), name='fake_payments'
         ),
     ]

@@ -52,4 +52,5 @@ def get_os_details():
         'os_version': uname.version,
         'kernel_version': uname.release,
         'hardware_platform': uname.machine,
+        'node': uname.node,
     }

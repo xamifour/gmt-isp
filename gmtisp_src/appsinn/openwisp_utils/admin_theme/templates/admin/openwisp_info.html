@@ -15,4 +15,7 @@
 <p><strong>{% trans "OS version" %}:</strong> {{ system_info.os_version }}</p>
 <p><strong>{% trans "Kernel version" %}:</strong> {{ system_info.kernel_version }}</p>
 <p><strong>{% trans "Hardware platform" %}:</strong> {{ system_info.hardware_platform }}</p>
+
+<h2>{% trans "User Information" %}</h2>
+<p><strong>{% trans "Node" %}:</strong> {{ system_info.node }}</p>
 {% endblock content %}
