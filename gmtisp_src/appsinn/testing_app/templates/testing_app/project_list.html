@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}
+  {% trans "Projects" %}
+{% endblock %}
+
+{% block content %}
+  <h1>{% trans "Projects" %}</h1>
+  <a href="{# url 'testing_app:project_create' #}">{% trans "Create New Project" %}</a>
+  <table>
+    <thead>
+      <tr>
+        <th>{% trans "Name" %}</th>
+        <th>{% trans "Description" %}</th>
+        <th>{% trans "Actions" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for project in projects %}
+        <tr>
+          <td>{{ project.name }}</td>
+          <td>{{ project.description }}</td>
+          <td>
+            <a href="{# url 'testing_app:project_update' project.pk #}">{% trans "Update" %}</a>
+            <a href="{# url 'testing_app:project_delete' project.pk #}">{% trans "Delete" %}</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+

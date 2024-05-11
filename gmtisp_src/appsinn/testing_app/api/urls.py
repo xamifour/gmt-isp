@@ -1,11 +1,8 @@
-from django.urls import re_path
+from django.urls import path
 
-from . import views
+from .views import ShelfListAPIView, ShelfDetailAPIView
 
 urlpatterns = [
-    re_path(
-        r'^receive_project/(?P<pk>[^/\?]+)/$',
-        views.receive_project,
-        name='receive_project',
-    )
+    path('shelfs/', ShelfListAPIView.as_view(), name='shelf_list_api'),
+    path('shelf/<int:pk>/', ShelfDetailAPIView.as_view(), name='shelf_detail_api'),
 ]

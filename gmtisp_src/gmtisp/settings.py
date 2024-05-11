@@ -23,7 +23,9 @@ SECRET_KEY = env.str('SECRET_KEY', default='98Yt456^&%@!+)7748*&_?><HTE~lrl%606s
 ALLOWED_HOSTS = ['*']
 
 TESTING = sys.argv[1] == 'test'
+PARALLEL = '--parallel' in sys.argv
 SHELL = 'shell' in sys.argv or 'shell_plus' in sys.argv
+SAMPLE_APP = os.environ.get('SAMPLE_APP', False)
 
 OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 OPENWISP_RADIUS_COA_ENABLED = True
@@ -37,48 +39,51 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    'django.contrib.sites',
 
-    # ---------------------------------- openwisp admin theme
-    # must come before the django admin
-    # to override the admin login page
+    # openwisp admin theme
+    # must come before the django admin in order to override the admin login page
     'openwisp_utils.admin_theme',
     'openwisp_users.accounts',
 
     # all-auth
+    'django.contrib.sites',
     'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    # rest framework
-    'rest_framework',
-    'django_filters',
-    # registration
-    'rest_framework.authtoken',
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
-    # social login
-    'allauth.socialaccount.providers.facebook',
-    'allauth.socialaccount.providers.google',
+    'allauth.account',  
     
     # admin
     'admin_auto_filters',
     'django.contrib.admin',
 
-   # ---------------------------------- self
+    # rest framework
+    'rest_framework',
+    'django_filters',
+
+    # registration
+    'rest_framework.authtoken',
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+
+    # social login
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.facebook',
+    'allauth.socialaccount.providers.google',
+  
+   # ---------------------------------- openwisp
     'testing_app',    
     'openwisp_users',
     'openwisp_radius',
     'openwisp_utils',
+    'private_storage',
+    'drf_yasg',
 
     # plans
     # 'related_admin',
     'plans',
     'ordered_model',
     # 'bootstrap3',
+    'enduser',
     
     # other
-    'private_storage',
-    'drf_yasg',
     'django_extensions',
     # 'integrations',
     'djangosaml2',
@@ -111,6 +116,11 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'djangosaml2.middleware.SamlSessionMiddleware',
+    'openwisp_users.middleware.PasswordExpirationMiddleware',
+]
+
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'openwisp_users.password_validation.PasswordReuseValidator'}
 ]
 
 SESSION_COOKIE_SECURE = True
@@ -298,6 +308,7 @@ OPENWISP_RADIUS_PASSWORD_RESET_URLS = {
 
 if not TESTING:
     CELERY_BROKER_URL = os.getenv('REDIS_URL', f'redis://{redis_host}/1')
+    # CELERY_BROKER_URL = 'redis://localhost/6'
 else:
     OPENWISP_RADIUS_GROUPCHECK_ADMIN = True
     OPENWISP_RADIUS_GROUPREPLY_ADMIN = True
@@ -363,6 +374,29 @@ REST_AUTH = {
 
 ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = 'email_confirmation_success'
 ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = 'email_confirmation_success'
+
+if not PARALLEL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': 'redis://localhost/0',
+            'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'},
+        }
+    }
+# parallel testing with redis cache does not work
+# so we use the local memory cache in this case
+# we still keep redis for the standard non parallel tests
+# to avoid having bad surprises in production
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'openwisp-users',
+        }
+    }
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
 
 # OPENWISP_RADIUS_PASSWORD_RESET_URLS = {
 #     # use the uuid because the slug can change
@@ -470,6 +504,8 @@ REST_FRAMEWORK = {
         'testing_app.api.throttling.CustomScopedRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {'anon': '20/hour'},
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
 }
 
 CACHES = {

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}
+  {% trans "Shelfs" %}
+{% endblock %}
+
+
+{% block content %}
+  <h1>Shelf List</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for shelf in shelves %}
+        <tr>
+          <td>{{ shelf.id }}</td>
+          <td>{{ shelf.name }}</td>
+          <td>{{ shelf.created_at }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

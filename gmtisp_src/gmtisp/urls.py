@@ -48,13 +48,17 @@ else:
 
 
 urlpatterns = [
+    # openwisp-radius urls
     path('admin/', admin.site.urls),
     path('api/v1/', include('openwisp_utils.api.urls')),
     path('api/v1/', include('openwisp_users.api.urls')),
     path('accounts/', include('openwisp_users.accounts.urls')),
     radius_urls,
-    path('testapp/', include('testing_app.api.urls')),
+    # other urls
+    path('testapp/', include('testing_app.urls')),
+    path('testapp_api/', include('testing_app.api.urls')),
     path('plans/', include('plans.urls')),
+    path('endusers/', include('enduser.urls')),
     path(
         'captive-portal-mock/login/',
         views.captive_portal_login,

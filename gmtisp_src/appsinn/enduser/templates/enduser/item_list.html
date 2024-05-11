@@ -1,0 +1,38 @@
+<!-- v0/gmt_isp/gmtisp_src/appsinn/enduser/templates/enduser/item_list.html -->
+
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}
+  {% trans "Items" %}
+{% endblock %}
+
+{% block content %}
+  <h1>{% trans "Items" %}</h1>
+  <a href="{# url 'enduser:item_create' #}">{% trans "Create New item" %}</a>
+  <table>
+    <thead>
+      <tr>
+        <th>{% trans "ID" %}</th>
+        <th>{% trans "Name" %}</th>
+        <th>{% trans "Books Type" %}</th>
+        <th>{% trans "Action" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>{{ item.name }}</td>
+          <th>{{ item.books_type }}</th>
+          <td>
+            <a href="{# url 'enduser:item_detail' item.pk #}">{% trans "Details" %}</a>
+            <a href="{# url 'enduser:item_update' item.pk #}">{% trans "Update" %}</a>
+            <a href="{# url 'enduser:item_delete' item.pk #}">{% trans "Delete" %}</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+
