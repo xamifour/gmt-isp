@@ -158,41 +158,41 @@ TEMPLATES = [
     }
 ]
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-        'ATOMIC_REQUESTS': True,
-    }
-}
-
-# POSTGRES_ENGINE = env("POSTGRES_ENGINE") # database engine
-# POSTGRES_DB = env("POSTGRES_DB") # database name
-# POSTGRES_PASSWORD = env("POSTGRES_PASSWORD") # database user password
-# POSTGRES_USER = env("POSTGRES_USER") # database username
-# POSTGRES_HOST = env("POSTGRES_HOST") # database host
-# POSTGRES_PORT = env("POSTGRES_PORT") # database port
-
-# POSTGRES_READY = (
-#     POSTGRES_DB is not None
-#     and POSTGRES_PASSWORD is not None
-#     and POSTGRES_USER is not None
-#     and POSTGRES_HOST is not None
-#     and POSTGRES_PORT is not None
-# )
-
-# if POSTGRES_READY:
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': POSTGRES_ENGINE,
-#             'NAME': POSTGRES_DB,
-#             'USER': POSTGRES_USER,
-#             'PASSWORD': POSTGRES_PASSWORD,
-#             'HOST': POSTGRES_HOST,
-#             'PORT': POSTGRES_PORT,
-#             'ATOMIC_REQUESTS': True,
-#         }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#         'ATOMIC_REQUESTS': True,
 #     }
+# }
+
+POSTGRES_ENGINE = env("POSTGRES_ENGINE") # database engine
+POSTGRES_DB = env("POSTGRES_DB") # database name
+POSTGRES_PASSWORD = env("POSTGRES_PASSWORD") # database user password
+POSTGRES_USER = env("POSTGRES_USER") # database username
+POSTGRES_HOST = env("POSTGRES_HOST") # database host
+POSTGRES_PORT = env("POSTGRES_PORT") # database port
+
+POSTGRES_READY = (
+    POSTGRES_DB is not None
+    and POSTGRES_PASSWORD is not None
+    and POSTGRES_USER is not None
+    and POSTGRES_HOST is not None
+    and POSTGRES_PORT is not None
+)
+
+if POSTGRES_READY:
+    DATABASES = {
+        'default': {
+            'ENGINE': POSTGRES_ENGINE,
+            'NAME': POSTGRES_DB,
+            'USER': POSTGRES_USER,
+            'PASSWORD': POSTGRES_PASSWORD,
+            'HOST': POSTGRES_HOST,
+            'PORT': POSTGRES_PORT,
+            'ATOMIC_REQUESTS': True,
+        }
+    }
 
 LOGGING = {
     'version': 1,
