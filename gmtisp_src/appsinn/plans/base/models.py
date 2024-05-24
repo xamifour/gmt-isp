@@ -27,6 +27,8 @@ from ordered_model.models import OrderedModel
 from sequences import get_next_value
 from swapper import load_model
 
+from openwisp_users.mixins import OrgMixin
+
 from plans.contrib import get_user_language, send_template_email
 from plans.enumeration import Enumeration
 from plans.importer import import_name
@@ -58,7 +60,7 @@ class BaseMixin(models.Model):
         return load_model("plans", cls.__name__.replace("Abstract", ""))
 
 
-class AbstractPlan(BaseMixin, OrderedModel):
+class AbstractPlan(OrgMixin, BaseMixin, OrderedModel):
     """
     Single plan defined in the system. A plan can customized (referred to user) which means
     that only this user can purchase this plan and have it selected.
@@ -106,6 +108,33 @@ class AbstractPlan(BaseMixin, OrderedModel):
             "Optional link to page with more information (for clickable pricing table headers)"
         ),
     )
+    BANDWIDTH, DATA = 'Bandwidth', 'Data'
+    plan_class_choices = (
+        (BANDWIDTH, _('Bandwidth')),
+        (DATA, _('Data')),
+    )
+    plan_class = models.CharField(_("Plan Class"), max_length=16, default=DATA, choices=plan_class_choices) 
+    PREPAID, POSTPAID = 'Prepaid', 'Postpaid'
+    plan_type_choices = (
+        (PREPAID, _('Prepaid')),
+        (POSTPAID, _('Postpaid')),
+    )
+    plan_type = models.CharField(_("Plan Type"), max_length=16, default=PREPAID, choices=plan_type_choices)
+    plan_setup_cost = models.DecimalField(_('Plan Setup Cost'), max_digits=7, decimal_places=2, db_index=True,
+        blank=True,
+        null=True,
+        )
+    rating = models.FloatField(_('Rating'), blank=True, null=True, editable=False) 
+    radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        verbose_name=_('RADIUS group:'), related_name="plan_radius",
+        )
+    temp_radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        verbose_name=_('Temporary RADIUS group:'), related_name="plan_temp_radius",
+        )
 
     class Meta:
         abstract = True
@@ -148,34 +177,23 @@ class AbstractPlan(BaseMixin, OrderedModel):
     is_free.boolean = True
 
 
-class AbstractBillingInfo(BaseMixin, models.Model):
+class AbstractBillingInfo(OrgMixin, BaseMixin, models.Model):
     """
     Stores customer billing data needed to issue an invoice
     """
 
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE
-    )
-    tax_number = models.CharField(
-        _("VAT ID"), max_length=200, blank=True, db_index=True
-    )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE)
+    tax_number = models.CharField(_("VAT ID"), max_length=200, blank=True, db_index=True)
     name = models.CharField(_("name"), max_length=200, db_index=True)
     street = models.CharField(_("street"), max_length=200)
     zipcode = models.CharField(_("zip code"), max_length=200)
     city = models.CharField(_("city"), max_length=200)
     country = CountryField(_("country"))
-    shipping_name = models.CharField(
-        _("name (shipping)"), max_length=200, blank=True, help_text=_("optional")
-    )
-    shipping_street = models.CharField(
-        _("street (shipping)"), max_length=200, blank=True, help_text=_("optional")
-    )
-    shipping_zipcode = models.CharField(
-        _("zip code (shipping)"), max_length=200, blank=True, help_text=_("optional")
-    )
-    shipping_city = models.CharField(
-        _("city (shipping)"), max_length=200, blank=True, help_text=_("optional")
-    )
+    shipping_name = models.CharField(_("name (shipping)"), max_length=200, blank=True, help_text=_("optional"))
+    shipping_street = models.CharField(_("street (shipping)"), max_length=200, blank=True, help_text=_("optional"))
+    shipping_zipcode = models.CharField(_("zip code (shipping)"), max_length=200, blank=True, help_text=_("optional"))
+    shipping_city = models.CharField(_("city (shipping)"), max_length=200, blank=True, help_text=_("optional"))
+    shipping_country = CountryField(_("country (shipping)"), blank=True, help_text=_("optional"))
 
     class Meta:
         abstract = True
@@ -224,13 +242,9 @@ class AbstractUserPlan(BaseMixin, models.Model):
     Currently selected plan for user account.
     """
 
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE
-    )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE)
     plan = models.ForeignKey("Plan", verbose_name=_("plan"), on_delete=models.CASCADE)
-    expire = models.DateField(
-        _("expire"), default=None, blank=True, null=True, db_index=True
-    )
+    expire = models.DateField( _("expire"), default=None, blank=True, null=True, db_index=True)
     active = models.BooleanField(_("active"), default=True, db_index=True)
 
     class Meta:
@@ -492,62 +506,50 @@ class AbstractRecurringUserPlan(BaseMixin, models.Model):
     More about recurring payments in docs.
     """
 
-    user_plan = models.OneToOneField(
-        "UserPlan", on_delete=models.CASCADE, related_name="recurring"
-    )
+    user_plan = models.OneToOneField("UserPlan", on_delete=models.CASCADE, related_name="recurring")
     token = models.CharField(
-        _("recurring token"),
-        help_text=_(
-            "Token, that will be used for payment renewal. Depends on used payment provider"
-        ),
-        max_length=255,
-        default=None,
+        _("recurring token"), 
+        max_length=255, 
+        default=None, 
         null=True,
         blank=True,
-    )
-    payment_provider = models.CharField(
-        _("payment provider"),
-        help_text=_("Provider, that will be used for payment renewal"),
-        max_length=255,
-        default=None,
-        null=True,
+        help_text=_("Token, that will be used for payment renewal. Depends on used payment provider"), 
+        )
+    payment_provider = models.CharField(_(
+        "payment provider"), 
+        max_length=255, 
+        default=None, 
+        null=True, 
         blank=True,
-    )
+        help_text=_("Provider, that will be used for payment renewal"), 
+        )
     pricing = models.ForeignKey(
-        "Pricing",
-        help_text=_("Recurring pricing"),
-        default=None,
-        null=True,
-        blank=True,
+        "Pricing", 
+        default=None, 
+        null=True, blank=True, 
         on_delete=models.CASCADE,
-    )
-    amount = models.DecimalField(
-        _("amount"),
-        max_digits=7,
-        decimal_places=2,
-        db_index=True,
-        null=True,
-        blank=True,
-    )
+        help_text=_("Recurring pricing"), 
+        )
+    amount = models.DecimalField(_("amount"), max_digits=7, decimal_places=2, db_index=True, null=True, blank=True)
     tax = models.DecimalField(
-        _("tax"), max_digits=4, decimal_places=2, db_index=True, null=True, blank=True
-    )  # Tax=None is when tax is not applicable
+        _("tax"), 
+        max_digits=4, 
+        decimal_places=2, 
+        db_index=True, 
+        null=True, 
+        blank=True
+        )  # Tax=None is when tax is not applicable
     currency = models.CharField(_("currency"), max_length=3)
     has_automatic_renewal = models.BooleanField(
-        _("has automatic plan renewal"),
-        help_text=_(
-            "Automatic renewal is enabled for associated plan. "
-            "If False, the plan renewal can be still initiated by user.",
-        ),
+        _("has automatic plan renewal"), 
         default=False,
-    )
+        help_text=_("Automatic renewal is enabled for associated plan. If False, the plan renewal can be still initiated by user."), 
+        )
     token_verified = models.BooleanField(
-        _("token has been verified by payment"),
-        help_text=_(
-            "The recurring token has been verified by at least one payment to be working.",
-        ),
+        _("token has been verified by payment"), 
         default=False,
-    )
+        help_text=_("The recurring token has been verified by at least one payment to be working."), 
+        )
     card_expire_year = models.IntegerField(null=True, blank=True)
     card_expire_month = models.IntegerField(null=True, blank=True)
     card_masked_number = models.CharField(null=True, blank=True, max_length=255)

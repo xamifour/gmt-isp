@@ -17,69 +17,32 @@ from plans.views import (
     PricingView,
     RedirectToBilling,
     UpgradePlanView,
+    CreatePaymentView, 
+    PaymentDetailView,
 )
-
-from .views import CreatePaymentView, PaymentDetailView
 
 
 urlpatterns = [
-    # ----------------------------------------------------------------- Plans
-    path('', PricingView.as_view(), name='pricing'),
-    path('account/', CurrentPlanView.as_view(), name='current_plan'),
-    path(
-        'account/activation/',
-        AccountActivationView.as_view(),
-        name='account_activation',
-    ),
-    path('upgrade/', UpgradePlanView.as_view(), name='upgrade_plan'),
-    path(
-        'order/extend/new/<int:pk>/',
-        CreateOrderView.as_view(),
-        name='create_order_plan',
-    ),
-    path(
-        'order/upgrade/new/<int:pk>/',
-        CreateOrderPlanChangeView.as_view(),
-        name='create_order_plan_change',
-    ),
-    path('change/<int:pk>/', ChangePlanView.as_view(), name='change_plan'),
-    path('order/', OrderListView.as_view(), name='order_list'),
-    path('order/<int:pk>/', OrderView.as_view(), name='order'),
-    path(
-        'order/<int:pk>/payment/success/',
-        OrderPaymentReturnView.as_view(status='success'),
-        name='order_payment_success',
-    ),
-    path(
-        'order/<int:pk>/payment/failure/',
-        OrderPaymentReturnView.as_view(status='failure'),
-        name='order_payment_failure',
-    ),
-    # Redirect for backward compatibility:
-    path('billing/create/', RedirectToBilling.as_view(), name='billing_info_create'),
-    # Redirect for backward compatibility:
-    path('billing/update/', RedirectToBilling.as_view(), name='billing_info_update'),
-    path('billing/', BillingInfoCreateOrUpdateView.as_view(), name='billing_info'),
-    path(
-        'billing/delete/', BillingInfoDeleteView.as_view(), name='billing_info_delete'
-    ),
-    path(
-        'invoice/<int:pk>/preview/html/',
-        InvoiceDetailView.as_view(),
-        name='invoice_preview_html',
-    ),
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Plans
+    path('account~activation/', AccountActivationView.as_view(), name='account_activation'),
+    path('current~plan/', CurrentPlanView.as_view(), name='current_plan'),
+    path('upgrade~plan/', UpgradePlanView.as_view(), name='upgrade_plan'),
+    path('pricing/', PricingView.as_view(), name='pricing'),
+    path('change~plan/', ChangePlanView.as_view(), name='change_plan'),
+    path('create~order/', CreateOrderView.as_view(), name='create_order'),
+    path('create~order~plan~change/<int:pk>/', CreateOrderPlanChangeView.as_view(), name='create_order_plan_change'),
+    path('order/<int:pk>/', OrderView.as_view(), name='order_detail'),
+    path('orders/', OrderListView.as_view(), name='order_list'),
+    path('order~payment~return/<int:pk>/', OrderPaymentReturnView.as_view(), name='order_payment_return'),
+    path('billing~info/', BillingInfoCreateOrUpdateView.as_view(), name='billing_info'),
+    path('redirect~to~billing/', RedirectToBilling.as_view(), name='redirect_to_billing'),
+    path('billing~info~delete/', BillingInfoDeleteView.as_view(), name='billing_info_delete'),
+    path('invoice/<int:pk>/', InvoiceDetailView.as_view(), name='invoice_detail'),
+    path('fake~payments/', FakePaymentsView.as_view(), name='fake_payments'),
 
-    # ----------------------------------------------------------------- Plan payment
-    path(
-        'payment_details/<int:payment_id>/',
-        PaymentDetailView.as_view(),
-        name='payment_details',
-    ),
-    path(
-        'create_payment/<str:payment_variant>/<int:order_id>/',
-        CreatePaymentView.as_view(),
-        name='create_payment',
-    ),
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Plan payment
+    path('payment~details/<int:payment_id>/', PaymentDetailView.as_view(),name='payment_details'),
+    path('create~payment/<str:payment_variant>/<int:order_id>/', CreatePaymentView.as_view(), name='create_payment'),
 ]
 
 if getattr(settings, 'DEBUG', False) or getattr(settings, 'ENABLE_FAKE_PAYMENTS', True):
