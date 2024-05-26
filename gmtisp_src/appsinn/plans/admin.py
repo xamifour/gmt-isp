@@ -52,7 +52,7 @@ from .models import (
     Order,
     Invoice,
 )
-from .signals import account_automatic_renewal
+from plans.signals import account_automatic_renewal
 
 
 
@@ -83,7 +83,7 @@ class PlanPricingInline(admin.TabularInline):
 class BandwidthSettingsInline(admin.StackedInline):
     model = BandwidthSettings
     # exclude = ['name']
-    extra = 1
+    extra = 0
     max_num = 1
     min_num = 1
     can_delete = False
@@ -138,7 +138,7 @@ class PlanAdmin(OrderedModelAdmin):
     # list_filter = ("available", "visible")
     list_filter = (MultitenantOrgFilter,)
     list_display = [
-        # 'organization',
+        'organization',
         "name",
         "description",
         "customized",
