@@ -62,3 +62,19 @@ def print_color(string, color_name, end='\n'):
     }
     color = color_dict.get(color_name, '0')
     print(f'\033[{color}m{string}\033[0m', end=end)
+
+
+"""
+Helper function that determines the correct database alias for a given user.
+Can be used accross the whole project.
+"""
+
+def get_db_for_organization(organization):
+    if organization:
+        return f"{organization.slug}_db"
+    return 'default'
+
+def get_db_for_user(user):
+    if user.is_authenticated and hasattr(user, 'organization'):
+        return get_db_for_organization(user.organization)
+    return 'default'

@@ -55,18 +55,10 @@ class AbstractUser(BaseUser):
     url = models.URLField(_('URL'), blank=True)
     company = models.CharField(_('company'), max_length=30, blank=True)
     location = models.CharField(_('location'), max_length=256, blank=True)
-    phone_number = PhoneNumberField(
-        _('phone number'), unique=True, blank=True, null=True
-    )
+    phone_number = PhoneNumberField(_('phone number'), unique=True, blank=True, null=True)
     birth_date = models.DateField(_('birth date'), blank=True, null=True)
-    notes = models.TextField(
-        _('notes'), help_text=_('notes for internal usage'), blank=True
-    )
-    language = models.CharField(
-        max_length=8,
-        choices=settings.LANGUAGES,
-        default=settings.LANGUAGE_CODE,
-    )
+    notes = models.TextField(_('notes'), help_text=_('notes for internal usage'), blank=True)
+    language = models.CharField(max_length=8, choices=settings.LANGUAGES, default=settings.LANGUAGE_CODE,)
     password_updated = models.DateField(_('password updated'), blank=True, null=True)
 
     objects = UserManager()
