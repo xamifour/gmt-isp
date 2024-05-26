@@ -77,7 +77,7 @@ INSTALLED_APPS = [
     'drf_yasg',
 
     # plans
-    # 'related_admin',
+    'related_admin',
     'plans',
     'ordered_model',
     # 'bootstrap3',
@@ -343,7 +343,10 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 SENDSMS_BACKEND = 'sendsms.backends.console.SmsBackend'
-OPENWISP_RADIUS_EXTRA_NAS_TYPES = (('cisco', 'Cisco Router'),('mikrotik', 'Mikrotik'),)
+OPENWISP_RADIUS_EXTRA_NAS_TYPES = (
+    ('cisco', 'Cisco Router'),
+    ('mikrotik', 'Mikrotik'),
+    )
 
 REST_AUTH = {
     'SESSION_LOGIN': False,
@@ -528,20 +531,18 @@ PLANS_TAX_COUNTRY = 'PL'
 PLANS_DEFAULT_COUNTRY = 'CZ'
 PLANS_GET_COUNTRY_FROM_IP = True
 
-PLANS_VALIDATORS = {
-    'MAX_FOO_COUNT': 'example.foo.validators.max_foos_validator',
-}
+PLANS_VALIDATORS = {'MAX_FOO_COUNT': 'example.foo.validators.max_foos_validator',}
 
 # PLANS_INVOICE_COUNTER_RESET = Invoice.NUMBERING.MONTHLY
 # PLANS_INVOICE_NUMBER_FORMAT = {{ invoice.issued|date:'d/m/Y' }}
 # PLANS_INVOICE_NUMBER_FORMAT = '{{ invoice.number }}/{{ invoice.issued|date='m/FV/Y' }}'
-# from urllib.parse import urljoin
-# PLANS_INVOICE_LOGO_URL = urljoin(STATIC_URL, 'my_logo.png')
-# PLANS_INVOICE_TEMPLATE = 'plans/invoices/PL_EN.html'
-# PLANS_ORDER_EXPIRATION = 14
-# PLANS_EXPIRATION_REMIND = [1, 3 , 7] # User will receive notification before 7 , 3 and 1 day to account expire.
-# PLANS_DEFAULT_GRACE_PERIOD = 30 # New account default plan expiration period counted in days.
-# SEND_PLANS_EMAILS = True
+from urllib.parse import urljoin
+PLANS_INVOICE_LOGO_URL = urljoin(STATIC_URL, 'my_logo.png')
+PLANS_INVOICE_TEMPLATE = 'plans/invoices/PL_EN.html'
+PLANS_ORDER_EXPIRATION = 14
+PLANS_EXPIRATION_REMIND = [1, 3 , 7] # User will receive notification before 7 , 3 and 1 day to account expire.
+PLANS_DEFAULT_GRACE_PERIOD = 30 # New account default plan expiration period counted in days.
+SEND_PLANS_EMAILS = True
 
 
 

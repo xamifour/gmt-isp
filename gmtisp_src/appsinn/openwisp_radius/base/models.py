@@ -287,9 +287,7 @@ class AbstractRadiusCheck(
         max_length=64,
     )
     # the foreign key is not part of the standard freeradius schema
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)
 
     class Meta:
         db_table = 'radcheck'
@@ -319,9 +317,7 @@ class AbstractRadiusReply(
     )
     attribute = models.CharField(verbose_name=_('attribute'), max_length=64)
     # the foreign key is not part of the standard freeradius schema
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)
 
     class Meta:
         db_table = 'radreply'
@@ -698,12 +694,8 @@ class AbstractRadiusUserGroup(
     # the foreign keys are not part of the standard freeradius schema,
     # these are added here to facilitate the synchronization of the
     # records which are related in different tables
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True
-    )
-    group = models.ForeignKey(
-        'RadiusGroup', on_delete=models.CASCADE, blank=True, null=True
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)
+    group = models.ForeignKey( 'RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)
 
     class Meta:
         db_table = 'radusergroup'
@@ -737,9 +729,7 @@ class AbstractRadiusGroupCheck(
     )
     value = models.CharField(verbose_name=_('value'), max_length=253)
     # the foreign key is not part of the standard freeradius schema
-    group = models.ForeignKey(
-        'RadiusGroup', on_delete=models.CASCADE, blank=True, null=True
-    )
+    group = models.ForeignKey('RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)
 
     class Meta:
         db_table = 'radgroupcheck'
@@ -769,9 +759,7 @@ class AbstractRadiusGroupReply(
     )
     value = models.CharField(verbose_name=_('value'), max_length=253)
     # the foreign key is not part of the standard freeradius schema
-    group = models.ForeignKey(
-        'RadiusGroup', on_delete=models.CASCADE, blank=True, null=True
-    )
+    group = models.ForeignKey('RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)
 
     class Meta:
         db_table = 'radgroupreply'

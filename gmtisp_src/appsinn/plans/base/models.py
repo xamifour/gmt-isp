@@ -47,9 +47,7 @@ accounts_logger = logging.getLogger("accounts")
 
 
 class BaseMixin(models.Model):
-    created = models.DateTimeField(
-        _("created"), db_index=True, auto_now_add=True, null=True
-    )
+    created = models.DateTimeField(_("created"), db_index=True, auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
@@ -72,6 +70,7 @@ class AbstractPlan(OrgMixin, BaseMixin, OrderedModel):
     available, he will be forced then to change plan next time he extends an account.
     """
 
+    # organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='org_plans')
     name = models.CharField(_("name"), max_length=100)
     description = models.TextField(_("description"), blank=True)
     default = models.BooleanField(
@@ -500,7 +499,7 @@ class AbstractUserPlan(BaseMixin, models.Model):
         return AbstractPlan.get_concrete_model().get_current_plan(self.user)
 
 
-class AbstractRecurringUserPlan(BaseMixin, models.Model):
+class AbstractRecurringUserPlan(OrgMixin, BaseMixin, models.Model):
     """
     OneToOne model associated with UserPlan that stores information about the plan recurrence.
     More about recurring payments in docs.
@@ -543,7 +542,8 @@ class AbstractRecurringUserPlan(BaseMixin, models.Model):
     has_automatic_renewal = models.BooleanField(
         _("has automatic plan renewal"), 
         default=False,
-        help_text=_("Automatic renewal is enabled for associated plan. If False, the plan renewal can be still initiated by user."), 
+        help_text=_(
+            "Automatic renewal is enabled for associated plan. If False, the plan renewal can be still initiated by user."), 
         )
     token_verified = models.BooleanField(
         _("token has been verified by payment"), 
@@ -597,15 +597,13 @@ class AbstractRecurringUserPlan(BaseMixin, models.Model):
         self.card_masked_number = None
 
 
-class AbstractPricing(BaseMixin, models.Model):
+class AbstractPricing(OrgMixin, BaseMixin, models.Model):
     """
     Type of plan period that could be purchased (e.g. 10 days, month, year, etc)
     """
 
     name = models.CharField(_("name"), max_length=100)
-    period = models.PositiveIntegerField(
-        _("period"), default=30, null=True, blank=True, db_index=True
-    )
+    period = models.PositiveIntegerField(_("period"), default=30, null=True, blank=True, db_index=True)
     url = models.URLField(
         max_length=200,
         blank=True,
@@ -624,14 +622,12 @@ class AbstractPricing(BaseMixin, models.Model):
         return "%s (%d " % (self.name, self.period) + "%s)" % _("days")
 
 
-class AbstractQuota(BaseMixin, OrderedModel):
+class AbstractQuota(OrgMixin, BaseMixin, OrderedModel):
     """
     Single countable or boolean property of system (limitation).
     """
 
-    codename = models.CharField(
-        _("codename"), max_length=50, unique=True, db_index=True
-    )
+    codename = models.CharField(_("codename"), max_length=50, unique=True, db_index=True)
     name = models.CharField(_("name"), max_length=100)
     unit = models.CharField(_("unit"), max_length=100, blank=True)
     description = models.TextField(_("description"), blank=True)
@@ -734,16 +730,9 @@ class AbstractOrder(BaseMixin, models.Model):
         ]
     )
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE)
     flat_name = models.CharField(max_length=200, blank=True, null=True)
-    plan = models.ForeignKey(
-        "Plan",
-        verbose_name=_("plan"),
-        related_name="plan_order",
-        on_delete=models.CASCADE,
-    )
+    plan = models.ForeignKey("Plan", on_delete=models.CASCADE, verbose_name=_("plan"), related_name="plan_order")
     pricing = models.ForeignKey(
         "Pricing",
         blank=True,
@@ -751,9 +740,7 @@ class AbstractOrder(BaseMixin, models.Model):
         verbose_name=_("pricing"),
         on_delete=models.CASCADE,
     )  # if pricing is None the order is upgrade plan, not buy new pricing
-    completed = models.DateTimeField(
-        _("completed"), null=True, blank=True, db_index=True
-    )
+    completed = models.DateTimeField( _("completed"), null=True, blank=True, db_index=True)
     plan_extended_from = models.DateField(
         _("plan extended from"),
         help_text=_("The plan was extended from this date"),
@@ -766,9 +753,7 @@ class AbstractOrder(BaseMixin, models.Model):
         null=True,
         blank=True,
     )
-    amount = models.DecimalField(
-        _("amount"), max_digits=7, decimal_places=2, db_index=True
-    )
+    amount = models.DecimalField(_("amount"), max_digits=7, decimal_places=2, db_index=True)
     tax = models.DecimalField(
         _("tax"), max_digits=4, decimal_places=2, db_index=True, null=True, blank=True
     )  # Tax=None is when tax is not applicable
@@ -949,7 +934,7 @@ def get_initial_number(older_invoices):
     )
 
 
-class AbstractInvoice(BaseMixin, models.Model):
+class AbstractInvoice(OrgMixin, BaseMixin, models.Model):
     """
     Single invoice document.
     """
@@ -974,17 +959,11 @@ class AbstractInvoice(BaseMixin, models.Model):
         MONTHLY = 2
         ANNUALLY = 3
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE
-    )
-    order = models.ForeignKey(
-        "Order", verbose_name=_("order"), on_delete=models.CASCADE
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name=_("user"), on_delete=models.CASCADE)
+    order = models.ForeignKey("Order", verbose_name=_("order"), on_delete=models.CASCADE)
     number = models.IntegerField(db_index=True)
     full_number = models.CharField(max_length=200)
-    type = models.IntegerField(
-        choices=INVOICE_TYPES, default=INVOICE_TYPES.INVOICE, db_index=True
-    )
+    type = models.IntegerField(choices=INVOICE_TYPES, default=INVOICE_TYPES.INVOICE, db_index=True)
     issued = models.DateField(db_index=True)
     issued_duplicate = models.DateField(db_index=True, null=True, blank=True)
     selling_date = models.DateField(db_index=True, null=True, blank=True)
@@ -1001,24 +980,14 @@ class AbstractInvoice(BaseMixin, models.Model):
     currency = models.CharField(max_length=3, default="EUR")
     item_description = models.CharField(max_length=200)
     buyer_name = models.CharField(max_length=200, verbose_name=_("Name"), blank=True)
-    buyer_street = models.CharField(
-        max_length=200, verbose_name=_("Street"), blank=True
-    )
-    buyer_zipcode = models.CharField(
-        max_length=200, verbose_name=_("Zip code"), blank=True
-    )
+    buyer_street = models.CharField(max_length=200, verbose_name=_("Street"), blank=True)
+    buyer_zipcode = models.CharField(max_length=200, verbose_name=_("Zip code"), blank=True)
     buyer_city = models.CharField(max_length=200, verbose_name=_("City"), blank=True)
     buyer_country = CountryField(verbose_name=_("Country"), default="PL", blank=True)
-    buyer_tax_number = models.CharField(
-        max_length=200, blank=True, verbose_name=_("TAX/VAT number")
-    )
+    buyer_tax_number = models.CharField(max_length=200, blank=True, verbose_name=_("TAX/VAT number"))
     shipping_name = models.CharField(max_length=200, verbose_name=_("Name"), blank=True)
-    shipping_street = models.CharField(
-        max_length=200, verbose_name=_("Street"), blank=True
-    )
-    shipping_zipcode = models.CharField(
-        max_length=200, verbose_name=_("Zip code"), blank=True
-    )
+    shipping_street = models.CharField(max_length=200, verbose_name=_("Street"), blank=True)
+    shipping_zipcode = models.CharField(max_length=200, verbose_name=_("Zip code"), blank=True)
     shipping_city = models.CharField(max_length=200, verbose_name=_("City"), blank=True)
     shipping_country = CountryField(verbose_name=_("Country"), default="PL", blank=True)
     require_shipment = models.BooleanField(default=False, db_index=True)
@@ -1027,9 +996,7 @@ class AbstractInvoice(BaseMixin, models.Model):
     issuer_zipcode = models.CharField(max_length=200, verbose_name=_("Zip code"))
     issuer_city = models.CharField(max_length=200, verbose_name=_("City"))
     issuer_country = CountryField(verbose_name=_("Country"), default="PL")
-    issuer_tax_number = models.CharField(
-        max_length=200, blank=True, verbose_name=_("TAX/VAT number")
-    )
+    issuer_tax_number = models.CharField(max_length=200, blank=True, verbose_name=_("TAX/VAT number"))
 
     class Meta:
         abstract = True

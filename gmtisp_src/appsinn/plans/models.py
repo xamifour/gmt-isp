@@ -12,6 +12,8 @@ from django.urls import reverse
 
 from swapper import swappable_setting
 
+from openwisp_users.mixins import OrgMixin
+
 from plans.base.models import (
     AbstractBillingInfo,
     AbstractInvoice,
@@ -147,7 +149,7 @@ class BandwidthSettings(models.Model):
 
 
 # ----------------------------------------------------------- Plan payment
-class Payment(BasePayment):
+class Payment(OrgMixin, BasePayment):
     order: Order = models.ForeignKey(
         settings.PLANS_ORDER_MODEL,
         on_delete=models.SET_NULL,

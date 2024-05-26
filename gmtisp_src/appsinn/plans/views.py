@@ -27,25 +27,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.template.response import TemplateResponse
 
 from next_url_mixin.mixin import NextUrlMixin
-
 from payments import RedirectNeeded, get_payment_model
-
-# from plans.base.models import (
-#     AbstractBillingInfo,
-#     AbstractInvoice,
-#     AbstractOrder,
-#     AbstractPlan,
-#     AbstractPlanPricing,
-#     AbstractQuota,
-#     AbstractUserPlan,
-# )
-# UserPlan = AbstractUserPlan.get_concrete_model()
-# PlanPricing = AbstractPlanPricing.get_concrete_model()
-# Plan = AbstractPlan.get_concrete_model()
-# Order = AbstractOrder.get_concrete_model()
-# BillingInfo = AbstractBillingInfo.get_concrete_model()
-# Quota = AbstractQuota.get_concrete_model()
-# Invoice = AbstractInvoice.get_concrete_model()
+from openwisp_utils.mixins import OrganizationDbMixin
 
 from plans.forms import BillingInfoForm, CreateOrderForm, FakePaymentsForm
 from plans.importer import import_name
@@ -54,7 +37,7 @@ from plans.signals import order_started
 from plans.utils import get_currency
 from plans.validators import plan_validation
 
-from .models import (
+from plans.models import (
     UserPlan,
     PlanPricing,
     Plan,
@@ -63,9 +46,16 @@ from .models import (
     Quota,
     Invoice,
 )
+UserPlan = UserPlan.get_concrete_model()
+PlanPricing = PlanPricing.get_concrete_model()
+Plan = Plan.get_concrete_model()
+Order = Order.get_concrete_model()
+BillingInfo = BillingInfo.get_concrete_model()
+Quota = Quota.get_concrete_model()
+Invoice = Invoice.get_concrete_model()
 
 
-class AccountActivationView(LoginRequired, TemplateView):
+class AccountActivationView(LoginRequiredMixin, OrganizationDbMixin, TemplateView):
     template_name = "plans/account_activation.html"
 
     def get_context_data(self, **kwargs):
@@ -75,7 +65,7 @@ class AccountActivationView(LoginRequired, TemplateView):
         ):
             raise Http404()
 
-        context = super(AccountActivationView, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
         errors = self.request.user.userplan.clean_activation()
 
         if errors["required_to_activate"]:
@@ -92,39 +82,18 @@ class AccountActivationView(LoginRequired, TemplateView):
         return context
 
 
-class PlanTableMixin(object):
+class PlanTableMixin:
     def get_plan_table(self, plan_list):
-        """
-        This method return a list in following order:
-        [
-            ( Quota1, [ Plan1Quota1, Plan2Quota1, ... , PlanNQuota1] ),
-            ( Quota2, [ Plan1Quota2, Plan2Quota2, ... , PlanNQuota2] ),
-            ...
-            ( QuotaM, [ Plan1QuotaM, Plan2QuotaM, ... , PlanNQuotaM] ),
-        ]
-
-        This can be very easily printed as an HTML table element with quotas by row.
-
-        Quotas are calculated based on ``plan_list``. These are all available quotas that are
-        used by given plans. If any ``Plan`` does not have any of ``PlanQuota`` then value ``None``
-        will be propagated to the data structure.
-
-        """
-
-        # Retrieve all quotas that are used by any ``Plan`` in ``plan_list``
         quota_list = (
             Quota.objects.all().filter(planquota__plan__in=plan_list).distinct()
         )
 
-        # Create random access dict that for every ``Plan`` map ``Quota`` -> ``PlanQuota``
         plan_quotas_dic = {}
         for plan in plan_list:
             plan_quotas_dic[plan] = {}
             for plan_quota in plan.planquota_set.all():
                 plan_quotas_dic[plan][plan_quota.quota] = plan_quota
 
-        # Generate data structure described in method docstring, propagate ``None`` whenever
-        # ``PlanQuota`` is not available for given ``Plan`` and ``Quota``
         return map(
             lambda quota: (
                 quota,
@@ -134,14 +103,13 @@ class PlanTableMixin(object):
         )
 
 
-class PlanTableViewBase(PlanTableMixin, ListView):
+class PlanTableViewBase(PlanTableMixin, OrganizationDbMixin, ListView):
     model = Plan
     context_object_name = "plan_list"
 
     def get_queryset(self):
         queryset = (
-            super(PlanTableViewBase, self)
-            .get_queryset()
+            super().get_queryset()
             .prefetch_related("planpricing_set__pricing", "planquota_set__quota")
         )
         if self.request.user.is_authenticated:
@@ -156,7 +124,7 @@ class PlanTableViewBase(PlanTableMixin, ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
-        context = super(PlanTableViewBase, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
 
         if self.request.user.is_authenticated:
             try:
@@ -181,7 +149,7 @@ class PlanTableViewBase(PlanTableMixin, ListView):
         return context
 
 
-class CurrentPlanView(LoginRequired, PlanTableViewBase):
+class CurrentPlanView(LoginRequiredMixin, PlanTableViewBase):
     template_name = "plans/current.html"
 
     def get_queryset(self):
@@ -190,7 +158,7 @@ class CurrentPlanView(LoginRequired, PlanTableViewBase):
         )
 
 
-class UpgradePlanView(LoginRequired, PlanTableViewBase):
+class UpgradePlanView(LoginRequiredMixin, PlanTableViewBase):
     template_name = "plans/upgrade.html"
 
 
@@ -198,18 +166,7 @@ class PricingView(PlanTableViewBase):
     template_name = "plans/pricing.html"
 
 
-class ChangePlanView(LoginRequired, View):
-    """
-    A view for instant changing user plan when it does not require additional payment.
-    Plan can be changed without payment when:
-    * user can enable this plan (it is available & visible and if it is customized it is for him,
-    * plan is different from the current one that user have,
-    * within current change plan policy this does not require any additional payment (None)
-
-    It always redirects to ``upgrade_plan`` url as this is a potential only one place from
-    where change plan could be invoked.
-    """
-
+class ChangePlanView(LoginRequiredMixin, OrganizationDbMixin, View):
     def get(self, request, *args, **kwargs):
         return HttpResponseRedirect(reverse("upgrade_plan"))
 
@@ -240,14 +197,11 @@ class ChangePlanView(LoginRequired, View):
         return HttpResponseRedirect(reverse("upgrade_plan"))
 
 
-class CreateOrderView(LoginRequired, CreateView):
+class CreateOrderView(LoginRequiredMixin, OrganizationDbMixin, CreateView):
     template_name = "plans/create_order.html"
     form_class = CreateOrderForm
 
     def recalculate(self, amount, billing_info):
-        """
-        Calculates and return pre-filled Order
-        """
         order = Order(pk=-1)
         order.recalculate(amount, billing_info, self.request)
         return order
@@ -273,9 +227,6 @@ class CreateOrderView(LoginRequired, CreateView):
             )
 
     def get_all_context(self):
-        """
-        Retrieves Plan and Pricing for current order creation
-        """
         self.plan_pricing = get_object_or_404(
             PlanPricing.objects.all().select_related("plan", "pricing"),
             Q(pk=self.kwargs["pk"])
@@ -285,9 +236,6 @@ class CreateOrderView(LoginRequired, CreateView):
             ),
         )
 
-        # User is not allowed to create new order for Plan when he has different Plan
-        # unless it's a free plan. Otherwise, the should use Plan Change View for this
-        # kind of action
         if (
             not self.request.user.userplan.is_expired()
             and not self.request.user.userplan.plan.is_free()
@@ -308,7 +256,7 @@ class CreateOrderView(LoginRequired, CreateView):
         return self.plan_pricing.price
 
     def get_context_data(self, **kwargs):
-        context = super(CreateOrderView, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
         self.get_all_context()
         context["billing_info"] = self.get_billing_info()
 
@@ -339,7 +287,7 @@ class CreateOrderView(LoginRequired, CreateView):
         self.object.currency = order.currency
         self.object.save()
         order_started.send(sender=self.object)
-        return super(ModelFormMixin, self).form_valid(form)
+        return super().form_valid(form)
 
 
 class CreateOrderPlanChangeView(CreateOrderView):
@@ -370,7 +318,6 @@ class CreateOrderPlanChangeView(CreateOrderView):
         if userplan.expire is not None:
             period = self.request.user.userplan.days_left()
         else:
-            # Use the default period of the new plan
             period = 30
 
         return policy.get_change_price(
@@ -397,27 +344,23 @@ class CreateOrderPlanChangeView(CreateOrderView):
         return context
 
 
-class OrderView(LoginRequired, DetailView):
+class OrderView(LoginRequiredMixin, OrganizationDbMixin, DetailView):
     model = Order
 
     def get_queryset(self):
         return (
-            super(OrderView, self)
-            .get_queryset()
+            super().get_queryset()
             .filter(user=self.request.user)
-            .select_related(
-                "plan",
-                "pricing",
-            )
+            .select_related("plan", "pricing")
         )
 
 
-class OrderListView(LoginRequired, ListView):
+class OrderListView(LoginRequiredMixin, OrganizationDbMixin, ListView):
     model = Order
     paginate_by = 10
 
     def get_context_data(self, **kwargs):
-        context = super(OrderListView, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
         self.CURRENCY = getattr(settings, "PLANS_CURRENCY", None)
         if len(self.CURRENCY) != 3:
             raise ImproperlyConfigured(
@@ -428,22 +371,13 @@ class OrderListView(LoginRequired, ListView):
 
     def get_queryset(self):
         return (
-            super(OrderListView, self)
-            .get_queryset()
+            super().get_queryset()
             .filter(user=self.request.user)
-            .select_related(
-                "plan",
-                "pricing",
-            )
+            .select_related("plan", "pricing")
         )
 
 
-class OrderPaymentReturnView(LoginRequired, DetailView):
-    """
-    This view is a fallback from any payments processor. It allows just to set additional message
-    context and redirect to Order view itself.
-    """
-
+class OrderPaymentReturnView(LoginRequiredMixin, OrganizationDbMixin, DetailView):
     model = Order
     status = None
 
@@ -467,15 +401,14 @@ class OrderPaymentReturnView(LoginRequired, DetailView):
 
     def get_queryset(self):
         return (
-            super(OrderPaymentReturnView, self)
-            .get_queryset()
+            super().get_queryset()
             .filter(user=self.request.user)
         )
 
 
 class SuccessUrlMixin:
     def get_success_url(self):
-        messages.success(self.request, _("Billing info has been updated successfuly."))
+        messages.success(self.request, _("Billing info has been updated successfully."))
         return reverse("billing_info")
 
 
@@ -492,7 +425,7 @@ class CreateOrUpdateView(
 
 
 class BillingInfoCreateOrUpdateView(
-    NextUrlMixin, SuccessUrlMixin, LoginRequired, CreateOrUpdateView
+    NextUrlMixin, SuccessUrlMixin, LoginRequiredMixin, OrganizationDbMixin, CreateOrUpdateView
 ):
     form_class = BillingInfoForm
     template_name = "plans/billing_info_create_or_update.html"
@@ -526,11 +459,7 @@ class RedirectToBilling(RedirectView):
         return super().get_redirect_url(*args, **kwargs)
 
 
-class BillingInfoDeleteView(LoginRequired, DeleteView):
-    """
-    Deletes billing data for user
-    """
-
+class BillingInfoDeleteView(LoginRequiredMixin, OrganizationDbMixin, DeleteView):
     template_name = "plans/billing_info_delete.html"
 
     def get_object(self):
@@ -544,31 +473,30 @@ class BillingInfoDeleteView(LoginRequired, DeleteView):
         return reverse("billing_info")
 
 
-class InvoiceDetailView(LoginRequired, DetailView):
+class InvoiceDetailView(LoginRequiredMixin, OrganizationDbMixin, DetailView):
     model = Invoice
 
     def get_template_names(self):
         return getattr(settings, "PLANS_INVOICE_TEMPLATE", "plans/invoices/PL_EN.html")
 
     def get_context_data(self, **kwargs):
-        context = super(InvoiceDetailView, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
         context["logo_url"] = getattr(settings, "PLANS_INVOICE_LOGO_URL", None)
         context["auto_print"] = True
         return context
 
     def get_queryset(self):
         if self.request.user.is_superuser:
-            return super(InvoiceDetailView, self).get_queryset().select_related("order")
+            return super().get_queryset().select_related("order")
         else:
             return (
-                super(InvoiceDetailView, self)
-                .get_queryset()
+                super().get_queryset()
                 .filter(user=self.request.user)
                 .select_related("order")
             )
 
 
-class FakePaymentsView(LoginRequired, SingleObjectMixin, FormView):
+class FakePaymentsView(LoginRequiredMixin, OrganizationDbMixin, SingleObjectMixin, FormView):
     form_class = FakePaymentsForm
     model = Order
     template_name = "plans/fake_payments.html"
@@ -578,14 +506,14 @@ class FakePaymentsView(LoginRequired, SingleObjectMixin, FormView):
 
     def get_queryset(self):
         return (
-            super(FakePaymentsView, self).get_queryset().filter(user=self.request.user)
+            super().get_queryset().filter(user=self.request.user)
         )
 
     def dispatch(self, *args, **kwargs):
         if not getattr(settings, "DEBUG", False):
             return HttpResponseForbidden("This view is accessible only in debug mode.")
         self.object = self.get_object()
-        return super(FakePaymentsView, self).dispatch(*args, **kwargs)
+        return super().dispatch(*args, **kwargs)
 
     def form_valid(self, form):
         if int(form["status"].value()) == Order.STATUS.COMPLETED:
@@ -601,10 +529,7 @@ class FakePaymentsView(LoginRequired, SingleObjectMixin, FormView):
             )
 
 
-
-# ---------------------------------------------------------- Plan payment
-
-class PaymentDetailView(LoginRequiredMixin, View):
+class PaymentDetailView(LoginRequiredMixin, OrganizationDbMixin, View):
     login_url = reverse_lazy("auth_login")
     template_name = "plans_payments/payment.html"
 
@@ -647,17 +572,15 @@ def create_payment_object(
         billing_last_name=order.user.last_name,
         billing_email=order.user.email or "",
         billing_address_1=order.user.billinginfo.street,
-        # billing_address_2=order.user.billinginfo.zipcode,
         billing_city=order.user.billinginfo.city,
         billing_postcode=order.user.billinginfo.zipcode,
         billing_country_code=order.user.billinginfo.country,
-        # billing_country_area=order.user.billinginfo.zipcode,
         customer_ip_address=get_client_ip(request) if request else "127.0.0.1",
         autorenewed_payment=autorenewed_payment,
     )
 
 
-class CreatePaymentView(LoginRequiredMixin, View):
+class CreatePaymentView(LoginRequiredMixin, OrganizationDbMixin, View):
     login_url = reverse_lazy("auth_login")
 
     def get(self, request, *args, order_id=None, payment_variant=None):

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
 from openwisp_radius.models import RadiusGroup
-from appsinn.plans.models.plans import * 
+from plans import * 
 
 User = get_user_model()
 
