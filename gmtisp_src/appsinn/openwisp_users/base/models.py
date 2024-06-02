@@ -57,10 +57,17 @@ class AbstractUser(BaseUser):
     location = models.CharField(_('location'), max_length=256, blank=True)
     phone_number = PhoneNumberField(_('phone number'), unique=True, blank=True, null=True)
     birth_date = models.DateField(_('birth date'), blank=True, null=True)
-    notes = models.TextField(_('notes'), help_text=_('notes for internal usage'), blank=True)
+    notes = models.TextField(_('notes'), help_text=_('Notes for internal usage'), blank=True)
     language = models.CharField(max_length=8, choices=settings.LANGUAGES, default=settings.LANGUAGE_CODE,)
     password_updated = models.DateField(_('password updated'), blank=True, null=True)
-
+    notes_for_user = models.CharField(
+        _('Your notes'), 
+         max_length=500,
+         blank=True, 
+         null=True,
+         help_text=_('Notes for your usage'), 
+         )
+    
     objects = UserManager()
 
     class Meta(BaseUser.Meta):

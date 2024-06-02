@@ -473,7 +473,7 @@ class OrganizationUserFilter(MultitenantOrgFilter):
 
 
 base_fields = list(UserAdmin.fieldsets[1][1]['fields'])
-additional_fields = ['bio', 'url', 'company', 'location', 'phone_number', 'birth_date']
+additional_fields = ['bio', 'url', 'company', 'location', 'phone_number', 'birth_date', 'notes_for_user']
 UserAdmin.fieldsets[1][1]['fields'] = base_fields + additional_fields
 UserAdmin.fieldsets.insert(3, ('Internal', {'fields': ('notes',)}))
 primary_fields = list(UserAdmin.fieldsets[0][1]['fields'])

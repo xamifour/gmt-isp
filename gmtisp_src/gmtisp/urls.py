@@ -54,11 +54,6 @@ urlpatterns = [
     path('api/v1/', include('openwisp_users.api.urls')),
     path('accounts/', include('openwisp_users.accounts.urls')),
     radius_urls,
-    # other urls
-    path('testapp/', include('testing_app.urls')),
-    path('testapp_api/', include('testing_app.api.urls')),
-    path('plans/', include('plans.urls')),
-    path('endusers/', include('enduser.urls')),
     path(
         'captive-portal-mock/login/',
         views.captive_portal_login,
@@ -74,6 +69,15 @@ urlpatterns = [
         TemplateView.as_view(template_name='openwisp_utils/menu_test.html'),
         name='menu-test-view',
     ),
+    # other urls
+    path('testapp/', include('testing_app.urls')),
+    path('testapp_api/', include('testing_app.api.urls')),
+    path('billing/', include('gmtisp_billing.urls')),
+    path('billing_api/', include('gmtisp_billing.api.urls')),
+    path('endusers/', include('gmtisp_enduser.urls')),
+    
+    path("about/", TemplateView.as_view(template_name="gmtisp/pages/about.html"), name='about'),
+    
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 urlpatterns += staticfiles_urlpatterns()

@@ -1,0 +1,10 @@
+{% extends 'gmtisp_billing/plans/order_detail.html' %}
+{% load payment_buttons %}
+{% block payment_method %}
+
+    <p>
+         Choose your payment method
+    </p>
+
+    {% payment_buttons object %}
+{% endblock %}

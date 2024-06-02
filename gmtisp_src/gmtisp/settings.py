@@ -68,20 +68,18 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.google',
   
-   # ---------------------------------- openwisp
-    'testing_app',    
+    # ---------------------------------- openwisp 
     'openwisp_users',
     'openwisp_radius',
     'openwisp_utils',
     'private_storage',
     'drf_yasg',
 
-    # plans
+    'testing_app',   
+    'gmtisp_enduser',
+    'gmtisp_billing',
     'related_admin',
-    'plans',
     'ordered_model',
-    # 'bootstrap3',
-    'enduser',
     
     # other
     'django_extensions',
@@ -149,7 +147,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'openwisp_utils.admin_theme.context_processor.menu_groups',
-                
+                # 'plans.context_processors.account_status'
                 # For test
                 'openwisp_utils.admin_theme.context_processor.admin_theme_settings',
                 # 'openwisp_utils.context_processors.test_theme_helper',
@@ -159,36 +157,71 @@ TEMPLATES = [
 ]
 
 # ------------------------------------------------------------------------------ database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-        'ATOMIC_REQUESTS': True,
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#         'ATOMIC_REQUESTS': True,
+#     }
+# }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': ':memory:', #for testing
+#     }
+# }
 
-# try:
-#     from .db import *
-# except ImportError:
-#     pass
+try:
+    from .db import *
+except ImportError:
+    pass
+
+# ------------------------------------------------------------------------------ end database
 
 
+# ------------------------------------------------------------------------------ logging
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': TESTING,
+    'disable_existing_loggers': False,
     'filters': {'require_debug_true': {'()': 'django.utils.log.RequireDebugTrue'}},
     'formatters': {
         'django.server': {
             '()': 'django.utils.log.ServerFormatter',
             'format': '[{server_time}] {message}',
             'style': '{',
-        }
+        },
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'deployment.log'),
+            'formatter': 'verbose',
+        },
         'console': {
             'level': 'DEBUG',
-            'filters': ['require_debug_true'],
             'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'gmtisp_billing': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
         },
     },
 }
@@ -233,6 +266,8 @@ if not TESTING and SHELL:
             'propagate': False,
         },
     }
+
+# ------------------------------------------------------------------------------ end logging
 
 # AUTH_PASSWORD_VALIDATORS = [] # WARNING: for development only!
 
@@ -522,7 +557,6 @@ PLANS_INVOICE_ISSUER = {
     'issuer_tax_number': 'PL123456789',
 }
 
-MANAGE_PY_PATH = os.environ.get('MANAGE_PY_PATH', './manage.py')
 PLANS_CURRENCY = 'EUR'
 ENABLE_FAKE_PAYMENTS = True
 PLANS_TAX = Decimal('23.0')
@@ -530,9 +564,12 @@ PLANS_TAXATION_POLICY = 'plans.taxation.eu.EUTaxationPolicy'
 PLANS_TAX_COUNTRY = 'PL'
 PLANS_DEFAULT_COUNTRY = 'CZ'
 PLANS_GET_COUNTRY_FROM_IP = True
-
-PLANS_VALIDATORS = {'MAX_FOO_COUNT': 'example.foo.validators.max_foos_validator',}
-
+PLANS_VALIDATORS = {
+    'MAX_USERS': 'plans.validators.max_users_validator',
+    'MAX_PLAN_COUNT': 'plans.validators.max_plans_validator',
+}
+PLANS_VALIDATION = True
+PLANS_VALIDATION_PERIOD = 30
 # PLANS_INVOICE_COUNTER_RESET = Invoice.NUMBERING.MONTHLY
 # PLANS_INVOICE_NUMBER_FORMAT = {{ invoice.issued|date:'d/m/Y' }}
 # PLANS_INVOICE_NUMBER_FORMAT = '{{ invoice.number }}/{{ invoice.issued|date='m/FV/Y' }}'
@@ -540,7 +577,7 @@ from urllib.parse import urljoin
 PLANS_INVOICE_LOGO_URL = urljoin(STATIC_URL, 'my_logo.png')
 PLANS_INVOICE_TEMPLATE = 'plans/invoices/PL_EN.html'
 PLANS_ORDER_EXPIRATION = 14
-PLANS_EXPIRATION_REMIND = [1, 3 , 7] # User will receive notification before 7 , 3 and 1 day to account expire.
+PLANS_EXPIRATION_REMIND = [1, 3 , 7] # User will receive notification before 7, 3 and 1 day to account expire.
 PLANS_DEFAULT_GRACE_PERIOD = 30 # New account default plan expiration period counted in days.
 SEND_PLANS_EMAILS = True
 
