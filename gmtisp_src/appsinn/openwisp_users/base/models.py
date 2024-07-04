@@ -92,7 +92,7 @@ class AbstractUser(BaseUser):
         return super().set_password(*args, **kwargs)
 
     def has_password_expired(self):
-        if not self.has_usable_password():
+        if not self.has_usable_password() or self.password_updated is None:
             return False
         if self.is_staff and app_settings.STAFF_USER_PASSWORD_EXPIRATION:
             expiry_date = self.password_updated + timezone.timedelta(
@@ -215,6 +215,7 @@ class BaseOrganization(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(_('name'), max_length=67, unique=True)
     description = models.TextField(_('description'), blank=True)
     email = models.EmailField(_('email'), blank=True)
     url = models.URLField(_('URL'), blank=True)

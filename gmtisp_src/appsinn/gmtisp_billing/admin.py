@@ -1,36 +1,36 @@
-from copy import deepcopy
-
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.contrib.admin import SimpleListFilter
-from django.contrib.admin.utils import model_ngettext
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from swapper import load_model
 
-from ordered_model.admin import OrderedModelAdmin
-from openwisp_users.multitenancy import MultitenantOrgFilter
 from payments import PaymentStatus
 from related_admin import RelatedFieldAdmin
 
-from .admin_mixins import OrganizationDbAdminMixin
+from openwisp_users.multitenancy import MultitenantOrgFilter, MultitenantAdminMixin
+from openwisp_users.models import Organization
+from openwisp_utils.mixins import OrganizationDbAdminMixin
 from .signals import account_automatic_renewal
 from .models import (
-    PlanBandwidthSettings, 
     Plan,
+    UserPlan,
     PlanPricing,
     PlanQuota,
+    PlanBandwidthSettings,
     Pricing,
     Quota,
+    BandwidthSettings, 
     RecurringUserPlan,
-    UserPlan,
     BillingInfo,
     Order,
     Invoice,
-    # Payment,
+    Payment,
 )
-
+# from .forms import PlanForm
 
 class UserLinkMixin(object):
     def user_link(self, obj):
@@ -38,401 +38,440 @@ class UserLinkMixin(object):
         app_label = user_model._meta.app_label
         model_name = user_model._meta.model_name
         change_url = reverse(
-            "admin:%s_%s_change" % (app_label, model_name), args=(obj.user.id,)
+            'admin:%s_%s_change' % (app_label, model_name), args=(obj.user.id,)
         )
-        return format_html('<a href="{}">{}</a>', change_url, obj.user.username)
+        return format_html("<a href='{}'>{}</a>", change_url, obj.user.username)
 
-    user_link.short_description = "User"
+    user_link.short_description = 'User'
     user_link.allow_tags = True
 
 
-class PlanQuotaInline(admin.TabularInline):
-    model = PlanQuota
-    extra = 1
+@admin.register(Pricing)
+class PricingAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    list_display = ['name', 'period',]
+    list_display_links = list_display
+    exclude = ['organization']
 
-class PlanPricingInline(admin.TabularInline):
+
+@admin.register(PlanPricing)
+class PlanPricingAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    list_display = ['plan', 'pricing', 'price']
+    list_display_links = ['plan', 'price']
+    exclude = ['organization']
+    
+
+class PlanPricingInline(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.TabularInline):
     model = PlanPricing
     extra = 1
     max_num = 1
+    exclude = ['organization'] 
 
-class PlanBandwidthSettingsInline(admin.StackedInline):
-    model = PlanBandwidthSettings
-    # exclude = ['name']
-    extra = 0
+
+@admin.register(Quota)
+class QuotaAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    list_display = ['codename', 'name', 'description', 'unit', 'is_boolean']
+    list_display_links = ['codename', 'name']
+    exclude = ['organization']
+
+
+@admin.register(PlanQuota)
+class PlanQuotaAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    list_display = ['plan', 'quota', 'value', 'organization']
+    list_display_links = ['plan', 'quota']
+    exclude = ['organization']
+    
+
+class PlanQuotaInline(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.TabularInline):
+    model   = PlanQuota
+    extra   = 1
     max_num = 1
-    min_num = 1
-    can_delete = False
+    exclude = ['organization']
 
 
-class QuotaAdmin(OrderedModelAdmin):
-    list_display = [
-        "codename",
-        "name",
-        "description",
-        "unit",
-        "is_boolean",
-        "move_up_down_links",
-    ]
+@admin.register(BandwidthSettings)
+class BandwidthSettingsAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    list_display = ['name', 'priority']
+    list_display_links =  ['name']
+    exclude = ['organization']
+    
 
-    readonly_fields = ("created", "updated_at")
-    list_display_links = list_display
+@admin.register(PlanBandwidthSettings)
+class PlanBandwidthSettingsAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    list_display = ['plan', 'bandwidth', 'organization']
+    list_display_links =  list_display
+    exclude = ['organization']
+
+
+class PlanBandwidthSettingsInline(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.StackedInline):
+    model   = PlanBandwidthSettings
+    extra   = 0
+    max_num = 1
+    # min_num = 1
+    # can_delete = False
+    exclude = ['organization']
 
 
 def copy_plan(modeladmin, request, queryset):
-    """
-    Admin command for duplicating plans preserving quotas and pricings, bandwidth.
-    """
-    for plan in queryset:
-        plan_copy = deepcopy(plan)
-        plan_copy.id = None
-        plan_copy.available = False
-        plan_copy.default = False
-        plan_copy.created = None
-        plan_copy.save(force_insert=True)
+    '''
+    Admin command for duplicating plans preserving quotas and pricings.
+    '''
+    with transaction.atomic():
+        for plan in queryset:
+            try:
+                new_plan = Plan.objects.create(
+                    name=f'{plan.name} (Copy)',
+                    customized=plan.customized,
+                    organization=plan.organization,  # Ensure the organization is copied
+                    default=False,
+                    available=False,
+                )
+                for pricing in plan.planpricing_set.all():
+                    pricing.pk = None
+                    pricing.plan = new_plan
+                    pricing.save()
 
-        for pricing in plan.planpricing_set.all():
-            pricing.id = None
-            pricing.plan = plan_copy
-            pricing.save(force_insert=True)
+                for quota in plan.planquota_set.all():
+                    quota.pk = None
+                    quota.plan = new_plan
+                    quota.save()
 
-        for quota in plan.planquota_set.all():
-            quota.id = None
-            quota.plan = plan_copy
-            quota.save(force_insert=True)
+                for bandwidth in plan.planbandwidthsettings_set.all():
+                    bandwidth.pk = None
+                    bandwidth.plan = new_plan
+                    bandwidth.save()
 
-        for bandwidth in plan.planbandwidthsettings_set.all():
-            bandwidth.id = None
-            bandwidth.plan = plan_copy
-            bandwidth.save(force_insert=True)
+                messages.success(request, _('Plan copied successfully.'))
+            except Exception as e:
+                messages.error(request, _('Error copying plan: %s') % str(e))
 
+copy_plan.short_description = _('Copy selected plans')
 
-
-copy_plan.short_description = _("Make a plan copy")
-
-
-class PlanAdmin(OrganizationDbAdminMixin, OrderedModelAdmin):
-    search_fields = (
-        "name",
-        "customized__username",
-        "customized__email",
-    )
-    # list_filter = ("available", "visible")
-    list_filter = (MultitenantOrgFilter,)
+@admin.register(Plan)
+class PlanAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    # form = PlanForm  # Use the custom form
     list_display = [
-        "name",
-        # "description",
+        'name',
+        # 'slug',
         'organization',
-        "customized",
-        "default",
-        "available",
-        "is_free",
-        "created",
-        "move_up_down_links",
+        'customized',
+        'default',
+        'available',
+        'is_free',
+        'created',
     ]
+    search_fields = ('name', 'customized__username', 'customized__email',)
+    list_filter = (MultitenantOrgFilter,)
     list_display_links = list_display
-    inlines = (PlanPricingInline, PlanQuotaInline, PlanBandwidthSettingsInline)
     list_select_related = True
-    raw_id_fields = ("customized",)
-    readonly_fields = ("created", "updated_at")
-    actions = [
-        copy_plan,
-    ]
+    save_on_top = True
+    raw_id_fields = ('customized',)
+    readonly_fields = ['created', 'modified']
+    prepopulated_fields = {'slug': ('name',)}
+    inlines = (PlanPricingInline, PlanQuotaInline, PlanBandwidthSettingsInline)
+    actions = [copy_plan, 'delete_selected',]
+    exclude = ['organization']
+    
+    # def get_readonly_fields(self, request, obj=None):
+    #     if obj:  # obj is not None, so this is an edit scenario
+    #         return ['name', 'slug', 'organization']
+    #     else:  # This is the create scenario
+    #         return ['organization']
+        
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'slug', 'description', 'customized', 'plan_setup_cost')
+        }),
+        (_('Bools'), {
+            'fields': ('visible', 'available', 'requires_payment', 'rollover_allowed')
+        }),
+        (_('Classing'), {
+            'fields': ('plan_class', 'plan_type', 'radius_group', 'temp_radius_group', 'default', 'url')
+        }),
+        (_('Dates'), {
+            'fields': ('created', 'modified')
+        }),
+    )
 
-    def queryset(self, request):
-        return super(PlanAdmin, self).queryset(request).select_related("customized")
+    def save_model(self, request, obj, form, change):
+        # Ensure the organization is set for the plan
+        try:
+            OrganizationUser = load_model('openwisp_users', 'OrganizationUser')
+            organization_user = OrganizationUser.objects.get(user=request.user)
+            obj.organization = organization_user.organization
+        except OrganizationUser.DoesNotExist:
+            raise ValidationError('The user is not associated with any organization.')
+        except Exception as e:
+            raise ValidationError(f'Error setting organization for the plan: {e}')
 
+        # Check if another plan with the same name exists for the organization
+        if Plan.objects.filter(name=obj.name, organization=obj.organization).exclude(pk=obj.pk).exists():
+            raise ValidationError(
+                f"A plan with the name '{obj.name}' already exists for the organization '{obj.organization}'."
+            )
+        # Check if another plan with the same slug exists for the organization
+        if Plan.objects.filter(slug=obj.slug, organization=obj.organization).exclude(pk=obj.pk).exists():
+            raise ValidationError(
+                f"A plan with the slug '{obj.slug}' already exists for the organization '{obj.organization}'."
+            )
+        
+        super().save_model(request, obj, form, change)
 
     def has_delete_permission(self, request, obj=None):
         if not request.user.is_superuser and obj and obj.default:
             return False
         return super().has_delete_permission(request, obj)
 
-    def delete_selected_groups(self, request, queryset):
+    def delete_queryset(self, request, queryset):
         if self.get_default_queryset(request, queryset).exists():
-            msg = _(
-                'Cannot proceed with the delete operation because '
-                'the batch of items contains the default group, '
-                'which cannot be deleted'
-            )
-            self.message_user(request, msg, messages.ERROR)
-            return False
-        if not self.has_delete_permission(request):
-            raise PermissionDenied
-        n = queryset.count()
-        if n:
-            queryset.delete()
             self.message_user(
                 request,
-                _('Successfully deleted %(count)d %(items)s.')
-                % {'count': n, 'items': model_ngettext(self.opts, n)},
-                messages.SUCCESS,
+                _('Cannot proceed with the delete operation because the batch of items contains the default group, which cannot be deleted.'),
+                messages.ERROR
             )
-        return None
-
-    delete_selected_groups.allowed_permissions = ('delete',)
+        else:
+            super().delete_queryset(request, queryset)
 
     def get_actions(self, request):
         actions = super().get_actions(request)
-        if 'delete_selected' in actions:
-            del actions['delete_selected']
+        if 'delete_selected' not in actions:
+            actions['delete_selected'] = (admin.actions.delete_selected, 'delete_selected', _('Delete selected %(verbose_name_plural)s'))
         return actions
 
-    actions = ['delete_selected_groups']
-
     def get_default_queryset(self, request, queryset):
-        """overridable"""
+        '''Overridable'''
         return queryset.filter(default=True)
 
 
-class BillingInfoAdmin(UserLinkMixin, admin.ModelAdmin):
-    search_fields = ("user__username", "user__email", "tax_number", "name")
-    list_display = (
-        "user",
-        "tax_number",
-        "name",
-        "street",
-        "zipcode",
-        "city",
-        "country",
+class RecurringPlanInline(admin.StackedInline):
+    model = RecurringUserPlan
+    readonly_fields = ('created', 'modified')
+    extra = 0
+
+
+def autorenew_payment(modeladmin, request, queryset):
+    '''
+    Automatically renew payment for this plan
+    '''
+    for user_plan in queryset:
+        account_automatic_renewal.send(sender=None, user=user_plan.user)
+
+autorenew_payment.short_description = _('Autorenew plan')
+
+
+@admin.register(UserPlan)
+class UserPlanAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, UserLinkMixin, admin.ModelAdmin):
+    list_filter = (
+        'active',
+        'expire',
+        'plan__name',
+        'plan__available',
+        'plan__visible',
+        'recurring__has_automatic_renewal',
+        'recurring__payment_provider',
+        'recurring__token_verified',
+        'recurring__pricing',
     )
-    list_display_links = list_display
+    search_fields = ('user__username', 'user__email', 'plan__name', 'recurring__token', 'organization__name')
+    list_display = (
+        'user',
+        'plan',
+        'expire',
+        'active',
+        'recurring__automatic_renewal',
+        'recurring__token_verified',
+        'recurring__payment_provider',
+        'recurring__pricing',
+    )
+    list_display_links  = list_display
     list_select_related = True
-    readonly_fields = ("user_link", "created", "updated_at")
-    exclude = ("user",)
+    readonly_fields = ('user_link', 'created', 'modified')
+    inlines = (RecurringPlanInline,)
+    fields  = ('user', 'user_link', 'plan', 'expire', 'active', 'created', 'modified')
+    actions = [autorenew_payment,]
+    raw_id_fields = ['user', 'plan', ]
+
+    def recurring__automatic_renewal(self, obj):
+        return obj.recurring.has_automatic_renewal
+
+    recurring__automatic_renewal.admin_order_field = 'recurring__has_automatic_renewal'
+    recurring__automatic_renewal.boolean = True
+    recurring__automatic_renewal.short_description = 'Automatic renewal'
+
+    def recurring__token_verified(self, obj):
+        return obj.recurring.token_verified
+
+    recurring__token_verified.admin_order_field = 'recurring__token_verified'
+    recurring__token_verified.boolean = True
+    recurring__token_verified.short_description = 'Renewal token verified'
+
+    def recurring__payment_provider(self, obj):
+        return obj.recurring.payment_provider
+
+    recurring__payment_provider.admin_order_field = 'recurring__payment_provider'
+    recurring__payment_provider.short_description = 'Renewal payment_provider'
+
+    def recurring__pricing(self, obj):
+        return obj.recurring.pricing
+
+    recurring__automatic_renewal.admin_order_field = 'recurring__pricing'
+
+
+@admin.register(BillingInfo)
+class BillingInfoAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, UserLinkMixin, admin.ModelAdmin):
+    list_display = (
+        'user',
+        'tax_number',
+        'name',
+        'street',
+        'zipcode',
+        'city',
+        'country',
+    )
+    search_fields       = ('user__username', 'user__email', 'tax_number', 'name')
+    list_display_links  = list_display
+    list_select_related = True
+    readonly_fields     = ('user_link', 'created', 'modified')
+    exclude             = ('user', 'organization')
 
 
 def make_order_completed(modeladmin, request, queryset):
     for order in queryset:
         order.complete_order()
 
-
-make_order_completed.short_description = _("Make selected orders completed")
+make_order_completed.short_description = _('Make selected orders completed')
 
 
 def make_order_invoice(modeladmin, request, queryset):
     for order in queryset:
         if (
             Invoice.objects.filter(
-                type=Invoice.INVOICE_TYPES["INVOICE"], order=order
+                type=Invoice.INVOICE_TYPES['INVOICE'], order=order
             ).count()
             == 0
         ):
-            Invoice.create(order, Invoice.INVOICE_TYPES["INVOICE"])
+            Invoice.create(order, Invoice.INVOICE_TYPES['INVOICE'])
 
-
-make_order_invoice.short_description = _("Make invoices for orders")
+make_order_invoice.short_description = _('Make invoices for orders')
 
 
 class InvoiceInline(admin.TabularInline):
     model = Invoice
     extra = 0
-    raw_id_fields = ("user",)
+    raw_id_fields = ('user',)
 
 
-class OrderAdmin(admin.ModelAdmin):
-    list_filter = ("status", "created", "completed", "plan__name", "pricing")
-    raw_id_fields = ("user",)
-    search_fields = ("id", "user__username", "user__email", "invoice__full_number")
-    list_display = (
-        "id",
-        "name",
-        "created",
-        "user",
-        "status",
-        "completed",
-        "tax",
-        "amount",
-        "currency",
-        "plan",
-        "pricing",
-        "plan_extended_from",
-        "plan_extended_until",
+@admin.register(Order)
+class OrderAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    list_display  = (
+        'id',
+        'name',
+        'created',
+        'user',
+        'status',
+        'completed',
+        'tax',
+        'amount',
+        'currency',
+        'plan',
+        'pricing',
+        'plan_extended_from',
+        'plan_extended_until',
     )
-    readonly_fields = ("created", "updated_at")
+    list_filter   = ('status', 'created', 'completed', 'plan__name', 'pricing')
+    raw_id_fields = ('user',)
+    search_fields = ('id', 'user__username', 'user__email', 'invoice__full_number')
+    readonly_fields    = ('created', 'modified')
     list_display_links = list_display
     actions = [make_order_completed, make_order_invoice]
     inlines = (InvoiceInline,)
+    exclude = ('organization',)
 
     def queryset(self, request):
         return (
             super(OrderAdmin, self)
             .queryset(request)
-            .select_related("plan", "pricing", "user")
+            .select_related('plan', 'pricing', 'user')
         )
 
 
-class InvoiceAdmin(admin.ModelAdmin):
-    search_fields = ("full_number", "buyer_tax_number", "user__username", "user__email")
-    list_filter = (
-        "type",
-        "issued",
-        "tax",
-        "currency",
-        "buyer_country",
+@admin.register(Invoice)
+class InvoiceAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+    list_display  = (
+        'full_number',
+        'issued',
+        'total_net',
+        'currency',
+        'user',
+        'tax',
+        'buyer_name',
+        'buyer_city',
+        'buyer_tax_number',
     )
-    list_display = (
-        "full_number",
-        "issued",
-        "total_net",
-        "currency",
-        "user",
-        "tax",
-        "buyer_name",
-        "buyer_city",
-        "buyer_tax_number",
-    )
-    readonly_fields = ("created", "updated_at")
-    list_display_links = list_display
+    search_fields       = ('full_number', 'buyer_tax_number', 'user__username', 'user__email')
+    list_filter         = ('type', 'issued', 'tax', 'currency', 'buyer_country',)
+    readonly_fields     = ('created', 'modified')
+    list_display_links  = list_display
     list_select_related = True
-    raw_id_fields = ("user", "order")
-
-
-class RecurringPlanInline(admin.StackedInline):
-    model = RecurringUserPlan
-    readonly_fields = ("created", "updated_at")
-    extra = 0
-
-
-def autorenew_payment(modeladmin, request, queryset):
-    """
-    Automatically renew payment for this plan
-    """
-    for user_plan in queryset:
-        account_automatic_renewal.send(sender=None, user=user_plan.user)
-
-
-autorenew_payment.short_description = _("Autorenew plan")
-
-
-class UserPlanAdmin(UserLinkMixin, admin.ModelAdmin):
-    list_filter = (
-        "active",
-        "expire",
-        "plan__name",
-        "plan__available",
-        "plan__visible",
-        "recurring__has_automatic_renewal",
-        "recurring__payment_provider",
-        "recurring__token_verified",
-        "recurring__pricing",
-    )
-    search_fields = ("user__username", "user__email", "plan__name", "recurring__token", 'organization__name')
-    list_display = (
-        "user",
-        "plan",
-        "expire",
-        "active",
-        "recurring__automatic_renewal",
-        "recurring__token_verified",
-        "recurring__payment_provider",
-        "recurring__pricing",
-    )
-    list_display_links = list_display
-    list_select_related = True
-    readonly_fields = ("user_link", "created", "updated_at")
-    inlines = (RecurringPlanInline,)
-    actions = [
-        autorenew_payment,
-    ]
-    fields = ("user", "user_link", "plan", "expire", "active", "created", "updated_at")
-    raw_id_fields = [
-        "user",
-        "plan",
-    ]
-
-    def recurring__automatic_renewal(self, obj):
-        return obj.recurring.has_automatic_renewal
-
-    recurring__automatic_renewal.admin_order_field = "recurring__has_automatic_renewal"
-    recurring__automatic_renewal.boolean = True
-    recurring__automatic_renewal.short_description = "Automatic renewal"
-
-    def recurring__token_verified(self, obj):
-        return obj.recurring.token_verified
-
-    recurring__token_verified.admin_order_field = "recurring__token_verified"
-    recurring__token_verified.boolean = True
-    recurring__token_verified.short_description = "Renewal token verified"
-
-    def recurring__payment_provider(self, obj):
-        return obj.recurring.payment_provider
-
-    recurring__payment_provider.admin_order_field = "recurring__payment_provider"
-    recurring__payment_provider.short_description = "Renewal payment_provider"
-
-    def recurring__pricing(self, obj):
-        return obj.recurring.pricing
-
-    recurring__automatic_renewal.admin_order_field = "recurring__pricing"
-
-
-admin.site.register(Quota, QuotaAdmin)
-admin.site.register(Plan, PlanAdmin)
-admin.site.register(UserPlan, UserPlanAdmin)
-admin.site.register(Pricing)
-admin.site.register(Order, OrderAdmin)
-admin.site.register(BillingInfo, BillingInfoAdmin)
-admin.site.register(Invoice, InvoiceAdmin)
+    raw_id_fields       = ('user', 'order')
+    exclude             = ('organization',)
 
 
 
 # ---------------------------------------------------------------- Plan payment
-# class FaultyPaymentsFilter(SimpleListFilter):
-#     title = "faulty_payments"
-#     parameter_name = "faulty_payments"
+class FaultyPaymentsFilter(SimpleListFilter):
+    title = 'faulty_payments'
+    parameter_name = 'faulty_payments'
 
-#     def lookups(self, request, model_admin):
-#         return [
-#             ("unconfirmed_order", "Confirmed payment unconfirmed order"),
-#         ]
+    def lookups(self, request, model_admin):
+        return [
+            ('unconfirmed_order', 'Confirmed payment unconfirmed order'),
+        ]
 
-#     def queryset(self, request, queryset):
-#         if self.value() == "unconfirmed_order":
-#             return queryset.filter(status=PaymentStatus.CONFIRMED).exclude(
-#                 order__status=Order.STATUS.COMPLETED
-#             )
-#         return queryset
+    def queryset(self, request, queryset):
+        if self.value() == 'unconfirmed_order':
+            return queryset.filter(status=PaymentStatus.CONFIRMED).exclude(
+                order__status=Order.STATUS.COMPLETED
+            )
+        return queryset
 
 
-# @admin.register(Payment)
-# class PaymentAdmin(RelatedFieldAdmin):
-#     list_display = (
-#         "id",
-#         "transaction_id",
-#         "token",
-#         "order__user",
-#         "variant",
-#         "status",
-#         "fraud_status",
-#         "currency",
-#         "total",
-#         "customer_ip_address",
-#         "tax",
-#         "transaction_fee",
-#         "captured_amount",
-#         "created",
-#         "modified",
-#         "autorenewed_payment",
-#     )
-#     list_filter = (
-#         "status",
-#         "variant",
-#         "fraud_status",
-#         "currency",
-#         "autorenewed_payment",
-#         FaultyPaymentsFilter,
-#     )
-#     search_fields = (
-#         "order__user__first_name",
-#         "order__user__last_name",
-#         "order__user__email",
-#         "transaction_id",
-#         "extra_data",
-#         "token",
-#     )
-#     list_select_related = ("order__user",)
-#     autocomplete_fields = ("order",)
-#     readonly_fields = (
-#         "created",
-#         "modified",
-#     )
+@admin.register(Payment)
+class PaymentAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, RelatedFieldAdmin):
+    list_display = (
+        'id',
+        'transaction_id',
+        'token',
+        'order__user',
+        'variant',
+        'status',
+        'fraud_status',
+        'currency',
+        'total',
+        'customer_ip_address',
+        'tax',
+        'transaction_fee',
+        'captured_amount',
+        'created',
+        'modified',
+        'autorenewed_payment',
+    )
+    list_filter = (
+        'status',
+        'variant',
+        'fraud_status',
+        'currency',
+        'autorenewed_payment',
+        FaultyPaymentsFilter,
+    )
+    search_fields = (
+        'order__user__first_name',
+        'order__user__last_name',
+        'order__user__email',
+        'transaction_id',
+        'extra_data',
+        'token',
+    )
+    list_select_related = ('order__user',)
+    # autocomplete_fields = ('order',)
+    readonly_fields = ('created', 'modified',)
+    exclude = ('organization',)

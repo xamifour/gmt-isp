@@ -1,27 +1,22 @@
 import environ
-from pathlib import Path
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent
 
 env = environ.Env()
-env.read_env()
-
-# ------------------------------------------------------------------------------ database
-# DATABASES for different organisations
-
-'''
-Dynamically fetching database configurations based on the organization name 
-from the environment variables.
-'''
+env.read_env(BASE_DIR / '.env')  # Ensure the .env file is loaded
 
 def get_organization_db_config(organization):
+    """
+    Fetch the database configuration for a specific organization from environment variables.
+    """
     try:
         return {
-            'ENGINE': env('POSTGRES_ENGINE'),
             # 'ENGINE': env(f"{organization.upper()}_DB_ENGINE"),
+            'ENGINE': env('POSTGRES_ENGINE'),
             'NAME': env(f"{organization.upper()}_DB_NAME"),
             'USER': env(f"{organization.upper()}_DB_USER"),
             'PASSWORD': env(f"{organization.upper()}_DB_PASSWORD"),
@@ -33,6 +28,9 @@ def get_organization_db_config(organization):
         raise
 
 def get_default_db_config():
+    """
+    Fetch the default database configuration from environment variables.
+    """
     return {
         'ENGINE': env('POSTGRES_ENGINE'),
         'NAME': env('DEFAULT_DB_NAME'),
@@ -43,13 +41,24 @@ def get_default_db_config():
     }
 
 def get_organization_db(organization):
+    """
+    Returns the database configuration for a specific organization 
+    or the default configuration if no organization is specified.
+    """
     if organization:
         return get_organization_db_config(organization)
     return get_default_db_config()
 
+# Dynamically populate the DATABASES setting
 DATABASES = {
     'default': get_default_db_config(),
 }
+
+# # Example of adding a specific organization's database configuration
+# organizations = ['org1', 'org2', 'org3']  # List of organization slugs
+# for org in organizations:
+#     db_alias = f"{org}_db"
+#     DATABASES[db_alias] = get_organization_db(org)
 
 
 

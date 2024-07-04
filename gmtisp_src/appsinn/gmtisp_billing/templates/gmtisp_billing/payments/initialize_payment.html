@@ -1,0 +1,42 @@
+<!-- templates/payment/initialize_payment.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Initialize Payment</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Initialize Payment</h1>
+        <p>Order ID: {{ order.id }}</p>
+        <p>Amount: {{ order.total }} {{ order.currency }}</p>
+        <p>Click the button below to proceed with the payment.</p>
+        <button id="paystack-button" onclick="payWithPaystack()">Pay Now</button>
+        <div id="error-message" style="color: red;"></div>
+    </div>
+
+    <script>
+        function payWithPaystack() {
+            var handler = PaystackPop.setup({
+                key: '{{ paystack_public_key }}', // Replace with your public key
+                email: '{{ order.user.email }}',
+                amount: {{ order.total|floatformat:2 }} * 100, // Convert to kobo
+                currency: '{{ order.currency }}',
+                ref: '{{ payment.reference }}',
+                callback: function(response){
+                    // Handle successful payment here
+                    window.location.href = "{% url 'payment:callback' %}?reference=" + response.reference;
+                },
+                onClose: function(){
+                    // Handle payment cancellation here
+                    document.getElementById('error-message').innerText = "Payment was cancelled.";
+                }
+            });
+            handler.openIframe();
+        }
+    </script>
+</body>
+</html>

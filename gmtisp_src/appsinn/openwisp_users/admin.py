@@ -31,6 +31,7 @@ from organizations.exceptions import OwnershipRequired
 from phonenumber_field.formfields import PhoneNumberField
 from swapper import load_model
 
+from openwisp_utils.mixins import OrganizationDbAdminMixin
 from . import settings as app_settings
 from .multitenancy import MultitenantAdminMixin, MultitenantOrgFilter
 from .utils import BaseAdmin
@@ -189,7 +190,7 @@ class UserChangeForm(UserFormMixin, BaseUserChangeForm):
     pass
 
 
-class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
+class UserAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, BaseUserAdmin, BaseAdmin):
     add_form = UserCreationForm
     form = UserChangeForm
     ordering = ['-date_joined']
@@ -197,6 +198,7 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
     list_display = [
         'username',
         'email',
+        'get_organization',
         'is_active',
         'is_staff',
         'is_superuser',
@@ -414,12 +416,14 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
             extra_context.update({'show_owner_warning': show_owner_warning})
         return super().change_view(request, object_id, form_url, extra_context)
 
+
     def save_model(self, request, obj, form, change):
         """
         Automatically creates email addresses for users
         added/changed via the django-admin interface
         """
         super().save_model(request, obj, form, change)
+        
         if obj.email:
             try:
                 EmailAddress.objects.add_email(
@@ -432,6 +436,13 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
                         type(e), obj.username, obj.email
                     )
                 )
+        
+        # Ensure the new user is associated with the operator's organization
+        if not change and not request.user.is_superuser:
+            org_user_model = load_model('openwisp_users', 'OrganizationUser')
+            org_user_model.objects.create(
+                user=obj, organization_id=request.user.organizations_managed[0], is_admin=False
+            )
 
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)
@@ -455,6 +466,13 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
             )
         for instance in instances:
             instance.save()
+
+    def get_organization(self, obj):
+        organization_users = OrganizationUser.objects.filter(user=obj)
+        organizations = [org_user.organization.name for org_user in organization_users]
+        return ', '.join(organizations) if organizations else 'No Organization'
+    
+    get_organization.short_description = _('Organization')
 
 
 class OrganizationUserFilter(MultitenantOrgFilter):

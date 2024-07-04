@@ -1,9 +1,12 @@
 from collections import OrderedDict
 from copy import deepcopy
 
+import requests
 from django.conf import settings
 from django.utils.crypto import get_random_string
-
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from swapper import load_model
 
 class SortedOrderedDict(OrderedDict):
     def update(self, items):
@@ -64,17 +67,66 @@ def print_color(string, color_name, end='\n'):
     print(f'\033[{color}m{string}\033[0m', end=end)
 
 
-"""
-Helper function that determines the correct database alias for a given user.
-Can be used accross the whole project.
-"""
+def retryable_request(
+    method,
+    timeout=(4, 8),
+    max_retries=3,
+    backoff_factor=1,
+    backoff_jitter=0.0,
+    status_forcelist=(429, 500, 502, 503, 504),
+    allowed_methods=('HEAD', 'GET', 'PUT', 'DELETE', 'OPTIONS', 'TRACE', 'POST'),
+    retry_kwargs=None,
+    **kwargs,
+):
+    retry_kwargs = retry_kwargs or {}
+    retry_kwargs.update(
+        dict(
+            total=max_retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+            allowed_methods=allowed_methods,
+            backoff_jitter=backoff_jitter,
+        )
+    )
+    request_session = requests.Session()
+    retries = Retry(**retry_kwargs)
+    request_session.mount('https://', HTTPAdapter(max_retries=retries))
+    request_session.mount('http://', HTTPAdapter(max_retries=retries))
+    request_method = getattr(request_session, method)
+    return request_method(timeout=timeout, **kwargs)
+
+
+
+
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_db_for_organization(organization):
+    """
+    Determine the correct database alias for a given organization.
+    Return the database alias based on the organization's slug,
+    or 'default' if the alias does not exist in settings.DATABASES.
+    """
     if organization:
-        return f"{organization.slug}_db"
+        db_alias = f"db_{organization.slug}"
+        if db_alias in settings.DATABASES:
+            logger.debug(f"Using database alias: {db_alias}")
+            return db_alias
+        else:
+            logger.warning(f"Database alias {db_alias} does not exist. Falling back to 'default'.")
     return 'default'
 
 def get_db_for_user(user):
-    if user.is_authenticated and hasattr(user, 'organization'):
-        return get_db_for_organization(user.organization)
+    """
+    Determine the correct database alias for a given user.
+    Return the database alias based on the user's first associated organization if authenticated,
+    or 'default' if no organization or alias does not exist.
+    """
+    if user.is_authenticated:
+        OrganizationUser = load_model('openwisp_users', 'OrganizationUser')
+        org_user = OrganizationUser.objects.filter(user=user).select_related('organization').first()
+        if org_user and org_user.organization:
+            return get_db_for_organization(org_user.organization)
     return 'default'

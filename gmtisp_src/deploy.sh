@@ -26,8 +26,8 @@ python manage.py setup_org_databases
 
 echo "Deployment script completed successfully."
 
-echo "Create superuser."
-python manage.py createsuperuser
+# echo "Create superuser."
+# python manage.py createsuperuser
 
 # echo "Show migrations."
 # python manage.py showmigrations

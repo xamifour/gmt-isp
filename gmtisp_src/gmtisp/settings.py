@@ -6,21 +6,18 @@ from pathlib import Path
 from celery.schedules import crontab
 from decimal import Decimal
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-# BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 BASE_DIR = Path(__file__).resolve(strict=True).parent
 APPS_DIR = BASE_DIR / 'appsinn'
 
 env = environ.Env()
 env.read_env() # read the .env file
-# environ.Env.read_env() # read the .env file
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = str(env('DEBUG')) == '1' # 1 == True, 0 == False
-SECRET_KEY = env.str('SECRET_KEY', default='98Yt456^&%@!+)7748*&_?><HTE~lrl%606smticbu20=pvr')
+SECRET_KEY = env.str('SECRET_KEY', default='98Yt4}56^&%@!+)7748*&_?><HT]E~lrl%606sm{ticbu20=pv{r')
 # ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', ['*'],]
 
 TESTING = sys.argv[1] == 'test'
 PARALLEL = '--parallel' in sys.argv
@@ -31,7 +28,7 @@ OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 OPENWISP_RADIUS_COA_ENABLED = True
 OPENWISP_RADIUS_ALLOWED_MOBILE_PREFIXES = ['+44', '+39', '+237', '+595', '+233']
 
-INSTALLED_APPS = [
+DJANGO_APPS  = [
     # Django
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,59 +36,55 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-
-    # openwisp admin theme
-    # must come before the django admin in order to override the admin login page
-    'openwisp_utils.admin_theme',
-    'openwisp_users.accounts',
-
-    # all-auth
     'django.contrib.sites',
-    'allauth',
-    'allauth.account',  
-    
+]
+
+THIRD_PARTY_APPS = [
     # admin
     'admin_auto_filters',
-    'django.contrib.admin',
-
-    # rest framework
-    'rest_framework',
-    'django_filters',
-
-    # registration
-    'rest_framework.authtoken',
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
-
+    # all-auth
+    'allauth',
+    'allauth.account',  
     # social login
     'allauth.socialaccount',
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.google',
-  
-    # ---------------------------------- openwisp 
-    'openwisp_users',
-    'openwisp_radius',
-    'openwisp_utils',
+    # rest framework
+    'rest_framework',
+    'django_filters',
+    # registration
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+    'rest_framework.authtoken', 
+    #
     'private_storage',
     'drf_yasg',
-
-    'testing_app',   
-    'gmtisp_enduser',
-    'gmtisp_billing',
     'related_admin',
-    'ordered_model',
-    
-    # other
     'django_extensions',
     # 'integrations',
     'djangosaml2',
 ]
 
-LOGIN_REDIRECT_URL = 'admin:index'
+LOCAL_APPS = [
+    # openwisp admin theme must come before the django admin in order to override the admin login page
+    'openwisp_utils.admin_theme',
+    'openwisp_users.accounts',
+    'openwisp_users',
+    'openwisp_radius',
+    'openwisp_utils',
+    #
+    'testing_app',   
+    'gmtisp_enduser',
+    'gmtisp_billing', 
+]
+
+# https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+INSTALLED_APPS += ['django.contrib.admin',]
 
 AUTHENTICATION_BACKENDS = (
     'openwisp_users.backends.UsersAuthenticationBackend',
-    'openwisp_radius.saml.backends.OpenwispRadiusSaml2Backend',
+    'openwisp_radius.saml.backends.OpenwispRadiusSaml2Backend', # Single Sign-On (SAML) feature.
     'sesame.backends.ModelBackend',
 )
 
@@ -116,6 +109,8 @@ MIDDLEWARE = [
     'djangosaml2.middleware.SamlSessionMiddleware',
     'openwisp_users.middleware.PasswordExpirationMiddleware',
 ]
+if DEBUG:
+    MIDDLEWARE.append('debug_toolbar.middleware.DebugToolbarMiddleware')
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'openwisp_users.password_validation.PasswordReuseValidator'}
@@ -147,39 +142,39 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'openwisp_utils.admin_theme.context_processor.menu_groups',
-                # 'plans.context_processors.account_status'
+                'gmtisp_billing.context_processors.account_status',
                 # For test
-                'openwisp_utils.admin_theme.context_processor.admin_theme_settings',
+                # 'openwisp_utils.admin_theme.context_processor.admin_theme_settings',
                 # 'openwisp_utils.context_processors.test_theme_helper',
             ],
         },
     }
 ]
 
-# ------------------------------------------------------------------------------ database
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-#         'ATOMIC_REQUESTS': True,
-#     }
-# }
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': ':memory:', #for testing
-#     }
-# }
+# database
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ATOMIC_REQUESTS': True,
+    }
+}
 
-try:
-    from .db import *
-except ImportError:
-    pass
+if TESTING:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
 
+# try:
+#     from .db import *
+# except ImportError:
+#     pass
 # ------------------------------------------------------------------------------ end database
 
-
-# ------------------------------------------------------------------------------ logging
+# logging
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -214,11 +209,6 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-        'gmtisp_billing': {
             'handlers': ['file', 'console'],
             'level': 'DEBUG',
             'propagate': True,
@@ -266,10 +256,9 @@ if not TESTING and SHELL:
             'propagate': False,
         },
     }
-
 # ------------------------------------------------------------------------------ end logging
 
-# AUTH_PASSWORD_VALIDATORS = [] # WARNING: for development only!
+AUTH_PASSWORD_VALIDATORS = [] # WARNING: for development only!
 
 LANGUAGE_CODE = 'en-gb'
 TIME_ZONE = 'America/Asuncion'  # used to replicate timezone related bug, do not change!
@@ -299,6 +288,7 @@ NOTIFY_EMAIL = env('NOTIFY_EMAIL')
 EMAIL_TIMEOUT = 5
 EMAIL_PORT = '1025'
 
+ADMINS = [('Kwame Amissah', 'me@gmail.com'),]
 
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
@@ -432,38 +422,6 @@ else:
 
 OPENWISP_USERS_AUTH_API = True
 
-# if os.environ.get('SAMPLE_APP', False):
-#     INSTALLED_APPS.remove('openwisp_radius')
-#     INSTALLED_APPS.append('openwisp_radius')
-#     INSTALLED_APPS.remove('openwisp_users')
-#     INSTALLED_APPS.append('openwisp_users')
-#     EXTENDED_APPS = ('openwisp_utils', 'openwisp_users', 'plans')
-#     OPENWISP_USERS_GROUP_MODEL = 'openwisp_users.Group'
-#     OPENWISP_USERS_ORGANIZATION_MODEL = 'openwisp_users.Organization'
-#     OPENWISP_USERS_ORGANIZATIONUSER_MODEL = 'openwisp_users.OrganizationUser'
-#     OPENWISP_USERS_ORGANIZATIONOWNER_MODEL = 'openwisp_users.OrganizationOwner'
-#     OPENWISP_USERS_ORGANIZATIONINVITATION_MODEL = 'openwisp_users.OrganizationInvitation'
-#     OPENWISP_RADIUS_RADIUSREPLY_MODEL = 'openwisp_radius.RadiusReply'
-#     OPENWISP_RADIUS_RADIUSGROUPREPLY_MODEL = 'openwisp_radius.RadiusGroupReply'
-#     OPENWISP_RADIUS_RADIUSCHECK_MODEL = 'openwisp_radius.RadiusCheck'
-#     OPENWISP_RADIUS_RADIUSGROUPCHECK_MODEL = 'openwisp_radius.RadiusGroupCheck'
-#     OPENWISP_RADIUS_RADIUSACCOUNTING_MODEL = 'openwisp_radius.RadiusAccounting'
-#     OPENWISP_RADIUS_NAS_MODEL = 'openwisp_radius.Nas'
-#     OPENWISP_RADIUS_RADIUSUSERGROUP_MODEL = 'openwisp_radius.RadiusUserGroup'
-#     OPENWISP_RADIUS_REGISTEREDUSER_MODEL = 'openwisp_radius.RadiusUserGroup'
-#     OPENWISP_RADIUS_RADIUSPOSTAUTH_MODEL = 'openwisp_radius.RadiusPostAuth'
-#     OPENWISP_RADIUS_RADIUSBATCH_MODEL = 'openwisp_radius.RadiusBatch'
-#     OPENWISP_RADIUS_RADIUSGROUP_MODEL = 'openwisp_radius.RadiusGroup'
-#     OPENWISP_RADIUS_RADIUSTOKEN_MODEL = 'openwisp_radius.RadiusToken'
-#     OPENWISP_RADIUS_PHONETOKEN_MODEL = 'openwisp_radius.PhoneToken'
-#     OPENWISP_RADIUS_REGISTEREDUSER_MODEL = 'openwisp_radius.RegisteredUser'
-#     OPENWISP_RADIUS_ORGANIZATIONRADIUSSETTINGS_MODEL = (
-#         'openwisp_radius.OrganizationRadiusSettings'
-#     )
-#     # Rename sample_app database
-#     DATABASES['default']['NAME'] = os.path.join(BASE_DIR, 'openwisp_radius.db')
-#     CELERY_IMPORTS = ('openwisp_radius.tasks', 'openwisp_notifications.tasks')
-
 OPENWISP_ADMIN_THEME_LINKS = [
     {
         'type': 'text/css',
@@ -485,7 +443,6 @@ OPENWISP_ADMIN_THEME_LINKS = [
 ]
 OPENWISP_ADMIN_THEME_JS = ['dummy.js']
 
-
 if os.environ.get('SAMPLE_APP', False) and TESTING:
     # Required for openwisp-users tests
     OPENWISP_ORGANIZATION_USER_ADMIN = True
@@ -506,14 +463,13 @@ try:
 except ImportError:
     pass
 
-
-# ------------------------------------------------------------------ admin
+# admin site interface
 OPENWISP_ADMIN_SITE_HEADER = 'GMTISP'
 OPENWISP_ADMIN_SITE_TITLE = 'GMTISP Admin'
 
+# BASE_URL='http://127.0.0.1:8000'
 
-
-# ------------------------------------------------------------------ testing_app
+# testing_app
 OPENWISP_ADMIN_SITE_CLASS = 'testing_app.site.CustomAdminSite'
 # only for automated test purposes
 REST_FRAMEWORK = {
@@ -532,20 +488,10 @@ CACHES = {
     }
 }
 OPENWISP_TEST_ADMIN_MENU_ITEMS = [{'model': 'testing_app.Project'}]
+# ------------------------------------------------------------------ end testing_app
 
-
-
-# ------------------------------------------------------------------ plans
-PLANS_PLAN_MODEL = 'plans.Plan'
-PLANS_BILLINGINFO_MODEL = 'plans.BillingInfo'
-PLANS_USERPLAN_MODEL = 'plans.UserPlan'
-PLANS_PRICING_MODEL = 'plans.Pricing'
-PLANS_PLANPRICING_MODEL = 'plans.PlanPricing'
-PLANS_QUOTA_MODEL = 'plans.Quota'
-PLANS_PLANQUOTA_MODEL = 'plans.PlanQuota'
-PLANS_ORDER_MODEL = 'plans.Order'
-PLANS_INVOICE_MODEL = 'plans.Invoice'
-PLANS_RECURRINGUSERPLAN_MODEL = 'plans.RecurringUserPlan'
+# plans
+PLANS_ORDER_MODEL = 'gmtisp_billing.Order'
 
 # This is required for django-plans
 PLANS_INVOICE_ISSUER = {
@@ -560,13 +506,13 @@ PLANS_INVOICE_ISSUER = {
 PLANS_CURRENCY = 'EUR'
 ENABLE_FAKE_PAYMENTS = True
 PLANS_TAX = Decimal('23.0')
-PLANS_TAXATION_POLICY = 'plans.taxation.eu.EUTaxationPolicy'
+PLANS_TAXATION_POLICY = 'gmtisp_billing.taxation.eu.EUTaxationPolicy'
 PLANS_TAX_COUNTRY = 'PL'
 PLANS_DEFAULT_COUNTRY = 'CZ'
 PLANS_GET_COUNTRY_FROM_IP = True
 PLANS_VALIDATORS = {
-    'MAX_USERS': 'plans.validators.max_users_validator',
-    'MAX_PLAN_COUNT': 'plans.validators.max_plans_validator',
+    'MAX_USERS': 'gmtisp_billing.validators.max_users_validator',
+    'MAX_PLAN_COUNT': 'gmtisp_billing.validators.max_plans_validator',
 }
 PLANS_VALIDATION = True
 PLANS_VALIDATION_PERIOD = 30
@@ -580,15 +526,112 @@ PLANS_ORDER_EXPIRATION = 14
 PLANS_EXPIRATION_REMIND = [1, 3 , 7] # User will receive notification before 7, 3 and 1 day to account expire.
 PLANS_DEFAULT_GRACE_PERIOD = 30 # New account default plan expiration period counted in days.
 SEND_PLANS_EMAILS = True
+# ------------------------------------------------------------------ end plans
 
-
-
-# ------------------------------------------------------------------ plans payments
+# plans payments
 from typing import Dict, Tuple
 
-PAYMENT_MODEL = 'plans.Payment'
-
+PAYMENT_MODEL = 'gmtisp_billing.Payment'
 PAYMENT_VARIANTS: Dict[str, Tuple[str, Dict]] = {
     'default': ('payments.dummy.DummyProvider', {}),
 }
+# ------------------------------------------------------------------ end plans payments
 
+# debug_toolbar
+if DEBUG:
+    INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
+    
+    # Rearrange DEBUG_TOOLBAR_PANELS
+    DEBUG_TOOLBAR_PANELS = [
+        'debug_toolbar.panels.versions.VersionsPanel',
+        'debug_toolbar.panels.timer.TimerPanel',
+        'debug_toolbar.panels.settings.SettingsPanel',
+        'debug_toolbar.panels.headers.HeadersPanel',
+        'debug_toolbar.panels.request.RequestPanel',
+        'debug_toolbar.panels.sql.SQLPanel',
+        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+        'debug_toolbar.panels.templates.TemplatesPanel',
+        'debug_toolbar.panels.cache.CachePanel',
+        'debug_toolbar.panels.signals.SignalsPanel',
+        'debug_toolbar.panels.logging.LoggingPanel',
+        'debug_toolbar.panels.redirects.RedirectsPanel',
+    ]
+
+    def show_toolbar(request):
+        return True
+
+    DEBUG_TOOLBAR_CONFIG = {
+        'DISABLE_PANELS': ['debug_toolbar.panels.redirects.RedirectsPanel'], 
+        'SHOW_TEMPLATE_CONTEXT': True,
+        'INTERCEPT_REDIRECTS': False,
+        'SHOW_TOOLBAR_CALLBACK': show_toolbar
+    }
+# ------------------------------------------------------------------ end debug_toolbar
+
+
+
+
+
+
+# ------------------------------------------------------------------ production
+if not DEBUG:
+    # Load secret key and sensitive data from environment variables
+    SECRET_KEY = env.str("SECRET_KEY_LIVE")
+    PAYPAL_CLIENT_ID = env('PAYPAL_LIVE_CLIENT_ID')
+    PAYPAL_SECRET_KEY = env('PAYPAL_LIVE_SECRET_KEY')
+
+    # Restrict allowed hosts
+    ALLOWED_HOSTS = env.list("ALLOWED_HOSTS_LIVE", default=['example.com'])
+
+    # Enforce SSL/TLS settings
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # HTTP Strict Transport Security (HSTS)
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Content security policies
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+
+    # Frame Denial
+    SECURE_FRAME_DENY = env.bool("SECURE_FRAME_DENY", default=True)
+
+    # Redirect Exempt
+    SECURE_REDIRECT_EXEMPT = []
+
+    # CORS settings
+    CORS_REPLACE_HTTPS_REFERER = env.bool("CORS_REPLACE_HTTPS_REFERER", default=True)
+
+    # Scheme for absolute URLs
+    HOST_SCHEME = "https://"
+
+    # Logging configuration
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "mail_admins": {
+                "level": "ERROR",
+                "class": "django.utils.log.AdminEmailHandler",
+                "include_html": True,
+            },
+            "console": {
+                "level": "DEBUG",
+                "class": "logging.StreamHandler",
+            },
+        },
+        "loggers": {
+            "django": {
+                "handlers": ["console", "mail_admins"],
+                "level": "ERROR",
+                "propagate": True,
+            },
+        },
+    }
+
+    # Other settings...

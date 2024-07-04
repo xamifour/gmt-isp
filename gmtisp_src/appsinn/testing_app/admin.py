@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from openwisp_utils.admin import (
     AlwaysHasChangedMixin,
     HelpTextStackedInline,
-    # ReadOnlyAdmin,
+    ReadOnlyAdmin,
     ReceiveUrlAdmin,
     TimeReadonlyAdminMixin,
     UUIDAdmin,
@@ -16,14 +16,29 @@ from openwisp_utils.admin_theme.filters import (
     SimpleInputFilter,
 )
 
+from openwisp_users.multitenancy import (
+    MultitenantAdminMixin,
+    MultitenantOrgFilter,
+    MultitenantRelatedOrgFilter,
+)
+
 from .models import (
     Book,
     Operator,
     Project,
     Shelf,
+    Library, 
+    Tag, 
+    Template,
+    OrganizationRadiusSettings,
+    RadiusAccounting,
 )
 
 # admin.site.unregister(User)
+
+
+class BaseAdmin(MultitenantAdminMixin, admin.ModelAdmin):
+    pass
 
 
 class AutoShelfFilter(AutocompleteFilter):
@@ -45,22 +60,10 @@ class UserAdmin(admin.ModelAdmin):
     search_fields = ('username',)
 
 
-@admin.register(Book)
-class BookAdmin(admin.ModelAdmin):
-    list_filter = [AutoShelfFilter, 'name']
-    search_fields = ['name']
-
-
 @admin.register(Operator)
 class OperatorAdmin(admin.ModelAdmin):
     list_display = ['first_name', 'last_name']
     list_filter = ['project__name']  # DO NOT CHANGE: used for testing filters
-
-
-# @admin.register(RadiusAccounting)
-# class RadiusAccountingAdmin(ReadOnlyAdmin):
-#     list_display = ['session_id', 'username']
-#     fields = ['session_id', 'username']
 
 
 class OperatorForm(AlwaysHasChangedMixin, ModelForm):
@@ -86,14 +89,6 @@ class ProjectAdmin(UUIDAdmin, ReceiveUrlAdmin):
     receive_url_name = 'receive_project'
 
 
-class ShelfFilter(SimpleInputFilter):
-    parameter_name = 'shelf'
-    title = _('Shelf')
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            return queryset.filter(name__icontains=self.value())
-
 
 class ReverseBookFilter(AutocompleteFilter):
     title = _('Book')
@@ -107,10 +102,35 @@ class AutoOwnerFilter(AutocompleteFilter):
     parameter_name = 'owner_id'
 
 
-@admin.register(Shelf)
-class ShelfAdmin(TimeReadonlyAdminMixin, admin.ModelAdmin):
+# @admin.register(RadiusAccounting)
+# class RadiusAccountingAdmin(ReadOnlyAdmin):
+#     list_display = ['session_id', 'username']
+#     fields = ['session_id', 'username']
+
+
+# @admin.register(OrganizationRadiusSettings)
+# class OrganizationRadiusSettingsAdmin(admin.ModelAdmin):
+#     pass
+
+
+class ShelfFilter(MultitenantRelatedOrgFilter):
+    field_name = 'shelf'
+    parameter_name = 'shelf'
+    title = _('Shelf')
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(name__icontains=self.value())
+
+
+class ShelfAdmin(TimeReadonlyAdminMixin, BaseAdmin):
     # DO NOT CHANGE: used for testing filters
+    list_display = ['name', 'organization']
+    fields = ['name', 'organization', 'tags', 'created', 'modified']
+    search_fields = ['name']
+    multitenant_shared_relations = ['tags']
     list_filter = [
+        MultitenantOrgFilter,
         ShelfFilter,
         ['books_type', InputFilter],
         ['id', InputFilter],
@@ -118,9 +138,52 @@ class ShelfAdmin(TimeReadonlyAdminMixin, admin.ModelAdmin):
         'books_type',
         ReverseBookFilter,
     ]
-    search_fields = ['name']
 
 
-# @admin.register(OrganizationRadiusSettings)
-# class OrganizationRadiusSettingsAdmin(admin.ModelAdmin):
-#     pass
+class BookAdmin(BaseAdmin):
+    list_display = ['name', 'author', 'organization', 'shelf']
+    list_filter = [
+        'name',
+        MultitenantOrgFilter,
+        ShelfFilter,
+        AutoShelfFilter,
+    ]
+    fields = ['name', 'author', 'organization', 'shelf', 'created', 'modified']
+    multitenant_shared_relations = ['shelf']
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context.update(
+            {
+                'additional_buttons': [
+                    {
+                        'type': 'button',
+                        'url': 'DUMMY',
+                        'class': 'previewbook',
+                        'value': 'Preview book',
+                    },
+                    {
+                        'type': 'button',
+                        'url': 'DUMMY',
+                        'class': 'downloadbook',
+                        'value': 'Download book',
+                    },
+                ]
+            }
+        )
+        return super().change_view(request, object_id, form_url, extra_context)
+
+
+class TemplateAdmin(BaseAdmin):
+    pass
+
+
+class TagAdmin(BaseAdmin):
+    pass
+
+
+admin.site.register(Shelf, ShelfAdmin)
+admin.site.register(Book, BookAdmin)
+admin.site.register(Template, TemplateAdmin)
+admin.site.register(Library)
+admin.site.register(Tag, TagAdmin)

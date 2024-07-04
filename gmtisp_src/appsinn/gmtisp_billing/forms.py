@@ -4,7 +4,21 @@ from django.forms.widgets import HiddenInput
 from django.utils.translation import gettext
 
 from .utils import get_country_code
-from .models import BillingInfo, Order, PlanPricing
+from .models import Plan, BillingInfo, Order, PlanPricing
+
+
+
+# class PlanForm(forms.ModelForm):
+#     class Meta:
+#         model = Plan
+#         fields = '__all__'  # Use __all__ to include all fields from the model
+
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         instance = kwargs.get('instance')
+#         if instance:  # Edit mode
+#             self.fields['name'].widget.attrs['readonly'] = True
+#             self.fields['slug'].widget.attrs['readonly'] = True
 
 
 class OrderForm(forms.Form):

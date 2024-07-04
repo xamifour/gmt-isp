@@ -1,8 +1,6 @@
 from django.core.management import BaseCommand
 
-from .base.models import AbstractUserPlan
-
-UserPlan = AbstractUserPlan.get_concrete_model()
+from ...models import UserPlan
 
 
 class Command(BaseCommand):

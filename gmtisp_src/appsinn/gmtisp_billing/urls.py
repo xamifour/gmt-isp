@@ -17,9 +17,9 @@ from .views import (
     PricingView,
     RedirectToBilling,
     UpgradePlanView,
-    # FakePaymentsView,
-    # CreatePaymentView, 
-    # PaymentDetailView,
+    FakePaymentsView,
+    CreatePaymentView, 
+    PaymentDetailView,
 )
 
 
@@ -40,17 +40,17 @@ urlpatterns = [
     path('redirect~to~billing/', RedirectToBilling.as_view(), name='redirect_to_billing'),
     path('billing~info~delete/', BillingInfoDeleteView.as_view(), name='billing_info_delete'),
     path('invoice/<int:pk>/', InvoiceDetailView.as_view(), name='invoice_detail'),
-    # path('fake~payments/', FakePaymentsView.as_view(), name='fake_payments'),
+    path('fake~payments/', FakePaymentsView.as_view(), name='fake_payments'),
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Plan payment
-    # path('payment~details/<int:payment_id>/', PaymentDetailView.as_view(),name='payment_details'),
-    # path('create~payment/<str:payment_variant>/<int:order_id>/', CreatePaymentView.as_view(), name='create_payment'),
+    path('payment~details/<int:payment_id>/', PaymentDetailView.as_view(),name='payment_details'),
+    path('create~payment/<str:payment_variant>/<int:order_id>/', CreatePaymentView.as_view(), name='create_payment'),
 
 ]
 
-# if getattr(settings, 'DEBUG', False) or getattr(settings, 'ENABLE_FAKE_PAYMENTS', True):
-#     urlpatterns += [
-#         path(
-#             'fakepayments/<int:pk>/', FakePaymentsView.as_view(), name='fake_payments'
-#         ),
-#     ]
+if getattr(settings, 'DEBUG', False) or getattr(settings, 'ENABLE_FAKE_PAYMENTS', True):
+    urlpatterns += [
+        path(
+            'fakepayments/<int:pk>/', FakePaymentsView.as_view(), name='fake_payments'
+        ),
+    ]

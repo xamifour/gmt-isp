@@ -1,7 +1,7 @@
 # 2. create Variables
 # DATABASE="testdb"
-USERNAME="radius"
-PASSWORD="aaaAAA123"
+# USERNAME="radius"
+# PASSWORD="aaaAAA123"
 
 
 # # 3. Create database if it doesn't exist, and grant privileges
@@ -22,11 +22,11 @@ PASSWORD="aaaAAA123"
 
 # echo "User $USERNAME created and granted privileges on $DATABASE."
 
-DATABASES=("db_gies" "db_gigmeg" "db_gmtisp")
+# DATABASES=("db_gies" "db_gigmeg" "db_gmtisp")
 
-# Create user and grant privileges
-psql -U postgres <<EOF
-$(for db in "${DATABASES[@]}"; do echo "GRANT ALL PRIVILEGES ON DATABASE $db TO $USERNAME;"; done)
-EOF
+# # Create user and grant privileges
+# psql -U postgres <<EOF
+# $(for db in "${DATABASES[@]}"; do echo "GRANT ALL PRIVILEGES ON DATABASE $db TO $USERNAME;"; done)
+# EOF
 
-echo "User $USERNAME created and granted privileges on ${DATABASES[*]}."
+# echo "User $USERNAME created and granted privileges on ${DATABASES[*]}."

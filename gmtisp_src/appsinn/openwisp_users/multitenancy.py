@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
+
 from openwisp_utils.admin_theme.filters import AutocompleteFilter
 from swapper import load_model
 
@@ -10,36 +11,31 @@ User = get_user_model()
 OrganizationUser = load_model('openwisp_users', 'OrganizationUser')
 
 
-class MultitenantAdminMixin(object):
+class MultitenantAdminMixin:
     """
-    Mixin that makes a ModelAdmin class multitenant:
-    users will see only the objects related to the organizations
+    Mixin to make a ModelAdmin class multitenant.
+    Users will see only the objects related to the organizations
     they are associated with.
     """
-
-    multitenant_shared_relations = None
+    
+    multitenant_shared_relations = None  # List of related fields that should be considered shared across organizations.
     multitenant_parent = None
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize the mixin, ensuring shared relations are set.
+        """
         super().__init__(*args, **kwargs)
         parent = self.multitenant_parent
         shared_relations = self.multitenant_shared_relations or []
-        # copy to avoid modifying class attribute
-        shared_relations = list(shared_relations)
-        # add multitenant_parent to multitenant_shared_relations if necessary
+        shared_relations = list(shared_relations) # copy to avoid modifying class attribute
         if parent and parent not in shared_relations:
-            shared_relations.append(parent)
+            shared_relations.append(parent) # add multitenant_parent to multitenant_shared_relations if necessary
         self.multitenant_shared_relations = shared_relations
-
-    def get_repr(self, obj):
-        return str(obj)
-
-    get_repr.short_description = _('name')
 
     def get_queryset(self, request):
         """
-        If current user is not superuser, show only the
-        objects associated to organizations he/she is associated with
+        Return queryset filtered by the user's associated organizations.
         """
         qs = super().get_queryset(request)
         user = request.user
@@ -54,17 +50,29 @@ class MultitenantAdminMixin(object):
         elif not self.multitenant_parent:
             return qs
         else:
-            qsarg = '{0}__organization__in'.format(self.multitenant_parent)
+            qsarg = f'{self.multitenant_parent}__organization__in'
             return qs.filter(**{qsarg: user.organizations_managed})
+
+    def multitenant_behaviour_for_user_admin(self, request):
+        """
+        Filter users based on the operator's managed organizations and hide superusers.
+        """
+        user = request.user
+        qs = super().get_queryset(request)
+        if user.is_superuser:
+            return qs
+        user_ids = (
+            OrganizationUser.objects.filter(
+                organization_id__in=user.organizations_managed
+            )
+            .values_list('user_id', flat=True) 
+            .distinct()
+        )
+        return qs.filter(id__in=user_ids, is_superuser=False)
 
     def _edit_form(self, request, form):
         """
-        Modifies the form querysets as follows;
-        if current user is not superuser:
-            * show only relevant organizations
-            * show only relations associated to relevant organizations
-              or shared relations
-        else show everything
+        Modify form querysets to show only relevant organizations and relations.
         """
         fields = form.base_fields
         user = request.user
@@ -73,61 +81,34 @@ class MultitenantAdminMixin(object):
             org_field.empty_label = SHARED_SYSTEMWIDE_LABEL
         elif not user.is_superuser:
             orgs_pk = user.organizations_managed
-            # organizations relation;
-            # may be readonly and not present in field list
             if org_field:
                 org_field.queryset = org_field.queryset.filter(pk__in=orgs_pk)
                 org_field.empty_label = None
-            # other relations
             q = Q(organization__in=orgs_pk) | Q(organization=None)
             for field_name in self.multitenant_shared_relations:
-                # each relation may be readonly
-                # and not present in field list
-                if field_name not in fields:
-                    continue
-                field = fields[field_name]
-                field.queryset = field.queryset.filter(q)
+                if field_name in fields:
+                    fields[field_name].queryset = fields[field_name].queryset.filter(q)
 
     def get_form(self, request, obj=None, **kwargs):
+        """
+        Return the form, modified for multitenant behavior.
+        """
         form = super().get_form(request, obj, **kwargs)
         self._edit_form(request, form)
         return form
 
     def get_formset(self, request, obj=None, **kwargs):
+        """
+        Return the formset, modified for multitenant behavior.
+        """
         formset = super().get_formset(request, obj=None, **kwargs)
         self._edit_form(request, formset.form)
         return formset
 
-    def multitenant_behaviour_for_user_admin(self, request):
-        """
-        if operator is logged in - show only users
-        from same organization and hide superusers
-        if superuser is logged in - show all users
-        """
-        user = request.user
-        qs = super().get_queryset(request)
-        if user.is_superuser:
-            return qs
-        # Instead of querying the User model using the many-to-many relation
-        # openwisp_users__organizationuser__organization, a separate query is
-        # made to fetch users of organizations managed by the logged-in user.
-        # This approach avoids duplicate objects for users that are admin of
-        # multiple organizations managed by the logged-in user.
-        # See https://github.com/openwisp/openwisp-users/issues/324.
-        # We cannot use .distinct() on the User query directly, because
-        # it causes issues when performing delete action from the admin.
-        user_ids = (
-            OrganizationUser.objects.filter(
-                organization_id__in=user.organizations_managed
-            )
-            .values_list('user_id')
-            .distinct()
-        )
-        # hide superusers from organization operators
-        # so they can't edit nor delete them
-        return qs.filter(id__in=user_ids, is_superuser=False)
-
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """
+        Customize the form field for foreign keys to use the organization autocomplete widget.
+        """
         if db_field.name == 'organization':
             kwargs['widget'] = OrganizationAutocompleteSelect(
                 db_field, self.admin_site, using=kwargs.get('using')
