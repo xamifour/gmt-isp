@@ -1,0 +1,7 @@
+{% extends 'gmtisp_billing/base.html' %}
+{% load i18n %}
+
+{% block content %}
+    <h2>{% trans "See our great value plans" %}</h2>
+    {% include "gmtisp_billing/plans/plan_table.html" %}
+{% endblock %}

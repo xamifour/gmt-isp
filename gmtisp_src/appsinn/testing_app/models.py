@@ -6,12 +6,43 @@ from openwisp_utils.base import (
     FallbackModelMixin,
     KeyField,
     TimeStampedEditableModel,
-    UUIDModel,
 )
-from openwisp_utils.fields import FallbackPositiveIntegerField
+from openwisp_utils.fields import (
+    FallbackBooleanChoiceField,
+    FallbackCharChoiceField,
+    FallbackCharField,
+    FallbackPositiveIntegerField,
+    FallbackTextField,
+    FallbackURLField,
+)
+from openwisp_users.mixins import OrgMixin, ShareableOrgMixin
+
+class Template(ShareableOrgMixin):
+    name = models.CharField(max_length=16)
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        self._validate_org_reverse_relation('config_set')
 
 
-class Shelf(FallbackModelMixin, TimeStampedEditableModel):
+class Config(OrgMixin):
+    name = models.CharField(max_length=16)
+    template = models.ForeignKey(Template, blank=True, null=True, on_delete=models.CASCADE)
+
+    def clean(self):
+        self._validate_org_relation('template')
+
+
+class Tag(ShareableOrgMixin):
+    name = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Shelf(ShareableOrgMixin, FallbackModelMixin, TimeStampedEditableModel):
     TYPES = (
         ('HORROR', 'HORROR'),
         ('FANTASY', 'FANTASY'),
@@ -26,26 +57,11 @@ class Shelf(FallbackModelMixin, TimeStampedEditableModel):
         ('Biographies', 'Biographies'),
     )
     name = models.CharField(_('name'), max_length=64)
-    books_type = models.CharField(
-        _("Type of book"), choices=TYPES, null=True, blank=True, max_length=50
-    )
-    books_count = FallbackPositiveIntegerField(
-        blank=True,
-        null=True,
-        fallback=21,
-        verbose_name=_("Number of books"),
-    )
+    books_type = models.CharField(_("Type of book"), choices=TYPES, null=True, blank=True, max_length=50)
+    books_count = FallbackPositiveIntegerField(blank=True, null=True, fallback=21, verbose_name=_("Number of books"))
     locked = models.BooleanField(_("Is locked"), default=True)
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        blank=True,
-        null=True,
-        verbose_name=_("Owner of shelf"),
-        on_delete=models.CASCADE,
-    )
-    created_at = models.DateTimeField(
-        _("Create at"), null=True, blank=True, auto_now_add=True
-    )
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, verbose_name=_("Owner of shelf"), on_delete=models.CASCADE)
+    created_at = models.DateTimeField(_("Create at"), null=True, blank=True, auto_now_add=True)
 
     def __str__(self):
         return self.name
@@ -59,10 +75,10 @@ class Shelf(FallbackModelMixin, TimeStampedEditableModel):
         return self
 
 
-class Book(TimeStampedEditableModel):
+class Book(OrgMixin, TimeStampedEditableModel):
     name = models.CharField(_('name'), max_length=64)
     author = models.CharField(_('author'), max_length=64)
-    shelf = models.ForeignKey('testing_app.Shelf', on_delete=models.CASCADE)
+    shelf = models.ForeignKey('testing_app.Shelf', on_delete=models.CASCADE, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -71,7 +87,16 @@ class Book(TimeStampedEditableModel):
         abstract = False
 
 
-class Project(UUIDModel):
+class Library(OrgMixin, models.Model):
+    name = models.CharField(_('name'), max_length=64)
+    address = models.TextField(null=True, blank=True)
+    book = models.ForeignKey('testing_app.Book', on_delete=models.CASCADE, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Project(OrgMixin, models.Model):
     name = models.CharField(max_length=64, null=True, blank=True)
     key = KeyField(unique=True, db_index=True, help_text=_('unique project key'))
 
@@ -79,10 +104,26 @@ class Project(UUIDModel):
         return self.name
 
 
-class Operator(models.Model):
+class Operator(OrgMixin, TimeStampedEditableModel):
     first_name = models.CharField(max_length=30, default='test')
     last_name = models.CharField(max_length=30, default='test')
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, blank=True)
+    project = models.ForeignKey('Project', on_delete=models.CASCADE, blank=True)
 
     def __str__(self):
         return self.first_name
+
+
+class RadiusAccounting(models.Model):
+    id = models.BigAutoField(primary_key=True, db_column='radacctid')
+    session_id = models.CharField(verbose_name=_('session ID'), max_length=64, db_column='acctsessionid', db_index=True)
+    username = models.CharField(verbose_name=_('username'), max_length=64, db_index=True, null=True, blank=True)
+    start_time = models.DateTimeField(verbose_name=_('start time'), null=True, blank=True)
+    stop_time = models.DateTimeField(verbose_name=_('stop time'), null=True, blank=True)
+
+
+class OrganizationRadiusSettings(OrgMixin, FallbackModelMixin, models.Model):
+    is_active = FallbackBooleanChoiceField(null=True, blank=True, default=None, fallback=False)
+    is_first_name_required = FallbackCharChoiceField(null=True, blank=True, max_length=32, choices=(('disabled', _('Disabled')), ('allowed', _('Allowed')), ('mandatory', _('Mandatory'))), fallback='disabled')
+    greeting_text = FallbackCharField(null=True, blank=True, max_length=200, fallback='Welcome to OpenWISP!')
+    password_reset_url = FallbackURLField(null=True, blank=True, max_length=200, fallback='http://localhost:8000/admin/password_change/')
+    extra_config = FallbackTextField(null=True, blank=True, max_length=200, fallback='no data')

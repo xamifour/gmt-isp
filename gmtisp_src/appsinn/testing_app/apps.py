@@ -16,7 +16,7 @@ from openwisp_utils.utils import register_menu_items
 
 
 class TestingAppConfig(ApiAppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
+    # default_auto_field = 'django.db.models.BigAutoField'
     name = 'testing_app'
     label = 'testing_app'
     verbose_name = 'Test App'
@@ -247,7 +247,7 @@ class TestingAppConfig(ApiAppConfig):
         register_menu_group(position=33, config=docs_config)
         register_menu_subitem(
             group_position=33,
-            item_position=21,
+            item_position=31,
             config={
                 'label': _('Code'),
                 'url': 'https://openwisp.org/thecode.html',

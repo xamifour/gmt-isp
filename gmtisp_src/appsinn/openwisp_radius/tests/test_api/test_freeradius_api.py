@@ -38,7 +38,7 @@ OrganizationUser = swapper.load_model('openwisp_users', 'OrganizationUser')
 START_DATE = '2019-04-20T22:14:09+01:00'
 _AUTH_TYPE_ACCEPT_RESPONSE = {
     'control:Auth-Type': 'Accept',
-    'ChilliSpot-Max-Total-Octets': 3000000000,
+    'CoovaChilli-Max-Total-Octets': 3000000000,
     'Session-Timeout': 10800,
 }
 _AUTH_TYPE_REJECT_RESPONSE = {'control:Auth-Type': 'Reject'}
@@ -469,7 +469,7 @@ class TestFreeradiusApi(AcctMixin, ApiTokenMixin, BaseTestCase):
                 self.assertEqual(response.status_code, 200)
                 expected = _AUTH_TYPE_ACCEPT_RESPONSE.copy()
                 expected['Session-Timeout'] = 1200
-                expected['ChilliSpot-Max-Total-Octets'] = 1200
+                expected['CoovaChilli-Max-Total-Octets'] = 1200
                 self.assertEqual(response.data, expected)
 
         with self.subTest('remaining higher than reply'):
@@ -493,9 +493,10 @@ class TestFreeradiusApi(AcctMixin, ApiTokenMixin, BaseTestCase):
                 }
                 self.assertEqual(response.data, expected)
 
+        original_reply_value = reply.value
         with self.subTest('incorrect reply value'):
             reply.value = 'broken'
-            reply.save()
+            reply.save(update_fields=['value'])
             mocked_check.return_value = 1200
             with mock.patch.object(freeradius_api_logger, 'warning') as mocked_warning:
                 response = self._authorize_user(auth_header=self.auth_header)
@@ -506,8 +507,20 @@ class TestFreeradiusApi(AcctMixin, ApiTokenMixin, BaseTestCase):
             self.assertEqual(response.status_code, 200)
             expected = _AUTH_TYPE_ACCEPT_RESPONSE.copy()
             expected['Session-Timeout'] = 10800
-            expected['ChilliSpot-Max-Total-Octets'] = 3000000000
+            expected['CoovaChilli-Max-Total-Octets'] = 3000000000
             self.assertEqual(response.data, expected)
+        reply.value = original_reply_value
+        reply.save(update_fields=['value'])
+
+        with self.subTest('remaining is None'):
+            with mock.patch(_BASE_COUNTER_CHECK) as mocked_check:
+                mocked_check.return_value = None
+                response = self._authorize_user(auth_header=self.auth_header)
+                self.assertEqual(mocked_check.call_count, 2)
+                expected = _AUTH_TYPE_ACCEPT_RESPONSE.copy()
+                expected['Session-Timeout'] = {'op': '=', 'value': '3600'}
+                del expected['CoovaChilli-Max-Total-Octets']
+                self.assertEqual(response.data, expected)
 
     def test_postauth_accept_201(self):
         self.assertEqual(RadiusPostAuth.objects.all().count(), 0)
@@ -977,6 +990,41 @@ class TestFreeradiusApi(AcctMixin, ApiTokenMixin, BaseTestCase):
         self.assertEqual(ra.stop_time.timetuple(), now().timetuple())
         self.assertEqual(ra.start_time, start_time)
         self.assertAcctData(ra, data)
+
+    @freeze_time(START_DATE)
+    def test_accounting_stop_empty_octets(self):
+        self.assertEqual(RadiusAccounting.objects.count(), 0)
+        data = self.acct_post_data
+        data.update(
+            dict(
+                input_octets=9900909,
+                output_octets=1513075509,
+            )
+        )
+        ra = self._create_radius_accounting(**data)
+        ra.refresh_from_db()
+        start_time = ra.start_time
+        data = self.acct_post_data
+        data.update(
+            {
+                'status_type': 'Stop',
+                'terminate_cause': '',
+                'input_octets': '',
+                'output_octets': '',
+            }
+        )
+        data = self._get_accounting_params(**data)
+        response = self.post_json(data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.data)
+        self.assertEqual(RadiusAccounting.objects.count(), 1)
+        ra.refresh_from_db()
+        self.assertEqual(ra.update_time.timetuple(), now().timetuple())
+        self.assertEqual(ra.stop_time.timetuple(), now().timetuple())
+        self.assertEqual(ra.start_time, start_time)
+        self.assertEqual(ra.input_octets, 9900909)
+        self.assertEqual(ra.output_octets, 1513075509)
+        self.assertEqual(ra.session_time, 261)
 
     @freeze_time(START_DATE)
     @capture_any_output()
@@ -1542,7 +1590,7 @@ class TestMacAddressRoaming(AcctMixin, ApiTokenMixin, BaseTestCase):
                 {
                     'control:Auth-Type': 'Accept',
                     'Session-Timeout': 10539,
-                    'ChilliSpot-Max-Total-Octets': 1487813647,
+                    'CoovaChilli-Max-Total-Octets': 1487813647,
                 },
             )
         OrganizationRadiusSettings.objects.update(mac_addr_roaming_enabled=False)
@@ -1639,7 +1687,7 @@ class TestMacAddressRoaming(AcctMixin, ApiTokenMixin, BaseTestCase):
             {
                 'control:Auth-Type': 'Accept',
                 'Session-Timeout': 10800,
-                'ChilliSpot-Max-Total-Octets': 3000000000,
+                'CoovaChilli-Max-Total-Octets': 3000000000,
             },
         )
         # Start accounting session with first AP
