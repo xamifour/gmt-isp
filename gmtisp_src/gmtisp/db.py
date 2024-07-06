@@ -1,70 +1,99 @@
 import environ
 import logging
+import os
 from pathlib import Path
 
+# Initialize logger
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve(strict=True).parent
-
+# Determine base directory and load environment variables
+BASE_DIR = Path(__file__).resolve().parent
 env = environ.Env()
-env.read_env(BASE_DIR / '.env')  # Ensure the .env file is loaded
+env_file = BASE_DIR / '.env'
+env.read_env(str(env_file))  # Load environment variables from .env file
+
+def get_organization_slugs():
+    """
+    Fetches organization slugs dynamically based on environment variables.
+    Assumes organization slugs are defined as environment variables with '_DB_NAME' suffix.
+    """
+    slugs = []
+    # Iterate over os.environ to fetch all environment variables
+    for var_name, value in os.environ.items():
+        if var_name.endswith('_DB_NAME'):
+            slug = var_name[:-len('_DB_NAME')].lower().replace('_', '')  # Extract organization slug
+            slugs.append(slug)
+    return slugs
 
 def get_organization_db_config(organization):
     """
-    Fetch the database configuration for a specific organization from environment variables.
+    Fetches the database configuration for a specific organization from environment variables.
     """
-    try:
-        return {
-            # 'ENGINE': env(f"{organization.upper()}_DB_ENGINE"),
-            'ENGINE': env('POSTGRES_ENGINE'),
-            'NAME': env(f"{organization.upper()}_DB_NAME"),
-            'USER': env(f"{organization.upper()}_DB_USER"),
-            'PASSWORD': env(f"{organization.upper()}_DB_PASSWORD"),
-            'HOST': env(f"{organization.upper()}_DB_HOST"),
-            'PORT': env(f"{organization.upper()}_DB_PORT"),
-        }
-    except KeyError as e:
-        logger.error(f"Missing environment variable for {organization}: {e}")
-        raise
+    organization_vars = {
+        'ENGINE': env('POSTGRES_ENGINE'),
+        'NAME': env(f"{organization.upper()}_DB_NAME"),
+        'USER': env(f"{organization.upper()}_DB_USER"),
+        'PASSWORD': env(f"{organization.upper()}_DB_PASSWORD"),
+        'HOST': env(f"{organization.upper()}_DB_HOST"),
+        'PORT': int(env(f"{organization.upper()}_DB_PORT")),  # Convert PORT to integer if necessary
+    }
+    # Check for missing variables
+    missing_vars = [key for key, value in organization_vars.items() if not value]
+    if missing_vars:
+        missing_vars_str = ', '.join(missing_vars)
+        logger.error(f"Missing environment variables for {organization}: {missing_vars_str}")
+        raise KeyError(f"Missing environment variables for {organization}: {missing_vars}")
+    return organization_vars
 
 def get_default_db_config():
     """
-    Fetch the default database configuration from environment variables.
+    Fetches the default database configuration from environment variables.
     """
-    return {
+    default_vars = {
         'ENGINE': env('POSTGRES_ENGINE'),
         'NAME': env('DEFAULT_DB_NAME'),
         'USER': env('DEFAULT_DB_USER'),
         'PASSWORD': env('DEFAULT_DB_PASSWORD'),
         'HOST': env('DEFAULT_DB_HOST'),
-        'PORT': env('DEFAULT_DB_PORT'),
+        'PORT': int(env('DEFAULT_DB_PORT')),
     }
+    # Check for missing variables
+    missing_vars = [key for key, value in default_vars.items() if not value]
+    if missing_vars:
+        missing_vars_str = ', '.join(missing_vars)
+        logger.error(f"Missing default environment variables: {missing_vars_str}")
+        raise KeyError(f"Missing default environment variables: {missing_vars}")
+    
+    return default_vars
 
-def get_organization_db(organization):
+def get_organization_db(organization=None):
     """
-    Returns the database configuration for a specific organization 
-    or the default configuration if no organization is specified.
+    Returns the database configuration for a specific organization or the default configuration 
+    if no organization is specified.
     """
     if organization:
         return get_organization_db_config(organization)
     return get_default_db_config()
 
-# Dynamically populate the DATABASES setting
+# Dynamically populate the DATABASES setting with default and organization-specific configurations
 DATABASES = {
-    'default': get_default_db_config(),
+    'default': get_organization_db(),  # Default configuration
 }
 
-# # Example of adding a specific organization's database configuration
-# organizations = ['org1', 'org2', 'org3']  # List of organization slugs
-# for org in organizations:
-#     db_alias = f"{org}_db"
-#     DATABASES[db_alias] = get_organization_db(org)
+# # Add organization-specific configurations dynamically
+# for org_slug in get_organization_slugs():
+#     db_alias = f"db_{org_slug}"
+#     DATABASES[db_alias] = get_organization_db(org_slug)  # Organization-specific configurations
+
+# # Logging for debugging
+# logger.info("DATABASES configured: %s", DATABASES)
+
+
+
 
 
 
 # # using a static dictionary for DATABASES
-# import sys
-
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.sqlite3',
@@ -96,6 +125,3 @@ DATABASES = {
 #         'PORT': env('GIGMEG_DB_PORT'),
 #     },
 # }
-
-# if 'test' in sys.argv:
-#     DATABASES['default'] = DATABASES['test']

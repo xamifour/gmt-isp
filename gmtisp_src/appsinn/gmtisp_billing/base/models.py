@@ -618,7 +618,7 @@ class AbstractPlanPricing(OrgMixin, models.Model):
     price   = models.DecimalField(max_digits=7, decimal_places=2, db_index=True)
     order   = models.IntegerField(default=0, null=False, blank=False)
     has_automatic_renewal = models.BooleanField(
-        _('automatic renewal'),
+        _('auto renewal'),
         default=False,
         help_text=_('Use automatic renewal if possible?'),
     )

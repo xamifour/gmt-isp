@@ -170,12 +170,6 @@ class PlanAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmi
     inlines = (PlanPricingInline, PlanQuotaInline, PlanBandwidthSettingsInline)
     actions = [copy_plan, 'delete_selected',]
     exclude = ['organization']
-    
-    # def get_readonly_fields(self, request, obj=None):
-    #     if obj:  # obj is not None, so this is an edit scenario
-    #         return ['name', 'slug', 'organization']
-    #     else:  # This is the create scenario
-    #         return ['organization']
         
     fieldsets = (
         (None, {
