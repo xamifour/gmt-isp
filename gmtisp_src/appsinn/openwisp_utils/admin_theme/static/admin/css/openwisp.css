@@ -78,7 +78,7 @@ See https://code.djangoproject.com/ticket/33878 */
 }
 body {
   min-width: 320px;
-  font-size: 14px !important;
+  font-size: 14px;
 }
 .menu-backdrop {
   position: fixed;
@@ -103,18 +103,29 @@ div[class^="app-"].module td {
 div[class^="app-"].module td {
   padding-left: 0;
 }
+#main-content table {
+  border: 1px solid #F5EBF3;
+}
+#main-content table tbody tr {
+  background-color: transparent !important;
+}
+#main-content table tbody tr:hover {
+  background-color: rgba(243, 241, 246, 0.61) !important;
+}
 #main-content .results thead th .text a,
 #main-content thead th {
-  padding: 14px 10px;
+  padding: 15px 5px;
   font-size: 12px;
+  font-weight: 500;
 }
 #main-content .results tbody td,
 #main-content .results tbody th,
 div#main-content table tbody th,
 div#main-content table tbody td {
-  padding: 0.8rem 8px;
+  padding: 0.8rem 5px;
   vertical-align: middle;
   font-size: 13px;
+  font-weight: 400;
 }
 #main-content .breadcrumbs {
   font-size: 13px;
@@ -189,9 +200,9 @@ a:focus {
 #main .form-row .helptext,
 #container #main-content .help,
 #container #main-content .helptext {
-  font-size: 14px !important;
+  font-size: 12px !important;
   line-height: 15px;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(0, 0, 0, 0.55);
 }
 .addlink,
 .changelink {
@@ -221,7 +232,7 @@ fieldset.module h2 {
 td,
 th,
 li {
-  font-size: 14px;
+  font-size: 13px;
 }
 .mini {
   font-size: 12px;
@@ -302,7 +313,7 @@ select {
   margin-left: 7px;
 }
 #main .form-row {
-  padding: 13px;
+  padding: 10px;
   box-sizing: border-box;
 }
 #main .inline-group .tabular td.original p {
@@ -319,7 +330,7 @@ select {
 }
 #main .add-row td a,
 #main div.add-row a {
-  font-size: 15px !important;
+  font-size: 14px !important;
 }
 #main .delete input {
   vertical-align: -1px;
@@ -428,10 +439,10 @@ html {
 div.breadcrumbs {
   background: #fff;
   color: #8d7d76cf;
-  border-bottom: 2px solid #f6f6f6;
+  border-bottom: 1px solid #F5EBF3;
 }
 #main-content div.breadcrumbs {
-  padding: 1rem 2.5rem;
+  padding: 1.03rem 2.5rem;
 }
 #main .selector-chosen h2 {
   background: rgba(0, 0, 0, 0.6);
@@ -633,6 +644,7 @@ input[type="button"]:hover,
 }
 #main label.vCheckboxLabel {
   width: auto;
+  height: 0px !important;
 }
 
 /* For success, green button [ class="success-btn" ] */
@@ -785,7 +797,7 @@ input[type="button"]:hover,
 }
 .account-menu li {
   list-style: none;
-  border-bottom: 2px solid #f6f6f6;
+  border-bottom: 1px solid #F5EBF3;
 }
 .account-menu-username {
   justify-content: center;
@@ -1118,7 +1130,7 @@ a.menu-item,
   word-break: break-word;
   cursor: pointer;
   text-transform: uppercase;
-  font-size: 0.86rem;
+  font-size: 0.8rem;
   font-weight: 500;
   align-items: center;
   color: #777;
@@ -1128,8 +1140,8 @@ a.menu-item,
 .mg-heading .icon,
 .mg-link .icon {
   background: #777;
-  width: 1.375rem;
-  height: 1.375rem;
+  width: 1.2rem;
+  height: 1.2rem;
   flex-shrink: 0;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-position: center;

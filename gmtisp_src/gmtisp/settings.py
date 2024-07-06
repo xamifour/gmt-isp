@@ -152,13 +152,13 @@ TEMPLATES = [
 ]
 
 # database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-        'ATOMIC_REQUESTS': True,
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#         'ATOMIC_REQUESTS': True,
+#     }
+# }
 
 if TESTING:
     DATABASES = {
@@ -168,10 +168,21 @@ if TESTING:
         }
     }
 
+try:
+    from .db import *
+except ImportError:
+    pass
+
 # try:
 #     from .db import *
 # except ImportError:
-#     pass
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.sqlite3',
+#             'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#             'ATOMIC_REQUESTS': True,
+#         }
+#     }
 # ------------------------------------------------------------------------------ end database
 
 # logging

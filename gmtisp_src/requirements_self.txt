@@ -1,4 +1,4 @@
-Django==4.2
+Django==4.2.9
 # radius
 responses==0.24.1
 djangorestframework-simplejwt==5.3.1
