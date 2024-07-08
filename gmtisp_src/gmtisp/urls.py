@@ -42,9 +42,9 @@ if settings.DEBUG:
         path('500/', default_views.server_error),
     ]
     
-    if "debug_toolbar" in settings.INSTALLED_APPS:
-        import debug_toolbar
+    # if "debug_toolbar" in settings.INSTALLED_APPS:
+    #     import debug_toolbar
 
-        urlpatterns += [path('__debug__/', include(debug_toolbar.urls))]
-        urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-        urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    #     urlpatterns += [path('__debug__/', include(debug_toolbar.urls))]
+    #     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    #     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

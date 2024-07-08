@@ -13,18 +13,20 @@ APPS_DIR = BASE_DIR / 'appsinn'
 env = environ.Env()
 env.read_env() # read the .env file
 
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = str(env('DEBUG')) == '1' # 1 == True, 0 == False
+DEBUG = env.str('DEBUG') == '1' # 1 == True, 0 == False
 SECRET_KEY = env.str('SECRET_KEY', default='98Yt4}56^&%@!+)7748*&_?><HT]E~lrl%606sm{ticbu20=pv{r')
-# ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', ['*'],]
+
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
+# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', ['*'],]
 
 TESTING = sys.argv[1] == 'test'
 PARALLEL = '--parallel' in sys.argv
 SHELL = 'shell' in sys.argv or 'shell_plus' in sys.argv
 SAMPLE_APP = os.environ.get('SAMPLE_APP', False)
 
-OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.0.0/24']
 OPENWISP_RADIUS_COA_ENABLED = True
 OPENWISP_RADIUS_ALLOWED_MOBILE_PREFIXES = ['+44', '+39', '+237', '+595', '+233']
 
@@ -109,8 +111,8 @@ MIDDLEWARE = [
     'djangosaml2.middleware.SamlSessionMiddleware',
     'openwisp_users.middleware.PasswordExpirationMiddleware',
 ]
-if DEBUG:
-    MIDDLEWARE.append('debug_toolbar.middleware.DebugToolbarMiddleware')
+# if DEBUG:
+#     MIDDLEWARE.append('debug_toolbar.middleware.DebugToolbarMiddleware')
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'openwisp_users.password_validation.PasswordReuseValidator'}
@@ -549,34 +551,34 @@ PAYMENT_VARIANTS: Dict[str, Tuple[str, Dict]] = {
 # ------------------------------------------------------------------ end plans payments
 
 # debug_toolbar
-if DEBUG:
-    INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
+# if DEBUG:
+#     INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
     
-    # Rearrange DEBUG_TOOLBAR_PANELS
-    DEBUG_TOOLBAR_PANELS = [
-        'debug_toolbar.panels.versions.VersionsPanel',
-        'debug_toolbar.panels.timer.TimerPanel',
-        'debug_toolbar.panels.settings.SettingsPanel',
-        'debug_toolbar.panels.headers.HeadersPanel',
-        'debug_toolbar.panels.request.RequestPanel',
-        'debug_toolbar.panels.sql.SQLPanel',
-        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
-        'debug_toolbar.panels.templates.TemplatesPanel',
-        'debug_toolbar.panels.cache.CachePanel',
-        'debug_toolbar.panels.signals.SignalsPanel',
-        'debug_toolbar.panels.logging.LoggingPanel',
-        'debug_toolbar.panels.redirects.RedirectsPanel',
-    ]
+#     # Rearrange DEBUG_TOOLBAR_PANELS
+#     DEBUG_TOOLBAR_PANELS = [
+#         'debug_toolbar.panels.versions.VersionsPanel',
+#         'debug_toolbar.panels.timer.TimerPanel',
+#         'debug_toolbar.panels.settings.SettingsPanel',
+#         'debug_toolbar.panels.headers.HeadersPanel',
+#         'debug_toolbar.panels.request.RequestPanel',
+#         'debug_toolbar.panels.sql.SQLPanel',
+#         'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+#         'debug_toolbar.panels.templates.TemplatesPanel',
+#         'debug_toolbar.panels.cache.CachePanel',
+#         'debug_toolbar.panels.signals.SignalsPanel',
+#         'debug_toolbar.panels.logging.LoggingPanel',
+#         'debug_toolbar.panels.redirects.RedirectsPanel',
+#     ]
 
-    def show_toolbar(request):
-        return True
+#     def show_toolbar(request):
+#         return True
 
-    DEBUG_TOOLBAR_CONFIG = {
-        'DISABLE_PANELS': ['debug_toolbar.panels.redirects.RedirectsPanel'], 
-        'SHOW_TEMPLATE_CONTEXT': True,
-        'INTERCEPT_REDIRECTS': False,
-        'SHOW_TOOLBAR_CALLBACK': show_toolbar
-    }
+#     DEBUG_TOOLBAR_CONFIG = {
+#         'DISABLE_PANELS': ['debug_toolbar.panels.redirects.RedirectsPanel'], 
+#         'SHOW_TEMPLATE_CONTEXT': True,
+#         'INTERCEPT_REDIRECTS': False,
+#         'SHOW_TOOLBAR_CALLBACK': show_toolbar
+#     }
 # ------------------------------------------------------------------ end debug_toolbar
 
 
