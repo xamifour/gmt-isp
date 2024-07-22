@@ -18,8 +18,8 @@
       container = document.getElementById('plot-container');
 
   const layout = {
-    height: 320,
-    width: 320,
+    height: 270,
+    width: 270,
     margin: {
       t: 0,
       b: 0
@@ -33,8 +33,8 @@
     },
     title: {
       yanchor: 'center',
-      y: 0.85,
-      font: {size: 15}
+      y: 0.80,
+      font: {size: 14}
     }
   },
   options = {
@@ -49,7 +49,7 @@
     delete layout.annotations;
     let data = {
       type: 'pie',
-      hole: 0.5,
+      hole: 0.6,
       showlegend: !elementsParam[i].hasOwnProperty('quick_link')
     },
     element = document.createElement('div'),
@@ -94,7 +94,7 @@
     layout.annotations = [
       {
         font: {
-          size: 15,
+          size: 12,
           weight: 'bold'
         },
         showarrow: false,

@@ -1,0 +1,36 @@
+{% extends 'gmtisp_billing/base.html' %}
+{% load i18n %}
+
+{% block content %}
+    <h4>{% trans "PLAN LIST" %}</h4>
+    <table class="plan-list">
+        <thead>
+            <tr>
+                <th>Plan Name</th>
+                <th>Plan Type</th>
+                <th>Plan Available</th>
+                <th>Plan Visible</th>
+                <th>Plan quotas</th>
+                <th>Plan plan_setup_cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plan in plans %}
+            <tr>
+                <td>{{ plan.name }}</td>
+                <td>{{ plan.plan_type }}</td>
+                <td>{{ plan.available }}</td>
+                <td>{{ plan.visible }}</td>
+                <td>{{ plan.quotas.first }}</td>
+                <td>{{ plan.plan_setup_cost }}</td>
+            </tr>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% block pagination_second %}
+    {% include "gmtisp_billing/plans/pagination.html" %}
+    {% endblock %}
+
+{% endblock %}

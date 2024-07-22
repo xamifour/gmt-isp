@@ -15,7 +15,7 @@ env.read_env() # read the .env file
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.str('DEBUG') == '1' # 1 == True, 0 == False
+DEBUG = env.str('DEBUG') == '1' # 1 means True, 0 means False
 SECRET_KEY = env.str('SECRET_KEY', default='98Yt4}56^&%@!+)7748*&_?><HT]E~lrl%606sm{ticbu20=pv{r')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
@@ -42,26 +42,28 @@ DJANGO_APPS  = [
 ]
 
 THIRD_PARTY_APPS = [
-    # admin
-    'admin_auto_filters',
+    'admin_auto_filters', # for autocomplete filter
     # all-auth
     'allauth',
     'allauth.account',  
-    # social login
+    # all-auth/social login
     'allauth.socialaccount',
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.google',
     # rest framework
     'rest_framework',
-    'django_filters',
-    # registration
+    # rest framework/registration
     'dj_rest_auth',
     'dj_rest_auth.registration',
     'rest_framework.authtoken', 
+    # 
+    'django_filters',
     #
     'private_storage',
     'drf_yasg',
-    'related_admin',
+    # 'related_admin',
+    # 'payments',
+    # "sequences",
     'django_extensions',
     # 'integrations',
     'djangosaml2',
@@ -70,10 +72,10 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     # openwisp admin theme must come before the django admin in order to override the admin login page
     'openwisp_utils.admin_theme',
+    'openwisp_utils',
     'openwisp_users.accounts',
     'openwisp_users',
     'openwisp_radius',
-    'openwisp_utils',
     #
     'testing_app',   
     'gmtisp_enduser',
@@ -82,7 +84,7 @@ LOCAL_APPS = [
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
-INSTALLED_APPS += ['django.contrib.admin',]
+INSTALLED_APPS += ['django.contrib.admin',] # django admin
 
 AUTHENTICATION_BACKENDS = (
     'openwisp_users.backends.UsersAuthenticationBackend',
@@ -90,14 +92,14 @@ AUTHENTICATION_BACKENDS = (
     'sesame.backends.ModelBackend',
 )
 
-AUTH_USER_MODEL = 'openwisp_users.User'
 SITE_ID = 1
 
-STATICFILES_FINDERS = [
-    'django.contrib.staticfiles.finders.FileSystemFinder',
-    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
-    'openwisp_utils.staticfiles.DependencyFinder',
-]
+AUTH_USER_MODEL = 'openwisp_users.User'
+
+# LOGIN_URL = '/login/'
+# LOGIN_URL_REDIRECT = '/'
+# LOGOUT_URL = '/logout/'
+# LOGOUT_REDIRECT_URL = '/'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -146,7 +148,7 @@ TEMPLATES = [
                 'openwisp_utils.admin_theme.context_processor.menu_groups',
                 'gmtisp_billing.context_processors.account_status',
                 # For test
-                # 'openwisp_utils.admin_theme.context_processor.admin_theme_settings',
+                'openwisp_utils.admin_theme.context_processor.admin_theme_settings',
                 # 'openwisp_utils.context_processors.test_theme_helper',
             ],
         },
@@ -154,13 +156,13 @@ TEMPLATES = [
 ]
 
 # database
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-#         'ATOMIC_REQUESTS': True,
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ATOMIC_REQUESTS': True,
+    }
+}
 
 if TESTING:
     DATABASES = {
@@ -170,10 +172,10 @@ if TESTING:
         }
     }
 
-try:
-    from .db import *
-except ImportError:
-    pass
+# try:
+#     from .db import *
+# except ImportError:
+#     pass
 
 # try:
 #     from .db import *
@@ -279,6 +281,12 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    'openwisp_utils.staticfiles.DependencyFinder',
+]
+
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
 MEDIA_URL = '/media/'
@@ -288,7 +296,8 @@ STATIC_URL = '/static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # for development only
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 EMAIL_HOST = env('EMAIL_HOST')
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
@@ -302,6 +311,7 @@ EMAIL_TIMEOUT = 5
 EMAIL_PORT = '1025'
 
 ADMINS = [('Kwame Amissah', 'me@gmail.com'),]
+MANAGERS = ADMINS
 
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
@@ -381,6 +391,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 SENDSMS_BACKEND = 'sendsms.backends.console.SmsBackend'
+
 OPENWISP_RADIUS_EXTRA_NAS_TYPES = (
     ('cisco', 'Cisco Router'),
     ('mikrotik', 'Mikrotik'),
@@ -518,7 +529,8 @@ PLANS_INVOICE_ISSUER = {
 
 PLANS_CURRENCY = 'EUR'
 ENABLE_FAKE_PAYMENTS = True
-PLANS_TAX = Decimal('23.0')
+# The value None means “TAX not applicable, rather than value Decimal('0') which is 0% TAX.
+PLANS_TAX = Decimal('23.0')  # for 23% VAT
 PLANS_TAXATION_POLICY = 'gmtisp_billing.taxation.eu.EUTaxationPolicy'
 PLANS_TAX_COUNTRY = 'PL'
 PLANS_DEFAULT_COUNTRY = 'CZ'

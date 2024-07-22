@@ -7,10 +7,10 @@ from django.contrib import messages
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Q
 from django.http import Http404, HttpResponseForbidden, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext_lazy as _
-from django.views.generic import CreateView, RedirectView, TemplateView, View
+from django.views.generic import CreateView, UpdateView, RedirectView, TemplateView, View
 from django.views.generic.detail import (
     DetailView,
     SingleObjectMixin,
@@ -24,15 +24,12 @@ from django.views.generic.edit import (
 )
 from django.views.generic.list import ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.template.response import TemplateResponse
 
 from next_url_mixin.mixin import NextUrlMixin
-from payments import RedirectNeeded, get_payment_model
-from openwisp_utils.mixins import OrganizationDbAdminMixin
+from openwisp_utils.mixins import MultiTenantMixin, SuperuserPermissionMixin, OrganizationDbAdminMixin
 
-from .forms import BillingInfoForm, CreateOrderForm, FakePaymentsForm
+from .forms import BillingInfoForm, CreateOrderForm, PaymentForm, FakePaymentsForm
 from .importer import import_name
-from .mixins import LoginRequired
 from .signals import order_started
 from .utils import get_currency
 from .validators import plan_validation
@@ -45,20 +42,19 @@ from .models import (
     BillingInfo,
     Quota,
     Invoice,
+    Payment,
 )
 
-class AccountActivationView(LoginRequiredMixin, OrganizationDbAdminMixin, TemplateView):
+class AccountActivationView(LoginRequiredMixin, MultiTenantMixin, TemplateView):
     template_name = "gmtisp_billing/plans/account_activation.html"
 
     def get_context_data(self, **kwargs):
-        if (
-            self.request.user.userplan.active is True
-            or self.request.user.userplan.is_expired()
-        ):
+        user_plan = self.request.user.userplan
+        if user_plan.active or user_plan.is_expired():
             raise Http404()
 
         context = super().get_context_data(**kwargs)
-        errors = self.request.user.userplan.clean_activation()
+        errors = user_plan.clean_activation()
 
         if errors["required_to_activate"]:
             context["SUCCESSFUL"] = False
@@ -76,26 +72,41 @@ class AccountActivationView(LoginRequiredMixin, OrganizationDbAdminMixin, Templa
 
 class PlanTableMixin:
     def get_plan_table(self, plan_list):
-        quota_list = (
-            Quota.objects.all().filter(planquota__plan__in=plan_list).distinct()
-        )
+        """
+        This method return a list in following order:
+        [
+            ( Quota1, [ Plan1Quota1, Plan2Quota1, ... , PlanNQuota1] ),
+            ( Quota2, [ Plan1Quota2, Plan2Quota2, ... , PlanNQuota2] ),
+            ...
+            ( QuotaM, [ Plan1QuotaM, Plan2QuotaM, ... , PlanNQuotaM] ),
+        ]
 
-        plan_quotas_dic = {}
-        for plan in plan_list:
-            plan_quotas_dic[plan] = {}
-            for plan_quota in plan.planquota_set.all():
-                plan_quotas_dic[plan][plan_quota.quota] = plan_quota
+        This can be very easily printed as an HTML table element with quotas by row.
 
-        return map(
-            lambda quota: (
-                quota,
-                map(lambda plan: plan_quotas_dic[plan].get(quota, None), plan_list),
-            ),
-            quota_list,
-        )
+        Quotas are calculated based on ``plan_list``. These are all available quotas that are
+        used by given plans. If any ``Plan`` does not have any of ``PlanQuota`` then value ``None``
+        will be propagated to the data structure.
+
+        """
+
+        # Retrieve all quotas that are used by any ``Plan`` in ``plan_list``
+        quota_list = Quota.objects.filter(planquota__plan__in=plan_list).distinct()
+
+        # Create random access dict that for every ``Plan`` map ``Quota`` -> ``PlanQuota``
+        plan_quotas_dic = {plan: {pq.quota: pq for pq in plan.planquota_set.all()} for plan in plan_list}
+
+        # Generate data structure described in method docstring, propagate ``None`` whenever
+        # ``PlanQuota`` is not available for given ``Plan`` and ``Quota``
+        return [(quota, [plan_quotas_dic[plan].get(quota) for plan in plan_list]) for quota in quota_list]
 
 
-class PlanTableViewBase(PlanTableMixin, OrganizationDbAdminMixin, ListView):
+class PlanListView(MultiTenantMixin, ListView):
+    template_name = "gmtisp_billing/plans/plan_list.html"
+    model = Plan
+    context_object_name = "plans"
+
+
+class PlanTableViewBase(PlanTableMixin, ListView):
     template_name = "gmtisp_billing/plans/plan_table.html"
     model = Plan
     context_object_name = "plan_list"
@@ -142,7 +153,7 @@ class PlanTableViewBase(PlanTableMixin, OrganizationDbAdminMixin, ListView):
         return context
 
 
-class CurrentPlanView(LoginRequiredMixin, PlanTableViewBase):
+class CurrentPlanView(LoginRequiredMixin, MultiTenantMixin, PlanTableViewBase):
     template_name = "gmtisp_billing/plans/current.html"
 
     def get_queryset(self):
@@ -151,15 +162,15 @@ class CurrentPlanView(LoginRequiredMixin, PlanTableViewBase):
         )
 
 
-class UpgradePlanView(LoginRequiredMixin, PlanTableViewBase):
+class UpgradePlanView(LoginRequiredMixin, MultiTenantMixin, PlanTableViewBase):
     template_name = "gmtisp_billing/plans/upgrade.html"
 
 
-class PricingView(PlanTableViewBase):
+class PricingView(LoginRequiredMixin, MultiTenantMixin, PlanTableViewBase):
     template_name = "gmtisp_billing/plans/pricing.html"
 
 
-class ChangePlanView(LoginRequiredMixin, OrganizationDbAdminMixin, View):
+class ChangePlanView(LoginRequiredMixin, MultiTenantMixin, View):
     def get(self, request, *args, **kwargs):
         return HttpResponseRedirect(reverse("upgrade_plan"))
 
@@ -190,7 +201,7 @@ class ChangePlanView(LoginRequiredMixin, OrganizationDbAdminMixin, View):
         return HttpResponseRedirect(reverse("upgrade_plan"))
 
 
-class CreateOrderView(LoginRequiredMixin, OrganizationDbAdminMixin, CreateView):
+class CreateOrderView(LoginRequiredMixin, MultiTenantMixin, CreateView):
     template_name = "gmtisp_billing/plans/create_order.html"
     form_class = CreateOrderForm
 
@@ -283,7 +294,7 @@ class CreateOrderView(LoginRequiredMixin, OrganizationDbAdminMixin, CreateView):
         return super().form_valid(form)
 
 
-class CreateOrderPlanChangeView(CreateOrderView):
+class CreateOrderPlanChangeView(CreateOrderView, LoginRequiredMixin, MultiTenantMixin):
     template_name = "gmtisp_billing/plans/create_order.html"
     form_class = CreateOrderForm
 
@@ -337,7 +348,7 @@ class CreateOrderPlanChangeView(CreateOrderView):
         return context
 
 
-class OrderView(LoginRequiredMixin, OrganizationDbAdminMixin, DetailView):
+class OrderView(LoginRequiredMixin, MultiTenantMixin, DetailView):
     model = Order
 
     def get_queryset(self):
@@ -348,7 +359,8 @@ class OrderView(LoginRequiredMixin, OrganizationDbAdminMixin, DetailView):
         )
 
 
-class OrderListView(LoginRequiredMixin, OrganizationDbAdminMixin, ListView):
+class OrderListView(LoginRequiredMixin, MultiTenantMixin, ListView):
+    template_name = "gmtisp_billing/plans/order_list.html"
     model = Order
     paginate_by = 10
 
@@ -370,7 +382,7 @@ class OrderListView(LoginRequiredMixin, OrganizationDbAdminMixin, ListView):
         )
 
 
-class OrderPaymentReturnView(LoginRequiredMixin, OrganizationDbAdminMixin, DetailView):
+class OrderPaymentReturnView(LoginRequiredMixin, MultiTenantMixin, DetailView):
     model = Order
     status = None
 
@@ -406,7 +418,7 @@ class SuccessUrlMixin:
 
 
 class CreateOrUpdateView(
-    SingleObjectTemplateResponseMixin, ModelFormMixin, ProcessFormView
+    SingleObjectTemplateResponseMixin, ModelFormMixin, MultiTenantMixin, ProcessFormView
 ):
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -418,7 +430,7 @@ class CreateOrUpdateView(
 
 
 class BillingInfoCreateOrUpdateView(
-    NextUrlMixin, SuccessUrlMixin, LoginRequiredMixin, OrganizationDbAdminMixin, CreateOrUpdateView
+    NextUrlMixin, SuccessUrlMixin, LoginRequiredMixin, CreateOrUpdateView
 ):
     form_class = BillingInfoForm
     template_name = "gmtisp_billing/plans/billing_info_create_or_update.html"
@@ -452,7 +464,7 @@ class RedirectToBilling(RedirectView):
         return super().get_redirect_url(*args, **kwargs)
 
 
-class BillingInfoDeleteView(LoginRequiredMixin, OrganizationDbAdminMixin, DeleteView):
+class BillingInfoDeleteView(LoginRequiredMixin, MultiTenantMixin, DeleteView):
     template_name = "gmtisp_billing/plans/billing_info_delete.html"
 
     def get_object(self):
@@ -466,7 +478,7 @@ class BillingInfoDeleteView(LoginRequiredMixin, OrganizationDbAdminMixin, Delete
         return reverse("billing_info")
 
 
-class InvoiceDetailView(LoginRequiredMixin, OrganizationDbAdminMixin, DetailView):
+class InvoiceDetailView(LoginRequiredMixin, MultiTenantMixin, DetailView):
     model = Invoice
 
     def get_template_names(self):
@@ -489,9 +501,7 @@ class InvoiceDetailView(LoginRequiredMixin, OrganizationDbAdminMixin, DetailView
             )
 
 
-
-# ----------------------------------------------------------- payment
-class FakePaymentsView(LoginRequiredMixin, OrganizationDbAdminMixin, SingleObjectMixin, FormView):
+class FakePaymentsView(LoginRequiredMixin, MultiTenantMixin, SingleObjectMixin, FormView):
     form_class = FakePaymentsForm
     model = Order
     template_name = "gmtisp_billing/payment/fake_payments.html"
@@ -524,61 +534,123 @@ class FakePaymentsView(LoginRequiredMixin, OrganizationDbAdminMixin, SingleObjec
             )
 
 
-class PaymentDetailView(LoginRequiredMixin, OrganizationDbAdminMixin, View):
-    login_url = reverse_lazy("auth_login")
-    template_name = "plans_payments/payment.html"
+# ----------------------------------------------------------- payment
+class PaymentListView(LoginRequiredMixin, MultiTenantMixin, ListView):
+    template_name = "gmtisp_billing/payments/payment_list.html"
+    model = Payment
+    context_object_name = "payments"
 
-    def get(self, request, *args, payment_id=None):
-        payment = get_object_or_404(
-            get_payment_model(), order__user=request.user, id=payment_id
-        )
-        try:
-            form = payment.get_form(data=request.POST or None)
-        except RedirectNeeded as redirect_to:
-            payment.save()
-            return redirect(str(redirect_to))
-        return TemplateResponse(
-            request, "plans_payments/payment.html", {"form": form, "payment": payment}
-        )
+    def get_queryset(self):
+        return super().get_queryset().filter(order__user=self.request.user)
 
+class PaymentDetailView(LoginRequiredMixin, MultiTenantMixin, DetailView):
+    template_name = "gmtisp_billing/payments/payment_detail.html"
+    model = Payment
+    context_object_name = "payment"
 
-def get_client_ip(request):
-    return request.META.get("REMOTE_ADDR")
+    def get_queryset(self):
+        return super().get_queryset().filter(order__user=self.request.user)
 
+class PaymentCreateView(LoginRequiredMixin, MultiTenantMixin, SuperuserPermissionMixin, CreateView):
+    template_name = "gmtisp_billing/payments/payment_form.html"
+    form_class = PaymentForm
+    success_url = reverse_lazy("payment_list")
 
-def create_payment_object(
-    payment_variant, order, request=None, autorenewed_payment=False
-):
-    Payment = get_payment_model()
-    if (
-        hasattr(order.user.userplan, "recurring")
-        and order.user.userplan.recurring.payment_provider != payment_variant
-    ):
-        order.user.userplan.recurring.delete()
-    return Payment.objects.create(
-        variant=payment_variant,
-        order=order,
-        description=f"{order.name} %s purchase",
-        total=Decimal(order.total()),
-        tax=Decimal(order.tax_total()),
-        currency=order.currency,
-        delivery=Decimal(0),
-        billing_first_name=order.user.first_name,
-        billing_last_name=order.user.last_name,
-        billing_email=order.user.email or "",
-        billing_address_1=order.user.billinginfo.street,
-        billing_city=order.user.billinginfo.city,
-        billing_postcode=order.user.billinginfo.zipcode,
-        billing_country_code=order.user.billinginfo.country,
-        customer_ip_address=get_client_ip(request) if request else "127.0.0.1",
-        autorenewed_payment=autorenewed_payment,
-    )
+    def form_valid(self, form):
+        messages.success(self.request, _("Payment created successfully."))
+        return super().form_valid(form)
+
+class PaymentUpdateView(LoginRequiredMixin, MultiTenantMixin, SuperuserPermissionMixin, UpdateView):
+    template_name = "gmtisp_billing/payments/payment_form.html"
+    form_class = PaymentForm
+    model = Payment
+
+    def get_success_url(self):
+        return reverse_lazy("payment_detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, _("Payment updated successfully."))
+        return super().form_valid(form)
+
+class PaymentDeleteView(LoginRequiredMixin, MultiTenantMixin, SuperuserPermissionMixin, DeleteView):
+    model = Payment
+    template_name = "gmtisp_billing/payments/payment_confirm_delete.html"
+    success_url = reverse_lazy("payment_list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, _("Payment deleted successfully."))
+        return super().delete(request, *args, **kwargs)
 
 
-class CreatePaymentView(LoginRequiredMixin, OrganizationDbAdminMixin, View):
-    login_url = reverse_lazy("auth_login")
 
-    def get(self, request, *args, order_id=None, payment_variant=None):
-        order = get_object_or_404(Order, pk=order_id, user=request.user)
-        payment = create_payment_object(payment_variant, order, request)
-        return redirect(reverse("payment_details", kwargs={"payment_id": payment.id}))
+
+
+
+
+
+
+
+
+
+
+
+# class PaymentDetailView(LoginRequiredMixin, MultiTenantMixin, View):
+#     login_url = reverse_lazy("auth_login")
+#     template_name = "gmtisp_billing/payment.html"
+
+#     def get(self, request, *args, payment_id=None):
+#         payment = get_object_or_404(
+#             get_payment_model(), order__user=request.user, id=payment_id
+#         )
+#         try:
+#             form = payment.get_form(data=request.POST or None)
+#         except RedirectNeeded as redirect_to:
+#             payment.save()
+#             return redirect(str(redirect_to))
+#         return TemplateResponse(
+#             request, "gmtisp_billing/payment.html", {"form": form, "payment": payment}
+#         )
+
+
+# def get_client_ip(request):
+#     return request.META.get("REMOTE_ADDR")
+
+
+# def create_payment_object(
+#     payment_variant, order, request=None, autorenewed_payment=False
+# ):
+#     Payment = get_payment_model()
+#     if (
+#         hasattr(order.user.userplan, "recurring")
+#         and order.user.userplan.recurring.payment_provider != payment_variant
+#     ):
+#         order.user.userplan.recurring.delete()
+#     return Payment.objects.create(
+#         variant=payment_variant,
+#         order=order,
+#         description=f"{order.name} purchase",
+#         total=Decimal(order.total()),
+#         tax=Decimal(order.tax_total()),
+#         currency=order.currency,
+#         delivery=Decimal(0),
+#         billing_first_name=order.user.first_name,
+#         billing_last_name=order.user.last_name,
+#         billing_email=order.user.email or "",
+#         billing_address_1=order.user.billinginfo.street,
+#         # billing_address_2=order.user.billinginfo.zipcode,
+#         billing_city=order.user.billinginfo.city,
+#         billing_postcode=order.user.billinginfo.zipcode,
+#         billing_country_code=order.user.billinginfo.country,
+#         # billing_country_area=order.user.billinginfo.zipcode,
+#         customer_ip_address=get_client_ip(request) if request else "127.0.0.1",
+#         autorenewed_payment=autorenewed_payment,
+#     )
+
+
+# class CreatePaymentView(LoginRequiredMixin, MultiTenantMixin, View):
+#     login_url = reverse_lazy("auth_login")
+
+#     def get(self, request, *args, order_id=None, payment_variant=None):
+#         order = get_object_or_404(Order, pk=order_id, user=request.user)
+#         payment = create_payment_object(payment_variant, order, request)
+#         return redirect(reverse("payment_details", kwargs={"payment_id": payment.id}))

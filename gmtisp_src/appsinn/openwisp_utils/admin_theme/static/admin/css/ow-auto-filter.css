@@ -46,10 +46,10 @@
   padding: 0.4rem 1.25rem 0.3125rem 1rem;
 }
 .auto-filter .select2-selection[aria-expanded='true'] {
-  border-color: #df5d43 !important;
+  border-color: #900C3F !important;
 }
 .auto-filter .select2-selection[aria-expanded='true'] .select2-selection__rendered {
-  color: #df5d43 !important;
+  color: #900C3F !important;
 }
 .auto-filter .select2-selection__placeholder {
   color: var(--body-fg) !important;
@@ -91,7 +91,7 @@
   transition: color 0.15s, background 0.15s;
 }
 .auto-filter-choices .select2-results__option[aria-selected='true'] {
-  background: #df5d43 !important;
+  background: #900C3F !important;
   color: #ffff !important;
 }
 .auto-filter-choices .select2-results__option--highlighted {

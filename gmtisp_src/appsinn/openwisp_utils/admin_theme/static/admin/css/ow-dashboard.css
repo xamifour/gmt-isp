@@ -1,11 +1,20 @@
 #plot-container {
-  padding: 0.625rem 2.5rem;
   text-align: center;
-  overflow-x: hidden;
+  overflow-x: auto; /* Allow horizontal scrolling */
+  white-space: nowrap; /* Prevent charts from wrapping to the next line */
+  /* margin: 1rem 2.5rem 0 2.5rem;
+  border: 1px solid #ccc !important;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;  */
 }
-
+.svg-container {
+  margin: 0 auto;
+}
 .js-plotly-plot {
+  /* width: 12.5rem !important; */
+  transform: translate(-15%, -10%); /* image position */
   display: inline-block;
+  vertical-align: top; /* Align charts to the top */
+  white-space: normal; /* Reset white-space to normal */
 }
 .js-plotly-plot .surface {
   cursor: pointer;
@@ -16,7 +25,7 @@
 }
 .js-plotly-plot .quick-link-container {
   position: absolute;
-  margin-top: -30px;
+  margin-top: -35px;
   width: 460px;
 }
 .quick-link.button.negative-top-20 {
@@ -26,6 +35,7 @@
 .quick-link-container .button.quick-link {
   padding: 0.3rem 1rem;
 }
+
 .dashboard:not([class*='app-']) #container #content {
   margin: 0 auto;
   width: auto;
@@ -52,6 +62,7 @@
   #plot-container {
     display: flex;
     align-items: center;
-    flex-direction: column;
+    /* flex-direction: column; */
+    overflow-x: auto; /* Allow horizontal scrolling */
   }
 }

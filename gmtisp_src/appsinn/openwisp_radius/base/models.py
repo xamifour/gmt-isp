@@ -169,7 +169,7 @@ _PASSWORD_RESET_URL_HELP_TEXT = _('Enter the URL where users can reset their pas
 OPTIONAL_SETTINGS = app_settings.OPTIONAL_REGISTRATION_FIELDS
 
 
-class AutoUsernameMixin(object):
+class AutoUsernameMixin:
     def clean(self):
         """
         automatically sets username
@@ -194,7 +194,7 @@ class AutoUsernameMixin(object):
         return super().clean()
 
 
-class AutoGroupnameMixin(object):
+class AutoGroupnameMixin:
     def clean(self):
         """
         automatically sets groupname
@@ -208,7 +208,7 @@ class AutoGroupnameMixin(object):
             )
 
 
-class AttributeValidationMixin(object):
+class AttributeValidationMixin:
     def _get_validation_queryset_kwargs(self):
         raise NotImplementedError
 
@@ -263,9 +263,7 @@ class GroupAttributeValidationMixin(AttributeValidationMixin):
         ) % {'object_name': self._object_name}
 
 
-class AbstractRadiusCheck(
-    OrgMixin, AutoUsernameMixin, UserAttributeValidationMixin, TimeStampedEditableModel
-):
+class AbstractRadiusCheck(OrgMixin, AutoUsernameMixin, UserAttributeValidationMixin, TimeStampedEditableModel):
     username = models.CharField(
         verbose_name=_('username'),
         max_length=64,
@@ -299,9 +297,7 @@ class AbstractRadiusCheck(
         return self.username
 
 
-class AbstractRadiusReply(
-    OrgMixin, AutoUsernameMixin, UserAttributeValidationMixin, TimeStampedEditableModel
-):
+class AbstractRadiusReply(OrgMixin, AutoUsernameMixin, UserAttributeValidationMixin, TimeStampedEditableModel):
     username = models.CharField(
         verbose_name=_('username'),
         max_length=64,
@@ -329,7 +325,7 @@ class AbstractRadiusReply(
         return self.username
 
 
-class AbstractRadiusAccounting(OrgMixin, models.Model):
+class AbstractRadiusAccounting(OrgMixin):
     session_id = models.CharField(
         verbose_name=_('session ID'),
         max_length=64,
@@ -670,9 +666,7 @@ class AbstractRadiusGroup(OrgMixin, TimeStampedEditableModel):
         )
 
 
-class AbstractRadiusUserGroup(
-    AutoGroupnameMixin, AutoUsernameMixin, TimeStampedEditableModel
-):
+class AbstractRadiusUserGroup(AutoGroupnameMixin, AutoUsernameMixin, TimeStampedEditableModel):
     username = models.CharField(
         verbose_name=_('username'),
         max_length=64,
@@ -708,9 +702,7 @@ class AbstractRadiusUserGroup(
         return str(self.username)
 
 
-class AbstractRadiusGroupCheck(
-    AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel
-):
+class AbstractRadiusGroupCheck(AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel):
     groupname = models.CharField(
         verbose_name=_('group name'),
         max_length=64,
@@ -741,9 +733,7 @@ class AbstractRadiusGroupCheck(
         return str(self.groupname)
 
 
-class AbstractRadiusGroupReply(
-    AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel
-):
+class AbstractRadiusGroupReply(AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel):
     groupname = models.CharField(
         verbose_name=_('group name'),
         max_length=64,
@@ -754,9 +744,7 @@ class AbstractRadiusGroupReply(
         blank=True,
     )
     attribute = models.CharField(verbose_name=_('attribute'), max_length=64)
-    op = models.CharField(
-        verbose_name=_('operator'), max_length=2, choices=RADOP_REPLY_TYPES, default='='
-    )
+    op = models.CharField(verbose_name=_('operator'), max_length=2, choices=RADOP_REPLY_TYPES, default='=')
     value = models.CharField(verbose_name=_('value'), max_length=253)
     # the foreign key is not part of the standard freeradius schema
     group = models.ForeignKey('RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)
@@ -773,9 +761,7 @@ class AbstractRadiusGroupReply(
 
 class AbstractRadiusPostAuth(OrgMixin, UUIDModel):
     username = models.CharField(verbose_name=_('username'), max_length=64)
-    password = models.CharField(
-        verbose_name=_('password'), max_length=64, db_column='pass', blank=True
-    )
+    password = models.CharField( verbose_name=_('password'), max_length=64, db_column='pass', blank=True)
     reply = models.CharField(verbose_name=_('reply'), max_length=32)
     called_station_id = models.CharField(
         verbose_name=_('called station ID'),
@@ -791,9 +777,7 @@ class AbstractRadiusPostAuth(OrgMixin, UUIDModel):
         blank=True,
         null=True,
     )
-    date = models.DateTimeField(
-        verbose_name=_('date'), db_column='authdate', auto_now_add=True
-    )
+    date = models.DateTimeField(verbose_name=_('date'), db_column='authdate', auto_now_add=True)
 
     class Meta:
         db_table = 'radpostauth'
@@ -1016,15 +1000,13 @@ class AbstractRadiusBatch(OrgMixin, TimeStampedEditableModel):
             self.csvfile.storage.delete(self.csvfile.name)
 
 
-class AbstractRadiusToken(OrgMixin, TimeStampedEditableModel, models.Model):
+class AbstractRadiusToken(OrgMixin, TimeStampedEditableModel):
     # key field is a primary key so additional id field will be redundant
     id = None
     # tokens are not supposed to be modified, can be regenerated if necessary
     modified = None
     key = models.CharField(_('Key'), max_length=40, primary_key=True)
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='radius_token'
-    )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='radius_token')
     can_auth = models.BooleanField(
         default=False,
         help_text=(
@@ -1521,8 +1503,7 @@ class AbstractRegisteredUser(models.Model):
         _('registration method'),
         help_text=_(
             'users can sign up in different ways, some methods are valid as '
-            'indirect identity verification (eg: mobile phone SIM card in '
-            'most countries)'
+            'indirect identity verification (eg: mobile phone SIM card in most countries)'
         ),
         max_length=64,
         blank=True,
@@ -1532,8 +1513,7 @@ class AbstractRegisteredUser(models.Model):
     is_verified = models.BooleanField(
         _('verified'),
         help_text=_(
-            'whether the user has completed any identity '
-            'verification process sucessfully'
+            'whether the user has completed any identity verification process sucessfully'
         ),
         default=False,
     )

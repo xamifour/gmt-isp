@@ -122,7 +122,7 @@ div[class^="app-"].module td {
 #main-content .results tbody th,
 div#main-content table tbody th,
 div#main-content table tbody td {
-  padding: 0.8rem 5px;
+  padding: 10px 5px;
   vertical-align: middle;
   font-size: 13px;
   font-weight: 400;
@@ -184,13 +184,30 @@ a:focus {
   color: #000;
   text-decoration: none;
 }
+
+#ow-changelist-filter {
+  margin: 1rem 2.5rem 0 2.5rem;
+  border: 1px solid #ccc !important;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;  
+}
 #changelist-filter li.selected a {
   color: #900C3F !important;
 }
+#main .ow-filter {
+  padding-right: 3px;
+}
+
 #netjsonconfig-hint,
 #netjsonconfig-hint a,
 #container .field-backend a {
   color: #900C3F;
+}
+#main form {
+  padding: 0.7rem;
+  border: 1px solid #ccc !important;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;  
 }
 #main .form-row label {
   color: #1b1818;
@@ -222,7 +239,7 @@ a:focus {
 .inline-group h2,
 #content-related h3,
 fieldset.module h2 {
-  font-size: 14px;
+  font-size: 13px;
 }
 #main .inline-related h3 {
   padding: 13px;
@@ -238,7 +255,7 @@ li {
   font-size: 12px;
 }
 #main .actionlist li {
-  line-height: 15px;
+  line-height: 13px;
   background-position: 0px 4px;
 }
 #main .aligned label,
@@ -262,7 +279,7 @@ input[type="number"],
 input[type="tel"],
 textarea,
 #main .vTextField {
-  padding: 8px 12px;
+  padding: 5px 12px;
   box-sizing: border-box;
 }
 .aligned label {
@@ -273,11 +290,11 @@ input.readonly {
   background-color: rgba(0, 0, 0, 0.07);
 }
 select {
-  height: 36px;
-  padding: 0 12px;
+  height: 27px;
+  padding: 5 12px;
 }
 #main span.select2-selection {
-  min-height: 36px;
+  min-height: 35px;
   min-width: 320px;
   position: relative;
 }
@@ -286,7 +303,7 @@ select {
   min-width: 320px !important;
 }
 #main .select2-selection__arrow {
-  height: 28px;
+  height: 20px;
   top: 3px;
   right: 4px;
   width: 24px;
@@ -313,7 +330,7 @@ select {
   margin-left: 7px;
 }
 #main .form-row {
-  padding: 10px;
+  padding: 8px;
   box-sizing: border-box;
 }
 #main .inline-group .tabular td.original p {
@@ -464,7 +481,7 @@ span.datetimeshortcuts .clock-icon {
 }
 span.datetimeshortcuts .date-icon:hover,
 span.datetimeshortcuts .clock-icon:hover {
-  background: #b31e00;
+  background: #900C3F;
 }
 
 /*******************************
@@ -516,7 +533,7 @@ div.submit-row a.deletelink:active,
 .delete-confirmation form input[type="submit"]:hover,
 .delete-confirmation form input[type="submit"]:active,
 .delete-confirmation form input[type="submit"]:focus {
-  background: #b31e00;
+  background: #900C3F;
   outline: 0 none;
 }
 #content .submit-row p.deletelink-box {
@@ -555,7 +572,8 @@ a.button,
   line-height: inherit !important;
 }
 div#toolbar {
-  padding: 0.8rem 1.2rem;
+  /* padding: 0.8rem 1.2rem; */
+  padding: 0px;
 }
 div#toolbar form input[type="submit"] {
   margin: 0 10px 0 3px;
@@ -572,7 +590,7 @@ div#toolbar #searchbar {
 div#changelist .actions label,
 div#changelist .actions span {
   font-size: 14px !important;
-  line-height: 26px;
+  line-height: 27px;
 }
 div#changelist .actions select {
   height: 27px !important;
@@ -594,7 +612,7 @@ div#toolbar form input[type="submit"]:hover {
 .object-tools a:visited,
 .object-tools button {
   padding: 0.4rem 0.8rem;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 15px;
   text-transform: uppercase;
 }
@@ -872,7 +890,7 @@ input[type="button"]:hover,
 }
 #changelist .paginator {
   box-sizing: border-box;
-  font-size: 14px;
+  font-size: 13px;
 }
 #changelist p.paginator a,
 #changelist p.paginator .this-page {
@@ -888,7 +906,7 @@ input[type="button"]:hover,
 }
 #changelist p.paginator a:focus,
 #changelist p.paginator a:hover {
-  background: #b31e00;
+  background: #900C3F;
 }
 #changelist p.paginator a.showall {
   background: none;
@@ -896,7 +914,7 @@ input[type="button"]:hover,
 }
 #changelist p.paginator a.showall:focus,
 #changelist p.paginator a.showall:hover {
-  color: #b31e00;
+  color: #900C3F;
 }
 div#toolbar #searchbar {
   max-width: 68%;
@@ -941,8 +959,8 @@ div.calendar td,
 div.calendar th,
 div.calendar-shortcuts,
 p.calendar-cancel {
-  font-size: 14px;
-  line-height: 15px;
+  font-size: 12px;
+  line-height: 12px;
 }
 div.calendar caption,
 div.calendarbox h2 {
@@ -1066,6 +1084,12 @@ div.calendar-shortcuts a:hover {
   }
 }
 
+.related-widget-wrapper img {
+    width: 20px; /* Original width */
+    height: 20px; /* Original height */
+    transform: scale(0.7); /* Scale down to 70% of the original size */
+}
+
 /*********** Selector fix ***********/
 @media (max-width: 1226px) and (min-width: 1024px) {
   .related-widget-wrapper > a {
@@ -1073,7 +1097,7 @@ div.calendar-shortcuts a:hover {
   }
   div.selector {
     display: flex;
-    flex-direction: column;
+/*    flex-direction: column;*/
     align-items: center;
   }
   div.related-widget-wrapper {

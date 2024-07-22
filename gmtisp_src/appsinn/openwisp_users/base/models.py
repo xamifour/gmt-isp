@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from phonenumber_field.modelfields import PhoneNumberField
 from swapper import load_model
 
+from openwisp_utils.base import UUIDModel
 from .. import settings as app_settings
 
 logger = logging.getLogger(__name__)
@@ -44,12 +45,10 @@ class UserManager(BaseUserManager):
                 email.set_as_primary()
 
 
-class AbstractUser(BaseUser):
+class AbstractUser(BaseUser, UUIDModel):
     """
     OpenWISP User model
     """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(_('email address'), unique=True, blank=True, null=True)
     bio = models.TextField(_('bio'), blank=True)
     url = models.URLField(_('URL'), blank=True)
@@ -197,7 +196,7 @@ class AbstractUser(BaseUser):
             pass
 
 
-class BaseGroup(object):
+class BaseGroup:
     """
     Proxy model used to move ``GroupAdmin``
     under the same app label as the other models
@@ -209,12 +208,10 @@ class BaseGroup(object):
         verbose_name_plural = _('groups')
 
 
-class BaseOrganization(models.Model):
+class BaseOrganization(UUIDModel):
     """
     OpenWISP Organization model
     """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(_('name'), max_length=67, unique=True)
     description = models.TextField(_('description'), blank=True)
     email = models.EmailField(_('email'), blank=True)
@@ -246,13 +243,10 @@ class BaseOrganization(models.Model):
         )
 
 
-class BaseOrganizationUser(models.Model):
+class BaseOrganizationUser(UUIDModel):
     """
     OpenWISP OrganizationUser model
     """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-
     class Meta:
         abstract = True
 
@@ -275,12 +269,10 @@ class BaseOrganizationUser(models.Model):
         return self.user.get_full_name() or str(self.user.username)
 
 
-class BaseOrganizationOwner(models.Model):
+class BaseOrganizationOwner(UUIDModel):
     """
     OpenWISP OrganizationOwner model
     """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     def clean(self):
         if self.organization_user.organization.pk != self.organization.pk:

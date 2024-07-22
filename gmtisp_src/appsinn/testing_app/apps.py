@@ -16,7 +16,7 @@ from openwisp_utils.utils import register_menu_items
 
 
 class TestingAppConfig(ApiAppConfig):
-    # default_auto_field = 'django.db.models.BigAutoField'
+    default_auto_field = 'django.db.models.BigAutoField'
     name = 'testing_app'
     label = 'testing_app'
     verbose_name = 'Test App'
@@ -40,55 +40,55 @@ class TestingAppConfig(ApiAppConfig):
         register_menu_items(items, name_menu='OPENWISP_TEST_ADMIN_MENU_ITEMS')
 
     def register_dashboard_charts(self):
+        # register_dashboard_chart(
+        #     position=0,
+        #     config={
+        #         'name': _('Nas'),
+        #         'query_params': {
+        #             'app_label': 'openwisp_radius',
+        #             'model': 'nas',
+        #             'annotate': {
+        #                 'with_nas': Count(
+        #                     Case(
+        #                         When(
+        #                             server__isnull=False,
+        #                             then=1,
+        #                         )
+        #                     )
+        #                 ),
+        #                 'without_nas': Count(
+        #                     Case(
+        #                         When(
+        #                             server__isnull=True,
+        #                             then=1,
+        #                         )
+        #                     )
+        #                 ),
+        #             },
+        #             'aggregate': {
+        #                 'with_nas__sum': Sum('with_nas'),
+        #                 'without_nas__sum': Sum('without_nas'),
+        #             },
+        #         },
+        #         'colors': {
+        #             'with_nas__sum': '#267126',
+        #             'without_nas__sum': '#353c44',
+        #         },
+        #         'labels': {
+        #             # the <strong> is for testing purposes to
+        #             # verify it's being HTML escaped correctly
+        #             'with_nas__sum': _('<strong>Projects with operators</strong>'),
+        #             'without_nas__sum': _('Projects without Nas'),
+        #         },
+        #         'filters': {
+        #             'key': 'with_nas',
+        #             'with_nas__sum': 'true',
+        #             'without_nas__sum': 'false',
+        #         },
+        #     },
+        # )
         register_dashboard_chart(
-            position=0,
-            config={
-                'name': _('Nas'),
-                'query_params': {
-                    'app_label': 'openwisp_radius',
-                    'model': 'nas',
-                    'annotate': {
-                        'with_nas': Count(
-                            Case(
-                                When(
-                                    server__isnull=False,
-                                    then=1,
-                                )
-                            )
-                        ),
-                        'without_nas': Count(
-                            Case(
-                                When(
-                                    server__isnull=True,
-                                    then=1,
-                                )
-                            )
-                        ),
-                    },
-                    'aggregate': {
-                        'with_nas__sum': Sum('with_nas'),
-                        'without_nas__sum': Sum('without_nas'),
-                    },
-                },
-                'colors': {
-                    'with_nas__sum': '#267126',
-                    'without_nas__sum': '#353c44',
-                },
-                'labels': {
-                    # the <strong> is for testing purposes to
-                    # verify it's being HTML escaped correctly
-                    'with_nas__sum': _('<strong>Projects with operators</strong>'),
-                    'without_nas__sum': _('Projects without Nas'),
-                },
-                'filters': {
-                    'key': 'with_nas',
-                    'with_nas__sum': 'true',
-                    'without_nas__sum': 'false',
-                },
-            },
-        )
-        register_dashboard_chart(
-            position=1,
+            position=21,
             config={
                 'name': _('Operator Project Distribution'),
                 'query_params': {
@@ -108,7 +108,7 @@ class TestingAppConfig(ApiAppConfig):
         )
         
         # register_dashboard_chart(
-        #     position=2,
+        #     position=22,
         #     config={
         #         'name': _('Operator presence in projects'),
         #         'query_params': {
@@ -155,7 +155,7 @@ class TestingAppConfig(ApiAppConfig):
         #     },
         # )
         register_dashboard_chart(
-            position=3,
+            position=23,
             config={
                 'name': _('Shelf Books Type'),
                 'query_params': {
@@ -171,7 +171,7 @@ class TestingAppConfig(ApiAppConfig):
             },
         )
         register_dashboard_chart(
-            position=4,
+            position=24,
             config={
                 'name': _('Books'),
                 'query_params': {
@@ -202,6 +202,7 @@ class TestingAppConfig(ApiAppConfig):
                 'template': 'dashboard_test.html',
             },
             extra_config={'test_extra_config2': 'dashboard-test.config2'},
+            # after_charts=True,
         )
 
     def register_menu_groups(self):

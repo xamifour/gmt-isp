@@ -4,7 +4,7 @@ from django.forms.widgets import HiddenInput
 from django.utils.translation import gettext
 
 from .utils import get_country_code
-from .models import Plan, BillingInfo, Order, PlanPricing
+from .models import Plan, BillingInfo, Order, PlanPricing, Payment
 
 
 
@@ -80,3 +80,9 @@ class FakePaymentsForm(forms.Form):
     status = forms.ChoiceField(
         choices=Order.STATUS, required=True, label=gettext("Change order status to")
     )
+
+
+class PaymentForm(forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ['order', 'amount', 'currency', 'status', 'payment_method']

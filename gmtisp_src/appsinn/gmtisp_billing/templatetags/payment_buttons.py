@@ -5,7 +5,7 @@ register = template.Library()
 
 
 # settings value
-@register.inclusion_tag("plans_payments/payment_buttons.html")
+@register.inclusion_tag("gmtisp_billing/payment_buttons.html")
 def payment_buttons(object_variable):
     variants = getattr(settings, "PAYMENT_VARIANTS", [])
     return {

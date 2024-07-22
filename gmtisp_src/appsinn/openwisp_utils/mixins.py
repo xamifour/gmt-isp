@@ -2,6 +2,11 @@ from django.utils.functional import cached_property
 from swapper import load_model
 import logging
 
+from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.views import View
+
 from .utils import get_db_for_user
 
 
@@ -78,4 +83,69 @@ class OrganizationDbAdminMixin:
         except Exception as e:
             # logger.error(f"Error getting object: {e}")
             return super().get_object(request, object_id, from_field)
-        
+
+
+class MultiTenantMixin(View):
+    """
+    Mixin to filter views by user's organization.
+    """
+    organization_field = 'organization'  # Field name to filter by organization, override in subclass
+
+    @method_decorator(login_required)
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Ensure the user is authenticated and has permission to access the view.
+        """
+        if not self.has_permission(request):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        """
+        Filter queryset based on the user's associated organizations.
+        Superusers have access to all objects.
+        """
+        queryset = super().get_queryset()
+        user = self.request.user
+        if user.is_superuser:
+            return queryset
+        return queryset.filter(**{self.organization_field + '__in': user.organizations_dict.keys()})
+
+    def has_permission(self, request):
+        """
+        Override this method to provide custom permission logic.
+        By default, it checks if the user is authenticated.
+        """
+        return request.user.is_authenticated
+
+    def get_object(self, *args, **kwargs):
+        """
+        Ensure the user has permission to access the specific object.
+        Superusers have access to all objects.
+        """
+        obj = super().get_object(*args, **kwargs)
+        user = self.request.user
+        if user.is_superuser or user.is_member(obj.organization):
+            return obj
+        raise PermissionDenied
+
+    def form_valid(self, form):
+        """
+        Ensure the user is associated with the organization on form submission.
+        Superusers can bypass this check.
+        """
+        user = self.request.user
+        obj = form.save(commit=False)
+        if user.is_superuser or user.is_member(obj.organization):
+            return super().form_valid(form)
+        raise PermissionDenied
+
+
+class SuperuserPermissionMixin:
+    def has_add_permission(self, request, obj=None):
+        # Allow add permission only for superusers
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        # Allow delete permission only for superusers
+        return request.user.is_superuser

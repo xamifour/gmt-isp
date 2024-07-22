@@ -12,8 +12,7 @@ from payments import PaymentStatus
 from related_admin import RelatedFieldAdmin
 
 from openwisp_users.multitenancy import MultitenantOrgFilter, MultitenantAdminMixin
-from openwisp_users.models import Organization
-from openwisp_utils.mixins import OrganizationDbAdminMixin
+from openwisp_utils.mixins import OrganizationDbAdminMixin, SuperuserPermissionMixin
 from .signals import account_automatic_renewal
 from .models import (
     Plan,
@@ -30,7 +29,6 @@ from .models import (
     Invoice,
     Payment,
 )
-# from .forms import PlanForm
 
 class UserLinkMixin(object):
     def user_link(self, obj):
@@ -260,7 +258,7 @@ class UserPlanAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, UserLinkMix
         'plan__name',
         'plan__available',
         'plan__visible',
-        'recurring__has_automatic_renewal',
+        'recurring__renewal_triggered_by',
         'recurring__payment_provider',
         'recurring__token_verified',
         'recurring__pricing',
@@ -271,7 +269,7 @@ class UserPlanAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, UserLinkMix
         'plan',
         'expire',
         'active',
-        'recurring__automatic_renewal',
+        'recurring__renewal_triggered_by',
         'recurring__token_verified',
         'recurring__payment_provider',
         'recurring__pricing',
@@ -284,30 +282,31 @@ class UserPlanAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, UserLinkMix
     actions = [autorenew_payment,]
     raw_id_fields = ['user', 'plan', ]
 
-    def recurring__automatic_renewal(self, obj):
-        return obj.recurring.has_automatic_renewal
+    def recurring__renewal_triggered_by(self, obj):
+        return obj.recurring.renewal_triggered_by
 
-    recurring__automatic_renewal.admin_order_field = 'recurring__has_automatic_renewal'
-    recurring__automatic_renewal.boolean = True
-    recurring__automatic_renewal.short_description = 'Automatic renewal'
+    recurring__renewal_triggered_by.admin_order_field = (
+        "recurring__renewal_triggered_by"
+    )
+    recurring__renewal_triggered_by.short_description = "Renewal triggered by"
 
     def recurring__token_verified(self, obj):
         return obj.recurring.token_verified
 
-    recurring__token_verified.admin_order_field = 'recurring__token_verified'
+    recurring__token_verified.admin_order_field = "recurring__token_verified"
     recurring__token_verified.boolean = True
-    recurring__token_verified.short_description = 'Renewal token verified'
+    recurring__token_verified.short_description = "Renewal token verified"
 
     def recurring__payment_provider(self, obj):
         return obj.recurring.payment_provider
 
-    recurring__payment_provider.admin_order_field = 'recurring__payment_provider'
-    recurring__payment_provider.short_description = 'Renewal payment_provider'
+    recurring__payment_provider.admin_order_field = "recurring__payment_provider"
+    recurring__payment_provider.short_description = "Renewal payment_provider"
 
     def recurring__pricing(self, obj):
         return obj.recurring.pricing
 
-    recurring__automatic_renewal.admin_order_field = 'recurring__pricing'
+    recurring__pricing.admin_order_field = "recurring__pricing"
 
 
 @admin.register(BillingInfo)
@@ -355,7 +354,7 @@ class InvoiceInline(admin.TabularInline):
 
 
 @admin.register(Order)
-class OrderAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+class OrderAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, SuperuserPermissionMixin, admin.ModelAdmin):
     list_display  = (
         'id',
         'name',
@@ -389,7 +388,7 @@ class OrderAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdm
 
 
 @admin.register(Invoice)
-class InvoiceAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelAdmin):
+class InvoiceAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, SuperuserPermissionMixin, admin.ModelAdmin):
     list_display  = (
         'full_number',
         'issued',
@@ -412,6 +411,7 @@ class InvoiceAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, admin.ModelA
 
 
 # ---------------------------------------------------------------- Plan payment
+
 class FaultyPaymentsFilter(SimpleListFilter):
     title = 'faulty_payments'
     parameter_name = 'faulty_payments'
@@ -430,42 +430,29 @@ class FaultyPaymentsFilter(SimpleListFilter):
 
 
 @admin.register(Payment)
-class PaymentAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, RelatedFieldAdmin):
+class PaymentAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, SuperuserPermissionMixin, admin.ModelAdmin):
     list_display = (
-        'id',
-        'transaction_id',
-        'token',
-        'order__user',
-        'variant',
-        'status',
-        'fraud_status',
-        'currency',
-        'total',
-        'customer_ip_address',
-        'tax',
-        'transaction_fee',
-        'captured_amount',
-        'created',
-        'modified',
-        'autorenewed_payment',
+    'id',
+    'user',
+    'order',
+    'amount',
+    'currency',
+    'payment_method',
+    'status',
+    'transaction_id',
+    'payment_date',
+    'created',
+    'modified'
     )
-    list_filter = (
-        'status',
-        'variant',
-        'fraud_status',
-        'currency',
-        'autorenewed_payment',
-        FaultyPaymentsFilter,
-    )
-    search_fields = (
-        'order__user__first_name',
-        'order__user__last_name',
-        'order__user__email',
-        'transaction_id',
-        'extra_data',
-        'token',
-    )
-    list_select_related = ('order__user',)
-    # autocomplete_fields = ('order',)
-    readonly_fields = ('created', 'modified',)
+    list_filter = ('status', 'payment_method', 'currency', 'created', 'modified')
+    search_fields = ('user__username', 'user__email', 'order__id', 'transaction_id')
+    readonly_fields = ('id', 'created', 'modified')
+    list_display_links = list_display
     exclude = ('organization',)
+
+    def queryset(self, request):
+        return (
+            super(PaymentAdmin, self)
+            .queryset(request)
+            .select_related('order', 'user')
+        )

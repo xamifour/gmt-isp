@@ -17,7 +17,6 @@ class MultitenantAdminMixin:
     Users will see only the objects related to the organizations
     they are associated with.
     """
-    
     multitenant_shared_relations = None  # List of related fields that should be considered shared across organizations.
     multitenant_parent = None
 
@@ -28,9 +27,9 @@ class MultitenantAdminMixin:
         super().__init__(*args, **kwargs)
         parent = self.multitenant_parent
         shared_relations = self.multitenant_shared_relations or []
-        shared_relations = list(shared_relations) # copy to avoid modifying class attribute
+        shared_relations = list(shared_relations)  # Copy to avoid modifying class attribute
         if parent and parent not in shared_relations:
-            shared_relations.append(parent) # add multitenant_parent to multitenant_shared_relations if necessary
+            shared_relations.append(parent)  # Add multitenant_parent to multitenant_shared_relations if necessary
         self.multitenant_shared_relations = shared_relations
 
     def get_queryset(self, request):
@@ -39,19 +38,23 @@ class MultitenantAdminMixin:
         """
         qs = super().get_queryset(request)
         user = request.user
-        if self.model == User:
-            return self.multitenant_behaviour_for_user_admin(request)
+
+        # Allow superusers to see all data
         if user.is_superuser:
             return qs
-        if hasattr(self.model, 'organization'):
+
+        # Handle different model cases
+        if self.model == User:
+            return self.multitenant_behaviour_for_user_admin(request)
+        elif hasattr(self.model, 'organization'):
             return qs.filter(organization__in=user.organizations_managed)
-        if self.model.__name__ == 'Organization':
+        elif self.model.__name__ == 'Organization':
             return qs.filter(pk__in=user.organizations_managed)
-        elif not self.multitenant_parent:
-            return qs
-        else:
+        elif self.multitenant_parent:
             qsarg = f'{self.multitenant_parent}__organization__in'
             return qs.filter(**{qsarg: user.organizations_managed})
+        else:
+            return qs
 
     def multitenant_behaviour_for_user_admin(self, request):
         """
@@ -61,11 +64,12 @@ class MultitenantAdminMixin:
         qs = super().get_queryset(request)
         if user.is_superuser:
             return qs
+
         user_ids = (
             OrganizationUser.objects.filter(
                 organization_id__in=user.organizations_managed
             )
-            .values_list('user_id', flat=True) 
+            .values_list('user_id', flat=True)
             .distinct()
         )
         return qs.filter(id__in=user_ids, is_superuser=False)
@@ -77,8 +81,9 @@ class MultitenantAdminMixin:
         fields = form.base_fields
         user = request.user
         org_field = fields.get('organization')
+
         if user.is_superuser and org_field and not org_field.required:
-            org_field.empty_label = SHARED_SYSTEMWIDE_LABEL
+            org_field.empty_label = 'Shared Systemwide'
         elif not user.is_superuser:
             orgs_pk = user.organizations_managed
             if org_field:
@@ -101,7 +106,7 @@ class MultitenantAdminMixin:
         """
         Return the formset, modified for multitenant behavior.
         """
-        formset = super().get_formset(request, obj=None, **kwargs)
+        formset = super().get_formset(request, obj, **kwargs)
         self._edit_form(request, formset.form)
         return formset
 

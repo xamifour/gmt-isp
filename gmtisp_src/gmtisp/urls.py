@@ -1,22 +1,25 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.contrib.auth import views
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path
 from django.views.generic import TemplateView
 from django.views import defaults as default_views
 
-from . import views
+# from . import views
 
 urlpatterns = [
+    # path('', views.LoginView.as_view(), name="login"),
+    # path('', include('django.contrib.auth.urls')),
     path('admin/', admin.site.urls),
     # openwisp urls
     path('api/v1/', include('openwisp_utils.api.urls')),
     path('api/v1/', include('openwisp_users.api.urls')),
     path('accounts/', include('openwisp_users.accounts.urls')),
-    path('', include('openwisp_radius.urls')),
-    path('captive-portal-mock/login/', views.captive_portal_login, name='captive_portal_login_mock'),
-    path('captive-portal-mock/logout/', views.captive_portal_logout, name='captive_portal_logout_mock'),
+    path('radius/', include('openwisp_radius.urls')),
+    # path('captive-portal-mock/login/', views.captive_portal_login, name='captive_portal_login_mock'),
+    # path('captive-portal-mock/logout/', views.captive_portal_logout, name='captive_portal_logout_mock'),
     # other urls
     path('testapp/', include('testing_app.urls')),
     path('testapp_api/', include('testing_app.api.urls')),

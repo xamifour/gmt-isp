@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import logging
+import warnings
 import re
 import stdnum.eu.vat
 from urllib.parse import urljoin
@@ -23,7 +24,6 @@ from django.utils import translation
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
-from django.utils.text import slugify
 
 from django_countries.fields import CountryField
 from sequences import get_next_value
@@ -31,6 +31,7 @@ from swapper import load_model
 
 from openwisp_users.mixins import OrgMixin
 from openwisp_radius.models import RadiusCheck, RadiusReply
+from openwisp_utils.base import UUIDModel
 
 from ..contrib import get_user_language, send_template_email
 from ..enumeration import Enumeration
@@ -48,17 +49,16 @@ from ..utils import country_code_transform, get_country_code, get_currency
 from ..validators import plan_validation
 
 
-# logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 accounts_logger = logging.getLogger('accounts')
-payment_logger = logging.getLogger('payments')
 
 MAX_LENGTH = 67
 
-class BaseMixin(models.Model):
+class BaseMixin(UUIDModel):
     created  = models.DateTimeField(_('created'), auto_now_add=True, null=True, db_index=True, )
     modified = models.DateTimeField(_('modified'), auto_now=True, null=True)
     # created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name='%(class)s_created_by')
-    # updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name='%(class)s_updated_by')
+    # modified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name='%(class)s_modified_by')
     
     class Meta:
         abstract = True
@@ -298,8 +298,9 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
 
     def has_automatic_renewal(self):
         return (
-            hasattr(self, 'recurring')
-            and self.recurring.has_automatic_renewal
+            hasattr(self, "recurring")
+            and self.recurring.renewal_triggered_by
+            != self.recurring.RENEWAL_TRIGGERED_BY.USER
             and self.recurring.token_verified
         )
 
@@ -325,12 +326,32 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
                 days=plans_autorenew_before_days, hours=plans_autorenew_before_hours
             )
 
-    def set_plan_renewal(self, order, has_automatic_renewal=True, **kwargs):
+    def set_plan_renewal(self, order, has_automatic_renewal=None, renewal_triggered_by=None, **kwargs):
         '''
         Creates or updates plan renewal information for this userplan with given order
         '''
-        if not hasattr(self, 'recurring'):
+ 
+        if not hasattr(self, "recurring"):
             self.recurring = AbstractRecurringUserPlan.get_concrete_model()()
+
+        if has_automatic_renewal is None and renewal_triggered_by is None:
+            has_automatic_renewal = True
+        if has_automatic_renewal is not None:
+            warnings.warn(
+                "has_automatic_renewal is deprecated. Use renewal_triggered_by instead.",
+                DeprecationWarning,
+            )
+        if renewal_triggered_by is None:
+            warnings.warn(
+                "renewal_triggered_by=None is deprecated. "
+                "Set an AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY instead.",
+                DeprecationWarning,
+            )
+            renewal_triggered_by = (
+                self.recurring.RENEWAL_TRIGGERED_BY.TASK
+                if has_automatic_renewal
+                else self.recurring.RENEWAL_TRIGGERED_BY.USER
+            )
 
         # Erase values of all fields
         # We don't want to mix the old and new values
@@ -342,7 +363,7 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
         self.recurring.amount = order.amount
         self.recurring.tax = order.tax
         self.recurring.currency = order.currency
-        self.recurring.has_automatic_renewal = has_automatic_renewal
+        self.recurring.renewal_triggered_by = renewal_triggered_by
         for k, v in kwargs.items():
             setattr(self.recurring, k, v)
         self.recurring.save()
@@ -490,6 +511,13 @@ class AbstractRecurringUserPlan(OrgMixin, BaseMixin):
     OneToOne model associated with UserPlan that stores information about the plan recurrence.
     More about recurring payments in docs.
     '''
+    RENEWAL_TRIGGERED_BY = Enumeration(
+        [
+            (1, "OTHER", pgettext_lazy("Renewal triggered by", "other")),
+            (2, "USER", pgettext_lazy("Renewal triggered by", "user")),
+            (3, "TASK", pgettext_lazy("Renewal triggered by", "task")),
+        ]
+    )
     user_plan = models.OneToOneField('UserPlan', on_delete=models.CASCADE, related_name='recurring')
     token = models.CharField(
         _('recurring token'), 
@@ -525,12 +553,28 @@ class AbstractRecurringUserPlan(OrgMixin, BaseMixin):
         blank=True
         )  # Tax=None is when tax is not applicable
     currency = models.CharField(_('currency'), max_length=3)
-    has_automatic_renewal = models.BooleanField(
-        _('has automatic plan renewal'), 
-        default=False,
+    renewal_triggered_by = models.IntegerField(
+        _("renewal triggered by"),
+        choices=RENEWAL_TRIGGERED_BY,
         help_text=_(
-            'Automatic renewal is enabled for associated plan. If False, the plan renewal can be still initiated by user.'), 
-        )
+            "The source of the associated plan's renewal (USER = user-initiated renewal, "
+            "TASK = autorenew_account-task-initiated renewal, OTHER = renewal is triggered using another mechanism)."
+        ),
+        default=RENEWAL_TRIGGERED_BY.USER,
+        db_index=True,
+    )
+    # A backup of the old has_automatic_renewal field to support data migration to the new renewal_triggered_by field.
+    # Do not make any other modifications to the field in order to let user's auto-migrations detect the renaming.
+    # TODO: _has_automatic_renewal_backup_deprecated deprecated. Remove in the next major release.
+    _has_automatic_renewal_backup_deprecated = models.BooleanField(
+        _("has automatic plan renewal"),
+        help_text=_(
+            "Automatic renewal is enabled for associated plan. "
+            "If False, the plan renewal can be still initiated by user.",
+        ),
+        db_column="has_automatic_renewal",
+        default=False,
+    )
     token_verified = models.BooleanField(
         _('token has been verified by payment'), 
         default=False,
@@ -538,10 +582,39 @@ class AbstractRecurringUserPlan(OrgMixin, BaseMixin):
         )
     card_expire_year   = models.IntegerField(null=True, blank=True)
     card_expire_month  = models.IntegerField(null=True, blank=True)
-    card_masked_number = models.CharField(null=True, blank=True, max_length=200)
+    card_masked_number = models.CharField('CVV', null=True, blank=True, max_length=200)
 
     class Meta:
         abstract = True
+
+    # TODO: has_automatic_renewal deprecated. Remove in the next major release.
+    @property
+    def has_automatic_renewal(self):
+        warnings.warn(
+            "has_automatic_renewal is deprecated. Use renewal_triggered_by instead.",
+            DeprecationWarning,
+        )
+        return self.renewal_triggered_by != self.RENEWAL_TRIGGERED_BY.USER
+
+    # TODO: has_automatic_renewal deprecated. Remove in the next major release.
+    @has_automatic_renewal.setter
+    def has_automatic_renewal(self, value):
+        warnings.warn(
+            "has_automatic_renewal is deprecated. Use renewal_triggered_by instead.",
+            DeprecationWarning,
+        )
+        self.renewal_triggered_by = (
+            self.RENEWAL_TRIGGERED_BY.TASK if value else self.RENEWAL_TRIGGERED_BY.USER
+        )
+
+    # TODO: has_automatic_renewal deprecated. Remove in the next major release.
+    @has_automatic_renewal.deleter
+    def has_automatic_renewal(self):
+        warnings.warn(
+            "has_automatic_renewal is deprecated. Use renewal_triggered_by instead.",
+            DeprecationWarning,
+        )
+        del self.renewal_triggered_by
 
     def create_renew_order(self):
         '''
@@ -576,7 +649,7 @@ class AbstractRecurringUserPlan(OrgMixin, BaseMixin):
         self.amount = None
         self.tax = None
         self.currency = None
-        self.has_automatic_renewal = False
+        self.renewal_triggered_by = self.RENEWAL_TRIGGERED_BY.USER
         self.token_verified = False
         self.card_expire_year = None
         self.card_expire_month = None
@@ -604,15 +677,14 @@ class AbstractPricing(OrgMixin, models.Model):
         verbose_name_plural = _('Pricings')
 
     def __str__(self):
-        # return '%s (%d ' % (self.name, self.period) + '%s)' % _('days')
-        return f"{self.name} ({self.period} days)"
+        return f'{self.name} ({self.period} days)'
 
 
 class PlanPricingManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().select_related('plan', 'pricing')
 
-class AbstractPlanPricing(OrgMixin, models.Model):
+class AbstractPlanPricing(OrgMixin, BaseMixin):
     plan    = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE)
     pricing = models.ForeignKey('gmtisp_billing.Pricing', on_delete=models.CASCADE)
     price   = models.DecimalField(max_digits=7, decimal_places=2, db_index=True)
@@ -672,7 +744,7 @@ class PlanQuotaManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().select_related('plan', 'quota')
 
-class AbstractPlanQuota(OrgMixin, models.Model):
+class AbstractPlanQuota(OrgMixin, BaseMixin):
     plan  = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE)
     quota = models.ForeignKey('gmtisp_billing.Quota', on_delete=models.CASCADE)
     value = models.BigIntegerField(default=1, null=True, blank=True)
@@ -726,7 +798,7 @@ class PlanBandwidthSettingsManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().select_related('plan', 'bandwidth')
 
-class AbstractPlanBandwidthSettings(OrgMixin, models.Model):
+class AbstractPlanBandwidthSettings(OrgMixin, BaseMixin):
     plan = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE)
     bandwidth = models.ForeignKey('gmtisp_billing.BandwidthSettings', on_delete=models.CASCADE, blank=True, null=True)
     description = models.CharField(_('Description'), max_length=MAX_LENGTH, blank=True, null=True, help_text='5Mbps')
@@ -863,6 +935,12 @@ class AbstractOrder(OrgMixin, BaseMixin):
     currency = models.CharField(_('currency'), max_length=3, default='EUR')
     status = models.IntegerField(_('status'), choices=STATUS, default=STATUS.NEW)
 
+    class Meta:
+        abstract = True
+        ordering = ('-created',)
+        verbose_name = _('Order')
+        verbose_name_plural = _('Orders')
+
     def __str__(self):
         return _('Order #%(id)d') % {'id': self.id}
 
@@ -911,15 +989,58 @@ class AbstractOrder(OrgMixin, BaseMixin):
             status = self.user.userplan.extend_account(self.plan, self.pricing)
             self.plan_extended_until = self.user.userplan.expire
             order.completed = self.completed = now()
-            if status:
+            
+            # Create a payment record
+            payment = AbstractPayment.get_concrete_model().objects.create(
+                user=self.user,
+                order=self,
+                amount=self.amount,
+                currency=self.currency,
+                payment_method='credit_card',  # You might want to dynamically determine this
+                status='pending'
+            )
+            
+            # Process the payment
+            payment.process_payment()
+
+            if payment.is_successful():
                 self.status = self.STATUS.COMPLETED
             else:
                 self.status = self.STATUS.NOT_VALID
+
             self.save()
             order_completed.send(self)
             return True
         else:
             return False
+
+    def return_order(self):
+        if self.status != self.STATUS.RETURNED:
+            if self.status == self.STATUS.COMPLETED:
+                if self.pricing is not None:
+                    extended_from = self.plan_extended_from
+                    if extended_from is None:
+                        extended_from = self.completed
+                    # Should never happen, but make sure we reduce for the same number of days as we extended.
+                    if (
+                        self.plan_extended_until is None
+                        or extended_from is None
+                        or self.plan_extended_until - extended_from
+                        != timedelta(days=self.pricing.period)
+                    ):
+                        raise ValueError(
+                            f"Invalid order state: completed={self.completed}, "
+                            f"plan_extended_from={self.plan_extended_from}, "
+                            f"plan_extended_until={self.plan_extended_until}, "
+                            f"pricing.period={self.pricing.period}"
+                        )
+                self.user.userplan.reduce_account(self.pricing)
+            elif self.status != self.STATUS.NOT_VALID:
+                raise ValueError(
+                    f"Cannot return order with status other than COMPLETED and NOT_VALID: {self.status}"
+                )
+            self.status = self.STATUS.RETURNED
+            self.save()
 
     def get_invoices_proforma(self):
         return AbstractInvoice.get_concrete_model().proforma.filter(order=self)
@@ -994,12 +1115,28 @@ class AbstractOrder(OrgMixin, BaseMixin):
         ):  # Don't change the tax, if the request was not successful
             self.tax = Decimal(tax) if tax != 'None' else None
 
-    class Meta:
-        ordering = ('-created',)
-        abstract = True
-        verbose_name = _('Order')
-        verbose_name_plural = _('Orders')
+    def update_order_status(self):
+        '''
+        Update order status when payment is made.
+        '''
+        self.status = 'paid'  # Example: Update order status to paid
+        self.save()
 
+    def create_invoice(self):
+        '''
+        Create invoice for the order when payment is made.
+        '''
+        # Example: Create invoice associated with this order
+        AbstractInvoice.get_concrete_model().objects.create(order=self, amount=self.total_amount)
+
+    def update_billing_info(self):
+        '''
+        Update billing information associated with the order when payment is made.
+        '''
+        # Example: Update billing information associated with this order
+        billing_info = AbstractBillingInfo.get_concrete_model().objects.get(order=self)
+        billing_info.update_info()  # Example method to update billing info
+        billing_info.save()
 
 
 # ----------------------------------------------------------- invoices
@@ -1320,3 +1457,242 @@ class AbstractInvoice(OrgMixin, BaseMixin):
         return EUTaxationPolicy.is_in_EU(self.buyer_country.code)
 
 
+# ----------------------------------------------------------- payments
+class AbstractPayment(OrgMixin, BaseMixin):
+    '''
+    Model to handle payments related to orders.
+    '''
+    PAYMENT_METHOD_CHOICES = (
+        ('credit_card', _('Credit Card')),
+        ('paypal', _('PayPal')),
+        ('bank_transfer', _('Bank Transfer')),
+        ('crypto', _('Cryptocurrency')),
+        # Add more payment methods as needed
+    )
+
+    STATUS_CHOICES = (
+        ('pending', _('Pending')),
+        ('completed', _('Completed')),
+        ('failed', _('Failed')),
+        ('refunded', _('Refunded')),
+    )
+
+    user  = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name=_('user'), on_delete=models.CASCADE)
+    order = models.ForeignKey(
+        'gmtisp_billing.Order',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        verbose_name=_('order'),
+    )
+    amount = models.DecimalField(_('amount'), max_digits=10, decimal_places=2)
+    currency = models.CharField(_('currency'), max_length=3, default='EUR')
+    payment_method = models.CharField(_('payment method'), max_length=50, choices=PAYMENT_METHOD_CHOICES)
+    status = models.CharField(_('status'), max_length=20, choices=STATUS_CHOICES, default='pending')
+    transaction_id = models.CharField(_('transaction ID'), max_length=255, blank=True, null=True)
+    payment_date = models.DateTimeField(_('payment date'), default=now)
+    autorenewed_payment = models.BooleanField(default=False)
+
+    class Meta:
+        abstract = True
+        verbose_name = _('Payment')
+        verbose_name_plural = _('Payments')
+        ordering = ('-created',)
+
+    def __str__(self):
+        return f'Payment {self.id} - {self.user} - {self.amount} {self.currency}'
+
+    def process_payment(self):
+        '''
+        Logic to process the payment.
+        '''
+        # Integrate with a payment gateway here
+        # Example: Replace with actual integration code
+        self.status = 'completed'
+        self.transaction_id = 'simulated_transaction_id'
+        self.payment_date = now()
+        self.save()
+        
+        # Emit signal indicating order completion
+        order_completed.send(sender=self.__class__)
+
+        # Check if this payment affects user plan or quotas
+        self.update_user_plan()
+        self.check_plan_quota()
+
+        # Update related order, invoice, billing info
+        self.order.update_order_status()
+        self.order.create_invoice()
+        self.order.update_billing_info()
+
+    def refund_payment(self):
+        '''
+        Logic to refund the payment.
+        '''
+        if self.status == 'completed':
+            self.status = 'refunded'
+            self.save()
+
+    def is_successful(self):
+        return self.status == 'completed'
+
+    def is_pending(self):
+        return self.status == 'pending'
+
+    def is_failed(self):
+        return self.status == 'failed'
+
+    def is_refunded(self):
+        return self.status == 'refunded'
+
+    def update_user_plan(self):
+        '''
+        Handle user plan updates after successful payment.
+        '''
+        try:
+            user_plan = UserPlan.objects.get(user=self.user)
+            user_plan.extend_plan()  # Example method to extend plan duration
+            user_plan.save()
+            account_change_plan.send(sender=self.__class__, user=self.user)
+        except UserPlan.DoesNotExist:
+            pass  # Handle if user has no plan or other logic
+
+    def check_plan_quota(self):
+        '''
+        Check and validate quotas related to user's plan after payment.
+        '''
+        plan_validation(self.user, on_activation=False)
+
+    def save(self, *args, **kwargs):
+        '''
+        Overriding save method to handle updates and signals.
+        '''
+        is_new = not self.pk
+        super().save(*args, **kwargs)
+        if is_new and self.status == 'completed':
+            self.process_payment()
+
+    def get_failure_url(self):
+        return reverse("order_payment_failure", kwargs={"pk": self.order.pk})
+
+    def get_success_url(self):
+        return reverse("order_payment_success", kwargs={"pk": self.order.pk})
+
+    def get_payment_url(self):
+        return reverse("payment_details", kwargs={"payment_id": self.pk})
+    
+    def get_renew_token(self):
+        """
+        Get the recurring payments renew token for user of this payment
+        Used by PayU provider for now
+        """
+        try:
+            recurring_plan = self.order.user.userplan.recurring
+            if (
+                recurring_plan.token_verified
+                and self.payment_method == recurring_plan.payment_provider
+            ):
+                return recurring_plan.token
+        except ObjectDoesNotExist:
+            pass
+        return None
+
+    def set_renew_token(
+        self,
+        token,
+        card_expire_year=None,
+        card_expire_month=None,
+        card_masked_number=None,
+        automatic_renewal=None,
+        renewal_triggered_by=None,
+    ):
+        """
+        Store the recurring payments renew token for user of this payment
+        The renew token is string defined by the provider
+        Used by PayU provider for now
+        """
+        if automatic_renewal is None and renewal_triggered_by is None:
+            automatic_renewal = True
+        if automatic_renewal is not None:
+            warnings.warn(
+                "automatic_renewal is deprecated. Use renewal_triggered_by instead.",
+                DeprecationWarning,
+            )
+        if renewal_triggered_by == "user":
+            renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.USER
+        elif renewal_triggered_by == "task":
+            renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
+        elif renewal_triggered_by == "other":
+            renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.OTHER
+        elif renewal_triggered_by is None:
+            warnings.warn(
+                "renewal_triggered_by=None is deprecated. "
+                "Set an AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY instead.",
+                DeprecationWarning,
+            )
+            renewal_triggered_by = (
+                AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
+                if automatic_renewal
+                else AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.USER
+            )
+        else:
+            raise ValueError(f"Invalid renewal_triggered_by: {renewal_triggered_by}")
+
+        self.order.user.userplan.set_plan_renewal(
+            order=self.order,
+            token=token,
+            payment_provider=self.payment_method,
+            card_expire_year=card_expire_year,
+            card_expire_month=card_expire_month,
+            card_masked_number=card_masked_number,
+            renewal_triggered_by=renewal_triggered_by,
+        )
+
+    def delete(self, *args, **kwargs):
+        '''
+        Handle deletion of payments.
+        '''
+        if self.status == 'completed':
+            self.refund_payment()
+        super().delete(*args, **kwargs)
+
+
+@receiver(account_automatic_renewal)
+def renew_accounts(sender, user, *args, **kwargs):
+    userplan = user.userplan
+    if (
+        userplan.recurring.payment_provider in settings.PAYMENT_VARIANTS
+        and userplan.recurring.renewal_triggered_by
+        == AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
+    ):
+        order = userplan.recurring.create_renew_order()
+        payment = AbstractPayment(
+            user=user,
+            order=order,
+            amount=order.total,
+            currency=order.currency,
+            payment_method=userplan.recurring.payment_provider,
+            autorenewed_payment=True
+        )
+        payment.save()
+        try:
+            redirect_url = payment.auto_complete_recurring()
+        except Exception as e:
+            logger.exception(
+                "Exception during account renewal",
+                extra={"payment": payment},
+            )
+            redirect_url = urljoin(
+                get_base_url(),
+                reverse("create_order_plan", kwargs={"pk": order.get_plan_pricing().pk}),
+            )
+        if redirect_url != "success":
+            send_template_email(
+                [payment.order.user.email],
+                "mail/renew_cvv_3ds_title.txt",
+                "mail/renew_cvv_3ds_body.txt",
+                {"redirect_url": redirect_url},
+                get_user_language(payment.order.user),
+            )
+        if payment.status == PaymentStatus.CONFIRMED:
+            order.complete_order()

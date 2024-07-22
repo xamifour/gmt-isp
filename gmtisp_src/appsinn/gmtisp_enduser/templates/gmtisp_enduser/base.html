@@ -1,22 +1,15 @@
+{% extends 'base.html' %}
 {% load i18n %}
+
+
 {% load static %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en-gb' }}" class="{% block html_class %}no-js{% endblock %}">
     <head>
         <title>{% block title %} {{ shop_name }} - {{ shop_tagline }} {% endblock %}</title>
 
-        <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
         <meta name="created" content="{% now 'jS M Y h:i' %}" />
         <meta name="description" content="{% block description %}{% endblock %}" />
-        <meta name="viewport" content="{% block viewport %}width=device-width{% endblock %}" />
-        <!-- Favicon and Touch Icons-->
-        <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-        <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-        <link rel="manifest" href="site.webmanifest">
-        <link rel="mask-icon" color="#111" href="safari-pinned-tab.svg">
-        <meta name="msapplication-TileColor" content="#111">
-        <meta name="theme-color" content="#ffffff">  
 
         {% block favicon %}
             <link rel="shortcut icon" href="{% static 'oscar/assets/front/favicon.ico' %}" />

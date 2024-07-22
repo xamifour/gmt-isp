@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+  <h2>Payment List</h2>
+  <ul>
+    {% for payment in payments %}
+      <li><a href="{% url 'payment_detail' payment.pk %}">{{ payment.order }} - {{ payment.amount }} {{ payment.currency }}</a></li>
+    {% endfor %}
+  </ul>
+  <a href="{% url 'payment_create' %}">Create New Payment</a>
+{% endblock %}

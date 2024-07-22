@@ -61,7 +61,7 @@ class Shelf(ShareableOrgMixin, FallbackModelMixin, TimeStampedEditableModel):
     books_count = FallbackPositiveIntegerField(blank=True, null=True, fallback=21, verbose_name=_("Number of books"))
     locked = models.BooleanField(_("Is locked"), default=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, verbose_name=_("Owner of shelf"), on_delete=models.CASCADE)
-    created_at = models.DateTimeField(_("Create at"), null=True, blank=True, auto_now_add=True)
+    created_at = models.DateTimeField(_("Created at"), null=True, blank=True, auto_now_add=True)
 
     def __str__(self):
         return self.name
@@ -96,6 +96,7 @@ class Library(OrgMixin, models.Model):
         return self.name
 
 
+# --------------------------------------------------------------
 class Project(OrgMixin, models.Model):
     name = models.CharField(max_length=64, null=True, blank=True)
     key = KeyField(unique=True, db_index=True, help_text=_('unique project key'))
@@ -123,7 +124,12 @@ class RadiusAccounting(models.Model):
 
 class OrganizationRadiusSettings(OrgMixin, FallbackModelMixin, models.Model):
     is_active = FallbackBooleanChoiceField(null=True, blank=True, default=None, fallback=False)
-    is_first_name_required = FallbackCharChoiceField(null=True, blank=True, max_length=32, choices=(('disabled', _('Disabled')), ('allowed', _('Allowed')), ('mandatory', _('Mandatory'))), fallback='disabled')
+    is_first_name_required = FallbackCharChoiceField(
+        null=True, 
+        blank=True, 
+        max_length=32, 
+        choices=(('disabled', _('Disabled')), ('allowed', _('Allowed')), ('mandatory', _('Mandatory'))), 
+        fallback='disabled')
     greeting_text = FallbackCharField(null=True, blank=True, max_length=200, fallback='Welcome to OpenWISP!')
     password_reset_url = FallbackURLField(null=True, blank=True, max_length=200, fallback='http://localhost:8000/admin/password_change/')
     extra_config = FallbackTextField(null=True, blank=True, max_length=200, fallback='no data')

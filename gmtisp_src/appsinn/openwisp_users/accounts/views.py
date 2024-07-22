@@ -31,3 +31,11 @@ password_change = login_required(PasswordChangeView.as_view())
 password_change_success = login_required(
     TemplateView.as_view(template_name='account/password_change_success.html')
 )
+
+
+# views.py in your accounts app
+from django.shortcuts import render
+
+def profile_view(request):
+    # Add logic here to handle the request and return a response
+    return render(request, 'accounts/profile.html')
