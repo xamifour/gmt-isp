@@ -31,7 +31,7 @@ from organizations.exceptions import OwnershipRequired
 from phonenumber_field.formfields import PhoneNumberField
 from swapper import load_model
 
-from openwisp_utils.mixins import OrganizationDbAdminMixin
+# from openwisp_utils.mixins import OrganizationDbAdminMixin
 from . import settings as app_settings
 from .multitenancy import MultitenantAdminMixin, MultitenantOrgFilter
 from .utils import BaseAdmin
@@ -40,6 +40,9 @@ Group = load_model('openwisp_users', 'Group')
 Organization = load_model('openwisp_users', 'Organization')
 OrganizationOwner = load_model('openwisp_users', 'OrganizationOwner')
 OrganizationUser = load_model('openwisp_users', 'OrganizationUser')
+UserPlan = load_model('gmtisp_billing', 'Userplan')
+Plan = load_model('gmtisp_billing', 'Plan')
+
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
@@ -190,7 +193,51 @@ class UserChangeForm(UserFormMixin, BaseUserChangeForm):
     pass
 
 
-class UserAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, BaseUserAdmin, BaseAdmin):
+class UserPlanInline(admin.StackedInline):
+    model = UserPlan
+    formset = RequiredInlineFormSet
+    view_on_site = False
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """
+        In form dropdowns, display only organizations
+        in which operator `is_admin` and for superusers display all organizations.
+        Also, display only plans that belong to the managed organizations.
+        """
+        formset = super().get_formset(request, obj=obj, **kwargs)
+        if not request.user.is_superuser:
+            managed_org_ids = request.user.organizations_managed
+            formset.form.base_fields['organization'].queryset = Organization.objects.filter(
+                pk__in=managed_org_ids
+            )
+            formset.form.base_fields['plan'].queryset = Plan.objects.filter(
+                organization__pk__in=managed_org_ids
+            )
+            
+            # Programmatically select the organization
+            if len(managed_org_ids) == 1:
+                formset.form.base_fields['organization'].initial = managed_org_ids[0]
+
+        return formset
+
+    def get_queryset(self, request):
+        """
+        Filter queryset to show only plans for the user's organization.
+        Superusers see all plans.
+        """
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser:
+            managed_org_ids = request.user.organizations_managed
+            qs = qs.filter(organization__pk__in=managed_org_ids)
+        return qs
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if not obj:
+            return 1
+        return 0
+
+
+class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
     add_form = UserCreationForm
     form = UserChangeForm
     ordering = ['-date_joined']
@@ -205,13 +252,14 @@ class UserAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, BaseUserAdmin, 
         'date_joined',
         'last_login',
     ]
-    inlines = [EmailAddressInline, OrganizationUserInline]
+    inlines = [EmailAddressInline, OrganizationUserInline, UserPlanInline]
     save_on_top = True
     actions = ['delete_selected_overridden', 'make_inactive', 'make_active']
     fieldsets = list(BaseUserAdmin.fieldsets)
 
     # To ensure extended apps use this template.
     change_form_template = 'admin/openwisp_users/user/change_form.html'
+
 
     def require_confirmation(func):
         """
@@ -407,7 +455,7 @@ class UserAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, BaseUserAdmin, 
             if has_add_perm:
                 return [inline]
         return []
-
+    
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
         obj = self.get_object(request, object_id)
@@ -415,7 +463,6 @@ class UserAdmin(MultitenantAdminMixin, OrganizationDbAdminMixin, BaseUserAdmin, 
             show_owner_warning = True
             extra_context.update({'show_owner_warning': show_owner_warning})
         return super().change_view(request, object_id, form_url, extra_context)
-
 
     def save_model(self, request, obj, form, change):
         """
@@ -491,7 +538,7 @@ class OrganizationUserFilter(MultitenantOrgFilter):
 
 
 base_fields = list(UserAdmin.fieldsets[1][1]['fields'])
-additional_fields = ['bio', 'url', 'company', 'location', 'phone_number', 'birth_date', 'notes_for_user']
+additional_fields = ['bio', 'url', 'company', 'location', 'phone_number', 'birth_date']
 UserAdmin.fieldsets[1][1]['fields'] = base_fields + additional_fields
 UserAdmin.fieldsets.insert(3, ('Internal', {'fields': ('notes',)}))
 primary_fields = list(UserAdmin.fieldsets[0][1]['fields'])

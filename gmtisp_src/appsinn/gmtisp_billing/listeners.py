@@ -2,19 +2,10 @@ from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch.dispatcher import receiver
 
-from .base.models import (
-    AbstractInvoice,
-    AbstractOrder,
-    AbstractPlan,
-    AbstractUserPlan,
-)
 from .signals import activate_user_plan, order_completed
 from .models import Plan, UserPlan, Order, Invoice
+
 User = get_user_model()
-# Order = AbstractOrder.get_concrete_model()
-# Invoice = AbstractInvoice.get_concrete_model()
-# UserPlan = AbstractUserPlan.get_concrete_model()
-# Plan = AbstractPlan.get_concrete_model()
 
 
 @receiver(post_save, sender=Order)
@@ -38,6 +29,22 @@ def send_invoice_by_email(sender, instance, created, **kwargs):
         instance.send_invoice_by_email()
 
 
+from gmtisp_billing.contrib import get_user_language, send_template_email
+@receiver(post_save, sender=Invoice)
+def invoice_notification(sender, instance, created, **kwargs):
+    if created:
+        context = {
+            "invoice": instance,
+            "user": instance.order.user,
+        }
+        user_language = get_user_language(instance.order.user)
+        send_template_email(
+            [instance.order.user.email],
+            "gmtisp_billing/mail/invoice_created_title.txt",
+            "gmtisp_billing/mail/invoice_created_body.txt",
+            context,
+            user_language,
+        )
 @receiver(post_save, sender=User)
 def set_default_user_plan(sender, instance, created, **kwargs):
     """
@@ -49,7 +56,6 @@ def set_default_user_plan(sender, instance, created, **kwargs):
 
 
 # Hook to django-registration to initialize plan automatically after user has confirm account
-
 
 @receiver(activate_user_plan)
 def initialize_plan_generic(sender, user, **kwargs):

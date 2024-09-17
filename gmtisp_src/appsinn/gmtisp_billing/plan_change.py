@@ -1,48 +1,67 @@
 # coding=utf-8
 from decimal import Decimal
+from django.conf import settings
+from .importer import import_name
 
 
 class PlanChangePolicy(object):
     def _calculate_day_cost(self, plan, period):
         """
-        Finds most fitted plan pricing for a given period, and calculate day cost
+        Finds most fitted plan pricing for a given period, and calculates the day cost.
         """
         if plan.is_free():
-            # If plan is free then cost is always 0
-            return 0
+            # If plan is free, then cost is always 0
+            return Decimal("0.00")
 
-        plan_pricings = plan.planpricing_set.order_by(
-            "-pricing__period"
-        ).select_related("pricing")
+        # Ensure period is a positive integer
+        if not isinstance(period, int) or period <= 0:
+            raise ValueError("Period must be a positive integer.")
+
+        plan_pricings = plan.planpricing_set.order_by("-pricing__period").select_related("pricing")
         selected_pricing = None
         for plan_pricing in plan_pricings:
-            selected_pricing = plan_pricing
             if plan_pricing.pricing.period <= period:
+                selected_pricing = plan_pricing
                 break
 
         if selected_pricing:
-            return (selected_pricing.price / selected_pricing.pricing.period).quantize(
-                Decimal("1.00")
-            )
-
-        raise ValueError("Plan %s has no pricings." % plan)
+            # Calculate day cost with Decimal precision
+            return (selected_pricing.price / selected_pricing.pricing.period).quantize(Decimal("1.00"))
+        
+        raise ValueError(f"Plan {plan} has no valid pricings for the given period.")
 
     def _calculate_final_price(self, period, day_cost_diff):
+        """
+        Calculates the final price based on the period and day cost difference.
+        """
         if day_cost_diff is None:
             return None
-        else:
-            return period * day_cost_diff
+        if not isinstance(period, int) or period < 0:
+            raise ValueError("Period must be a non-negative integer.")
+        if not isinstance(day_cost_diff, (Decimal, int)):
+            raise TypeError("Day cost difference must be a Decimal or integer.")
+        
+        # Ensure day_cost_diff is converted to Decimal if it is an integer
+        if isinstance(day_cost_diff, int):
+            day_cost_diff = Decimal(day_cost_diff)
+
+        return period * day_cost_diff
 
     def get_change_price(self, plan_old, plan_new, period):
         """
-        Calculates total price of plan change. Returns None if no payment is required.
+        Calculates the total price of a plan change. Returns None if no payment is required.
         """
-        if period is None or period < 1:
-            return None
+        # Ensure period is valid
+        if not isinstance(period, int) or period < 1:
+            raise ValueError("Period must be a positive integer.")
 
         plan_old_day_cost = self._calculate_day_cost(plan_old, period)
         plan_new_day_cost = self._calculate_day_cost(plan_new, period)
 
+        if not isinstance(plan_old_day_cost, Decimal) or not isinstance(plan_new_day_cost, Decimal):
+            raise TypeError("Day costs must be of type Decimal.")
+
+        # Calculate and return the final price
         if plan_new_day_cost <= plan_old_day_cost:
             return self._calculate_final_price(period, None)
         else:
@@ -96,3 +115,24 @@ class StandardPlanChangePolicy(PlanChangePolicy):
             return None
         else:
             return cost
+
+
+def get_policy():
+    policy_class = getattr(
+        settings,
+        "PLANS_CHANGE_POLICY",
+        "gmtisp_billing.plan_change.StandardPlanChangePolicy",
+    )
+    return import_name(policy_class)()
+
+
+def get_change_price(userplan, plan):
+    policy = get_policy()
+
+    if userplan.expire is not None:
+        period = userplan.days_left()
+    else:
+        # Use the default period of the new plan
+        period = 30
+
+    return policy.get_change_price(userplan.plan, plan, period)

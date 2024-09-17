@@ -1,8 +1,11 @@
-{% extends 'base.html' %}
+{% extends 'gmtisp_billing/layout.html' %}
+
+
 {% block content %}
 <form action="{{ form.action }}" method="{{ form.method }}">
     {% csrf_token %}
-    {{ form }}
+    {% include 'partials/form_template.html' %}
+    <!-- {{ form }} -->
     <p><input type="submit" value="Proceed" /></p>
 </form>
 {% endblock %}

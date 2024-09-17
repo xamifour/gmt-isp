@@ -1,83 +1,79 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{% block title %}{% endblock %}</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+{# extends 'gmtisp_billing/layout.html' #}
     <style type="text/css">
         html, body{
             font-size: 12px;
-            font-family: Helvetica;
+            font-family: Helvetica, sans-serif, serif, Arial;
+            font-weight: 500;
         }
         span.en {
             font-size: 10px;
             color:gray;
         }
         span.pl {
-            font-size: 14px;
-            color: black;
-        }
-        table {
-            border-collapse: collapse;
+            font-size: 13px;
+            color: #171f9d;
         }
 
-        table td, table th {
-            border: 1px solid black;
-            padding: 1em;
+        .card {
+        /* width: 100%; */
+        border-radius: 8px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        background-color: #fff;
+        /* border: 1px solid #888; */
+        box-shadow: 0 0 10px rgba(53, 6, 135, 0.1);
         }
-        table thead{
-            text-align: center;
-        }
-        #shipping{
-            text-align: right;
-        }
-        table#items thead {
-            background-color: #EEE;
-        }
-        table#items tfoot td{
-            text-align: right;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        table td.number{
-            text-align: right;
 
+        .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        background-color: #fff;
         }
-        table td.center{
-            text-align: center;
+        .table th, .table td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            font-weight: 500;
+            font-size: 13px;
+            vertical-align: top;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 500;
+        }
+        table tr:hover {
+            background-color: #f8f9fa;
+            transition: background-color 0.3s ease; /* Smooth transition effect */
+        }
+
+        .invoice-user{
+            /* float:right;  */
+            text-align: right;
         }
 
         strong{
-            font-size: 14px;
+            font-weight: 500;
         }
         #full_number , span.invoice_header{
-            font-size: 26px;
-            font-weight: bold;
+            font-size: 1.5rem;
+            font-weight: 500;
         }
-
 
         label{
             display: inline-block;
             position: relative;
             margin-bottom: .5em;
-
         }
-
-        label span.pl {
+        /* label span.pl {
             display: block;
-        }
-
-        label span.en{
+        } */
+        /* label span.en{
             position: absolute;
             right: .5em;
-
-        }
+        } */
 
     </style>
 
-    {% block head %}{% endblock %}
-
-</head>
 <body style="width: 960px; margin: 0 auto;" {% if auto_print %}onload="window.print();"{% endif %}>
 {% block content %}{% endblock %}
 </body>
-</html>

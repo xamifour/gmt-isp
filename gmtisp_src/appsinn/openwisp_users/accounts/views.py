@@ -34,8 +34,19 @@ password_change_success = login_required(
 
 
 # views.py in your accounts app
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from django.contrib import messages
 
-def profile_view(request):
-    # Add logic here to handle the request and return a response
-    return render(request, 'accounts/profile.html')
+class ProfileView(TemplateView):
+    template_name = 'accounts/profile.html'
+
+    def get(self, request, *args, **kwargs):
+        if not request.session.get('token'):
+            messages.error(request, 'You must be logged in to view this page.')
+            return redirect('login')
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user_details'] = self.request.session.get('user_details', {})
+        return context

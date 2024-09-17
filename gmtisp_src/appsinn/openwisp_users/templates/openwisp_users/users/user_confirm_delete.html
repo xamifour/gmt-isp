@@ -1,0 +1,24 @@
+{% extends "openwisp_users/layout.html" %}
+
+{% block content %}
+<div class="">
+    <div class="col-md-8">
+        <div class="">
+            <div class="panel-heading">
+                <h5 class="panel-title">{{ panel_title }}</h5>
+            </div>
+            <div class="panel-body">
+                <form method="post" class="form">
+                    {% csrf_token %}
+                    <div class="alert alert-warning">
+                        <h5>Are you sure you want to delete "{{ user.username }}" completely from the users list?</h5>
+                    </div>
+                    <button type="submit" name="delete" class="btn btn-danger btn-sm">Confirm</button>
+                </form>
+                <a href="{% url 'user_list' %}" class="btn btn-info btn-sm mt-2">No, go back</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

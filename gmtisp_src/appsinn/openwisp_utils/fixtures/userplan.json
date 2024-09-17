@@ -1,0 +1,42 @@
+HTTP 200 OK
+Allow: GET, POST, HEAD, OPTIONS
+Content-Type: application/json
+Vary: Accept
+
+{
+    "count": 3,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "8fe3f1dd-270a-4138-a975-4ec03778a1a7",
+            "created": "2024-07-23T10:47:31.445808-04:00",
+            "modified": "2024-07-25T13:33:29.118684-04:00",
+            "expire": "2024-07-27",
+            "active": true,
+            "organization": "ead12b96-1d81-4e5d-991b-e9544e74b8e2",
+            "user": "f1ce0400-72fc-4335-a798-88045dc1e5ab",
+            "plan": "7092d3d2-e35f-44c2-8f8d-9383893f9854"
+        },
+        {
+            "id": "21084e7a-e201-4e4b-b69b-a501e9d61862",
+            "created": "2024-07-23T14:14:22.666409-04:00",
+            "modified": "2024-07-23T14:42:18.645401-04:00",
+            "expire": "2024-07-31",
+            "active": true,
+            "organization": "ead12b96-1d81-4e5d-991b-e9544e74b8e2",
+            "user": "03e0889e-3253-40f0-b1ab-93114dc98b8c",
+            "plan": "15b27c13-9751-41bd-99e3-7b42497b9eb0"
+        },
+        {
+            "id": "3602e3ab-2b98-467f-a591-f434b4a1ac9f",
+            "created": "2024-07-23T19:53:32.274861-04:00",
+            "modified": "2024-07-23T19:53:32.274928-04:00",
+            "expire": "2024-07-25",
+            "active": true,
+            "organization": "60dec14c-d56b-44fc-8f34-38010e758715",
+            "user": "e8acc682-89d1-4b8e-a79e-3e61cc21c27d",
+            "plan": "05d0c1b4-4847-47e9-9ee2-16536fd9624b"
+        }
+    ]
+}

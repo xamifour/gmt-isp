@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block layout %}
+  {% block content %}
+  <div class="container pt-4">
+    <h2>Welcome to the Schools App! <span class="icon-emo-happy"></span></h2>
+    <p class="lead">
+      If you already have an account, go ahead and <a href="{% url 'accounts:loginUrl' %}">log in</a>. If you are new to Django Schools, get started <a href="{% url 'accounts:signupUrl' %}">Creating an account</a> 
+    </p>
+    <hr>
+    <h3>How to use the app</h3>
+    <p> 
+      Help schools to create and manage their school data.
+    </p>
+    </div>
+  {% endblock %}
+{% endblock layout %}

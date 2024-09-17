@@ -4,6 +4,7 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.utils.translation import gettext_lazy as _
 # from django.apps import apps
 
+# from .models import Plan
 from .importer import import_name
 from .quota import get_user_quota
 
@@ -174,14 +175,3 @@ def plan_validation(user, plan=None, on_activation=False):
                 else:
                     errors["other"].extend(e.messages)
     return errors
-
-
-# class MaxPlansValidator(ModelCountValidator):
-#     Plan = apps.get_model('gmtisp_billing', 'Plan')
-#     code = "MAX_PLAN_COUNT"
-#     model = Plan
-
-#     def get_queryset(self, user):
-#         return super().get_queryset(user).filter(user=user)
-
-# max_plans_validator = MaxPlansValidator()

@@ -59,13 +59,11 @@ class AbstractUser(BaseUser, UUIDModel):
     notes = models.TextField(_('notes'), help_text=_('Notes for internal usage'), blank=True)
     language = models.CharField(max_length=8, choices=settings.LANGUAGES, default=settings.LANGUAGE_CODE,)
     password_updated = models.DateField(_('password updated'), blank=True, null=True)
-    notes_for_user = models.CharField(
-        _('Your notes'), 
-         max_length=500,
-         blank=True, 
-         null=True,
-         help_text=_('Notes for your usage'), 
-         )
+    theme = models.CharField(_('theme'), 
+        max_length=7, 
+        blank=True, null=True,
+        help_text=_('Primary theme color in hex format (e.g. #ffffff)')
+        )
     
     objects = UserManager()
 
@@ -214,8 +212,18 @@ class BaseOrganization(UUIDModel):
     """
     name = models.CharField(_('name'), max_length=67, unique=True)
     description = models.TextField(_('description'), blank=True)
-    email = models.EmailField(_('email'), blank=True)
+    email = models.EmailField(_('email'), unique=True, blank=True)
     url = models.URLField(_('URL'), blank=True)
+    logo = models.CharField(_('logo'), 
+        max_length=67, 
+        blank=True, null=True,
+        help_text=_('Logo URL')
+        )
+    theme = models.CharField(_('theme'), 
+        max_length=7, 
+        blank=True, null=True,
+        help_text=_('Primary theme color in hex format (e.g. #ffffff)')
+        )
 
     def __str__(self):
         value = self.name

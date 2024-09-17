@@ -1,0 +1,10 @@
+{% extends "openwisp_users/layout.html" %}
+
+{% block content %}
+<h2>Organization Detail</h2>
+<p>Name: {{ organization.name }}</p>
+<p>Description: {{ organization.description }}</p>
+<!-- Add more fields as necessary -->
+<a href="{% url 'organization_update' organization.pk %}">Edit</a>
+<a href="{% url 'organization_delete' organization.pk %}">Delete</a>
+{% endblock %}

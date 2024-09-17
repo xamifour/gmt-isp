@@ -1,0 +1,33 @@
+{% extends "./base.html" %}
+{% load i18n %}
+
+{% block title %} {% trans "Sign Up" %} | {{ block.super }}{% endblock %}
+
+
+{% block content %}
+<div class="container my-4">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+    <h2 class="h3 mb-3 text-black font-weight-semibold">Sign Up</h2>
+    </div>
+    <div class="col-md-6">
+      <form method="post" action="{% url 'account_signup' %}">
+        {% csrf_token %}
+        {% if redirect_field_value %}
+          <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
+        {% endif %}
+        <!-- {{ form.as_p }} -->{
+        % include "partials/form_template.html" with form=form %}
+        <!--<input type="submit" class="btn btn-primary btn-lg btn-block" value="Sign up">-->
+        <button type="submit" class="btn btn-primary btn-lg btn-block">{% trans "Sign Up" %} &raquo;</button>
+      </form>
+      <div class="row mt-3">
+        <div class="col-md-6">
+          <a href="{% url 'account_login' %}"><small>Already have an account?</small></a>
+        </div>
+        <div class="col-6 text-right"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

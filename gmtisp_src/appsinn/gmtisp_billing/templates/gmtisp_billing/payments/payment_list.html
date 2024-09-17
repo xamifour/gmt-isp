@@ -1,10 +1,74 @@
-{% extends "admin/base_site.html" %}
+{% extends 'gmtisp_billing/layout.html' %}
+{% load i18n %}
+
+
+{% block title %}{{block.super}} | Payment List {% endblock %}
+
 {% block content %}
-  <h2>Payment List</h2>
-  <ul>
-    {% for payment in payments %}
-      <li><a href="{% url 'payment_detail' payment.pk %}">{{ payment.order }} - {{ payment.amount }} {{ payment.currency }}</a></li>
-    {% endfor %}
-  </ul>
-  <a href="{% url 'payment_create' %}">Create New Payment</a>
+    {% block payment_header %}
+        <h4>{% trans "List of payments" %}</h4>
+    {% endblock %}
+
+    <a href="{# url 'create_payment' #}">Create New Payment</a>
+    {% if object_list %}
+        {% block pagination_first %}
+            {% include "partials/pagination.html" %}
+        {% endblock %}
+
+        {% block payment_table %}
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="basic-datatables" class="display table t/able-striped t/able-hover" >
+                        <thead>
+                            <tr>
+                                <th scope="col"><input type="checkbox" id="select-all"></th>
+                                <th scope="col">Item</th>
+                                <th>ID</th>
+                                <th>{% trans 'User' %}</th>
+                                <th>{% trans 'Order' %}</th>
+                                <th>{% trans 'Status' context 'payment status' %}</th>
+                                <th>{% trans 'Amount' context 'total amount, value' %}</th>
+                                <th>{% trans 'Method' %}</th>
+                                <th>{% trans 'Action' %}</th>
+                                <th>{% trans 'Created' %}</th>
+                        </thead>
+                        <tbody>
+                            {% for payment in payments %}
+                            <tr class="{% if payment.status == 2 %}success{% elif payment.status == 3 %}danger{% elif payment.status == 4 %}warning{% elif payment.status == 5 %}info{% endif %}">
+                                <td><input type="checkbox" class="select-row"></td>
+                                <th scope="row"><a href="{% url 'payment_details' payment.pk %}">{{ forloop.counter }}</a></th> 
+                                <td><a href="{% url 'payment_details' payment.pk %}">{{ payment.pk | truncatechars:14 }}</a></td>
+                                <td><a href="{% url 'payment_details' payment.pk %}">{{ payment.user }}</a></td>
+                                <td><a href="{{ payment.get_success_url }}">{{ payment.order.pk| truncatechars:14 }}</a></td>
+                                <td class="status">{{ payment.get_status_display }}</td>
+                                <td class="number">{{ payment.amount }}&nbsp;{{ CURRENCY }}</td>
+                                <td class="date">{{ payment.payment_method}}</td>
+                                <td class="date">{{ payment.payment_action}}</td>
+                                <td class="date">{{ payment.created }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+
+        {% block pagination_second %}
+            {% include "partials/pagination.html" %}
+        {% endblock %}
+
+    {% else %}
+        {% blocktrans %}You do not have any payments so far.{% endblocktrans %}
+    {% endif %}
+    
+    {% block sub_js %}
+        <script >
+            $(document).ready(function() {
+                $('#basic-datatables').DataTable({
+                });
+            });
+        </script>
+    {% endblock %}
 {% endblock %}

@@ -1,3 +1,5 @@
+# serializers.py
+
 import logging
 
 from allauth.account.models import EmailAddress

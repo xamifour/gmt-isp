@@ -1,0 +1,22 @@
+{% extends 'gmtisp_billing/layout.html' %}
+{% load i18n %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-sm-6">
+            <form action="{% block 'action_url' %}{% url 'billing_info' %}{% endblock %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" method="post" class="form">
+                {% block "form-content" %}
+                <legend>{% trans "Provide billing data" %}</legend>
+                {% csrf_token %}
+                {% include 'partials/form_template.html' with form=form %}
+                {% if object %}
+                <a class="btn btn-danger" href="{% url 'billing_info_delete' %}">Delete</a>
+                {% endif %}
+                <button type="submit" class="btn btn-primary col-sm-12">
+                    Save
+                </button>
+                {% endblock %}
+            </form>
+        </div>
+    </div>
+{% endblock %}

@@ -1,24 +1,24 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.forms import ModelForm
 from django.forms.widgets import HiddenInput
 from django.utils.translation import gettext
 
 from .utils import get_country_code
-from .models import Plan, BillingInfo, Order, PlanPricing, Payment
+from .validators_my import max_plans_validator
+from .models import Plan, Order, PlanPricing, BillingInfo
 
 
+class PlanForm(forms.ModelForm):
+    class Meta:
+        model = Plan
+        widgets = {'user' : HiddenInput,}
+        exclude = ("user",)
 
-# class PlanForm(forms.ModelForm):
-#     class Meta:
-#         model = Plan
-#         fields = '__all__'  # Use __all__ to include all fields from the model
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         instance = kwargs.get('instance')
-#         if instance:  # Edit mode
-#             self.fields['name'].widget.attrs['readonly'] = True
-#             self.fields['slug'].widget.attrs['readonly'] = True
+    def clean(self):
+        cleaned_data = super(PlanForm, self).clean()
+        max_plans_validator(cleaned_data['user'], add=1)
+        return cleaned_data
 
 
 class OrderForm(forms.Form):
@@ -82,7 +82,7 @@ class FakePaymentsForm(forms.Form):
     )
 
 
-class PaymentForm(forms.ModelForm):
-    class Meta:
-        model = Payment
-        fields = ['order', 'amount', 'currency', 'status', 'payment_method']
+# class PaymentForm(forms.ModelForm):
+#     class Meta:
+#         model = Payment
+#         fields = ['order', 'amount', 'currency', 'status', 'payment_method']

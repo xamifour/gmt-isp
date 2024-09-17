@@ -123,6 +123,7 @@ class ShelfFilter(MultitenantRelatedOrgFilter):
             return queryset.filter(name__icontains=self.value())
 
 
+@admin.register(Shelf)
 class ShelfAdmin(TimeReadonlyAdminMixin, BaseAdmin):
     # DO NOT CHANGE: used for testing filters
     list_display = ['name', 'organization']
@@ -139,7 +140,7 @@ class ShelfAdmin(TimeReadonlyAdminMixin, BaseAdmin):
         ReverseBookFilter,
     ]
 
-
+@admin.register(Book)
 class BookAdmin(BaseAdmin):
     list_display = ['name', 'author', 'organization', 'shelf']
     list_filter = [
@@ -180,10 +181,3 @@ class TemplateAdmin(BaseAdmin):
 
 class TagAdmin(BaseAdmin):
     pass
-
-
-admin.site.register(Shelf, ShelfAdmin)
-admin.site.register(Book, BookAdmin)
-admin.site.register(Template, TemplateAdmin)
-admin.site.register(Library)
-admin.site.register(Tag, TagAdmin)

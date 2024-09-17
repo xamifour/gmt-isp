@@ -1,12 +1,16 @@
-from collections import OrderedDict
-from copy import deepcopy
-
 import requests
+import logging
+
 from django.conf import settings
 from django.utils.crypto import get_random_string
+
+from collections import OrderedDict
+from copy import deepcopy
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from swapper import load_model
+
+logger = logging.getLogger(__name__)
 
 class SortedOrderedDict(OrderedDict):
     def update(self, items):
@@ -95,13 +99,6 @@ def retryable_request(
     request_method = getattr(request_session, method)
     return request_method(timeout=timeout, **kwargs)
 
-
-
-
-from django.conf import settings
-import logging
-
-logger = logging.getLogger(__name__)
 
 def get_db_for_organization(organization):
     """

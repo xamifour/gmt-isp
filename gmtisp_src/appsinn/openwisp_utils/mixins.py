@@ -1,14 +1,18 @@
-from django.utils.functional import cached_property
-from swapper import load_model
 import logging
 
+from django.utils.functional import cached_property
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.views import View
+from django.contrib.auth import get_user_model
+
+from swapper import load_model
+
+User = get_user_model()
+OrganizationUser = load_model('openwisp_users', 'OrganizationUser')
 
 from .utils import get_db_for_user
-
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +28,7 @@ class OrganizationDbAdminMixin:
         try:
             return get_db_for_user(self.request.user)
         except Exception as e:
-            # logger.error(f"Error determining database for user: {e}")
+            logger.error(f"Error determining database for user: {e}")
             return 'default'
 
     def get_queryset(self, request):
@@ -36,9 +40,8 @@ class OrganizationDbAdminMixin:
             qs = super().get_queryset(request)
             return qs.using(self.db)
         except Exception as e:
-            # logger.error(f"Error getting queryset: {e}")
+            logger.error(f"Error getting queryset: {e}")
             return super().get_queryset(request)
-
 
     def save_model(self, request, obj, form, change):
         self.request = request
@@ -47,19 +50,18 @@ class OrganizationDbAdminMixin:
             organization_user = OrganizationUser.objects.get(user=request.user)
             obj.organization = organization_user.organization
         except OrganizationUser.DoesNotExist:
-            pass
+            raise ValidationError('The user is not associated with any organization.')
         except Exception as e:
-            # logger.error(f"Error setting organization for the model: {e}")
-            pass
-
+            logger.error(f"Error setting organization for the model: {e}")
+            raise ValidationError(f'Error setting organization for the plan: {e}')
+        
         try:
             obj.save(using=self.db)
         except Exception as e:
-            # logger.error(f"Error saving model: {e}")
+            logger.error(f"Error saving model: {e}")
             pass
         else:
             super().save_model(request, obj, form, change)
-
 
     def delete_model(self, request, obj):
         """
@@ -69,7 +71,7 @@ class OrganizationDbAdminMixin:
         try:
             obj.delete(using=self.db)
         except Exception as e:
-            # logger.error(f"Error deleting model: {e}")
+            logger.error(f"Error deleting model: {e}")
             obj.delete()  # Fallback to default behavior
 
     def get_object(self, request, object_id, from_field=None):
@@ -81,10 +83,11 @@ class OrganizationDbAdminMixin:
             queryset = self.get_queryset(request)
             return queryset.get(**{from_field or 'pk': object_id})
         except Exception as e:
-            # logger.error(f"Error getting object: {e}")
+            logger.error(f"Error getting object: {e}")
             return super().get_object(request, object_id, from_field)
 
 
+# for views
 class MultiTenantMixin(View):
     """
     Mixin to filter views by user's organization.
@@ -149,3 +152,5 @@ class SuperuserPermissionMixin:
     def has_delete_permission(self, request, obj=None):
         # Allow delete permission only for superusers
         return request.user.is_superuser
+    
+

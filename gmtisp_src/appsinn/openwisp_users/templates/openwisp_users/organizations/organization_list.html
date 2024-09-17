@@ -1,0 +1,37 @@
+{% extends "openwisp_users/layout.html" %}
+
+
+{% block title %} {{ block.super }} | Organization List {% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table">
+        <tr>
+          <th>Name</th>
+          <th>Active?</th>
+          <th>Date Created</th>
+          <th>Date Modified</th>
+          <th>Actions</th>
+        </tr>
+        {% for organization in organizations %}
+          <tr>
+            <td>{{ organization.name }}</td>
+            <td>{{ organization.is_active }}</td>
+            <td>{{ organization.created }}</td>
+            <td>{{ organization.modified }}</td>
+            <td>
+                <a href="{% url 'organization_detail' organization.pk %}" data-toggle="tooltip" title="View" class="text-primary"><i class="fa fa-eye"></i></a>
+                <a href="{% url 'organization_update' organization.pk %}" data-toggle="tooltip" title="Edit" href="" title="edit" class="text-success mx-1"><i class="fa fa-pencil-alt"></i></a>
+                <a href="{% url 'organization_delete' organization.pk %}" data-toggle="tooltip" title="Delete" href="" class="text-danger"><i class="fa fa-times"></i></a>
+            </td>
+
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+  <a href="{% url 'organization_create' %}">Add Organization</a>
+{% endblock %}

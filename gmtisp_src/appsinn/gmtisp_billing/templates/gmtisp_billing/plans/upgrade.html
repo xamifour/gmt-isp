@@ -1,7 +1,9 @@
-{% extends 'gmtisp_billing/base.html' %}
+{% extends 'gmtisp_billing/layout.html' %}
 {% load i18n %}
 
+{% block title %}{{ block.super }} | {% trans "Choose plan" %} {% endblock %}
+
 {% block content %}
-    <h2>{% trans "Choose plan" %}</h2>
+    <h3>{% trans "Choose plan" %}</h3>
     {% include "gmtisp_billing/plans/plan_table.html" %}
 {% endblock %}

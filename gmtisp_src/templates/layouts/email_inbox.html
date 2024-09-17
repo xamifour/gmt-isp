@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{# For Layout, inheriting from base.html #}
+{% load i18n %}
+{% load static %}
+
+
+{% block layout %}
+
+  {% block layout_style %}
+      {% include 'snippets/css.html' %}
+  {% endblock %}
+
+  {% block sub_style %}{% endblock %}<!-- Specific Page CSS goes HERE -->
+
+  <div class="wrapper">
+
+    {% block header %}
+        {% include 'partials/topbar.html' with brand_name='' %}
+    {% endblock %}
+
+    {% block sidebar %}
+        {% include 'partials/sidebar.html' %}
+    {% endblock %}
+
+    {% block content_wrapper %}
+
+    <div class="main-panel">
+      <div class="content content-full">
+        <div class="page-inner page-inner-fill">
+          <div class="page-with-aside mail-wrapper bg-white">
+            <div class="page-aside">
+              <div class="aside-header m-0">
+                <div class="title">Mail Service</div>
+                <div class="description">Service Description</div>
+                <a class="btn btn-primary toggle-email-nav" data-toggle="collapse" href="#email-app-nav" role="button" aria-expanded="false" aria-controls="email-nav">
+                  <span class="btn-label">
+                    <i class="fa fa-bars"></i>
+                  </span>
+                  Menu
+                </a>
+              </div>
+              <div class="aside-nav c/ollapse" id="email-app-nav">
+                <ul class="nav">
+                  <li>
+                    <a href="#">
+                      <i class="flaticon-inbox"></i> Inbox
+                      <span class="badge badge-primary float-right">8</span>
+                    </a>
+                  </li>
+                  <li class="active">
+                    <a href="#">
+                      <i class="fa fa-envelope"></i> Sent Mail
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#">             
+                      <i class="flaticon-exclamation"></i> Important
+                      <span class="badge badge-secondary float-right">4</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#">
+                      <i class="flaticon-envelope-3"></i> Drafts
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#">
+                      <i class="flaticon-price-tag"></i> Tags
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#">
+                      <i class="flaticon-interface-5"></i> Trash
+                    </a>
+                  </li>
+                </ul>
+    
+                <span class="label">Labels</span>
+                <ul class="nav nav-pills nav-stacked">
+                  <li>
+                    <a href="#">
+                      <i class="flaticon-inbox"></i> Inbox
+                      <span class="badge badge-primary float-right">8</span>
+                    </a>
+                  </li>
+                  <li class="active">
+                    <a href="#">
+                      <i class="fa fa-envelope"></i> Sent Mail
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#">             
+                      <i class="flaticon-exclamation"></i> Important
+                      <span class="badge badge-secondary float-right">4</span>
+                    </a>
+                  </li>
+                </ul>
+                <div class="aside-compose">
+                  <a href="#" class="btn btn-primary btn-block fw-mediumbold">Compose Email</a>
+                </div>
+              </div>
+            </div>
+            <div class="page-content mail-content">
+              <div class="inbox-head container-fluid">
+                <h3>Inbox</h3>
+                <form action="#" class="ml-auto">
+                  <div class="input-group">
+                    <input type="text" placeholder="Search Email" class="form-control">
+                    <div class="input-group-append">
+                      <span class="input-group-text">
+                        <i class="fa fa-search search-icon"></i>
+                      </span>
+                    </div>
+                  </div>
+                </form>
+              </div>
+              <div class="inbox-body container-fluid">
+                <div class="mail-option">
+                  <div class="email-filters-left text-left">
+                    <div class="chk-all">
+                      <div class="btn-group">
+                        <div class="form-check">
+                          <label class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input">
+                            <span class="custom-control-label"></span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="btn-group">
+                      <button data-toggle="dropdown" type="button" class="btn btn-option dropdown-toggle"> With selected </button>
+                      <div role="menu" class="dropdown-menu">
+                        <a href="#" class="dropdown-item">Mark as read</a>
+                        <a href="#" class="dropdown-item">Mark as unread</a>
+                        <a href="#" class="dropdown-item">Spam</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item">Delete</a>
+                      </div>
+                    </div>
+                    <div class="btn-group">
+                      <button type="button" class="btn btn-option">Archive</button>
+                      <button type="button" class="btn btn-option">Span</button>
+                      <button type="button" class="btn btn-option">Delete</button>
+                    </div>
+                    <div class="btn-group">
+                      <button data-toggle="dropdown" type="button" class="btn btn-option dropdown-toggle" aria-expanded="false">Order by </button>
+                      <div role="menu" class="dropdown-menu dropdown-menu-right">
+                        <a href="#" class="dropdown-item">Date</a>
+                        <a href="#" class="dropdown-item">From</a>
+                        <a href="#" class="dropdown-item">Subject</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item">Size</a>
+                      </div>
+                    </div>
+                  </div>
+    
+                  <div class="email-filters-right ml-auto text-right">
+                    <span class="email-pagination-indicator">1-50 of 213</span>
+                    <div class="btn-group ml-3">
+                      <button type="button" class="btn btn-option"><i class="fa fa-angle-left"></i></button>
+                      <button type="button" class="btn btn-option"><i class="fa fa-angle-right"></i></button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="email-list">
+                  {% block messages %}
+                    {% include 'partials/messages.html' %}
+                  {% endblock %}
+
+                  <!-- Specific Page content goes HERE -->
+                  {% block content %}
+                  {% endblock %}
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>          
+      {% block footer %}
+          {% include 'partials/footer.html' %}
+      {% endblock %} 
+    </div>
+    {% endblock content_wrapper %}
+
+
+  {% block quick_sidebar %}
+  {% include 'partials/quick_sidebar.html' %}
+  {% endblock %}
+
+  {% block color_conf %}
+  {% include 'partials/plugs/color_conf.html' %}
+  {% endblock %}        
+  </div>
+
+  {% block js %}
+    {% include 'snippets/js.html' %}
+  {% endblock %}
+
+  <!-- Specific Page JS goes HERE -->
+  {% block sub_js %}
+  {% endblock %}
+
+{% endblock layout %}

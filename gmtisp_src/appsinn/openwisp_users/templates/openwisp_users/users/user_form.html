@@ -1,0 +1,19 @@
+{% extends "openwisp_users/layout.html" %}
+
+{% block content %}
+<h2>{% if user %}Edit{% else %}Create{% endif %} User</h2>
+<form method="post">
+    {% csrf_token %}
+    {% include 'partials/form_template.html' with form=form %}
+    <div class="container-fluid">
+        {% if user %}
+          <button type="submit" class="btn btn-warning btn-sm">Save Changes</button>
+        {% else %}
+          <button type="submit" class="btn btn-success btn-sm">Add</button>
+        {% endif %}
+      </div>
+      
+    <!-- <button class="btn btn-primary"><span class="btn-label"><i class="flaticon-shapes"></i></span>Save</button> -->
+</form>
+<a href="{% url 'user_list' %}">Back to User List</a>
+{% endblock %}

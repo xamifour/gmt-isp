@@ -1,0 +1,15 @@
+{% extends "openwisp_users/layout.html" %}
+{% load i18n %}
+
+{% block title %}{{block.super}} | {% if organization %}Edit{% else %}Create{% endif %} Organization {% endblock %}
+
+{% block content %}
+
+<form method="post">
+    {% csrf_token %}
+    <!-- {{ form.as_p }} -->
+    {% include 'partials/form_template.html' with form=form %}
+    <button type="submit">Save</button>
+</form>
+<a href="{% url 'organization_list' %}">Back to Organization List</a>
+{% endblock %}

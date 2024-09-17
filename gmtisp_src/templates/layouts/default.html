@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{# For Layout, inheriting from base.html #}
+{% load i18n %}
+{% load static %}
+
+
+{% block layout %}
+
+    {% block layout_style %}
+        {% include 'snippets/css.html' %}
+    {% endblock %}
+
+    {% block sub_style %}{% endblock %}<!-- Specific Page CSS goes HERE -->
+
+    <div class="wrapper">
+
+        {% block main_header %}
+            {% include 'partials/topbar.html' with brand_name='' %}
+        {% endblock %}
+
+        {% block sidebar %}
+            {% include 'partials/sidebar.html' %}
+        {% endblock %}
+
+        {% block content_wrapper %}
+        <div class="main-panel">
+            <div class="content">
+                <div class="page-inner">
+                    <div class="page-header">
+                        {% block page_title %}{% endblock %}
+                        {% block breadcumb %}
+                        <ul class="breadcrumbs">
+                            <li class="nav-home">
+                                <a href="">
+                                    <i class="flaticon-home"></i>
+                                </a>
+                            </li>
+                            <li class="separator">
+                                <i class="flaticon-right-arrow"></i>
+                            </li>
+                            <li class="nav-item">
+                                <a href="">{% if user %}{{user.email}}{% endif %}</a>
+                            </li>
+                            <li class="separator">
+                                <i class="flaticon-right-arrow"></i>
+                            </li>
+                        </ul>
+                        {% endblock %}
+                        
+                        <div class="btn-group btn-group-page-header ml-auto">
+                            <button type="button" class="btn btn-light btn-round btn-page-header-dropdown dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fa fa-ellipsis-h"></i>
+                            </button>
+                            <div class="dropdown-menu">
+                                <div class="arrow"></div>
+                                <a class="dropdown-item" href="#">Action</a>
+                                <a class="dropdown-item" href="#">Another action</a>
+                                <a class="dropdown-item" href="#">Something else here</a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="#">Separated link</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="page-main">
+                        {% block messages %}
+                            {% include 'partials/messages.html' %}
+                        {% endblock %}
+
+                        <!-- Specific Page content goes HERE -->
+                        {% block content %}
+                        {% endblock %}
+                    </div>
+                </div>
+            </div>          
+            {% block footer %}
+                {% include 'partials/footer.html' %}
+            {% endblock %} 
+        </div>
+        {% endblock content_wrapper %}
+
+        {% block quick_sidebar %}
+            {% include 'partials/quick_sidebar.html' %}
+        {% endblock %}
+
+        {% block color_conf %}
+            {% include 'partials/plugs/color_conf.html' %}
+        {% endblock %}        
+    </div>
+
+    {% block js %}
+        {% include 'snippets/js.html' %}
+    {% endblock %}
+
+    <!-- Specific Page JS goes HERE -->
+    {% block sub_js %}
+    {% endblock %}
+
+{% endblock layout %}
+

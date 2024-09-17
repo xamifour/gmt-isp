@@ -1,0 +1,69 @@
+{% extends 'gmtisp_billing/layout.html' %}
+{% load i18n %}
+
+
+{% block title %}{{block.super}} | Invoice List {% endblock %}
+
+{% block content %}
+    {% block invoice_header %}
+        <h4>{% trans "List of invoices" %}</h4>
+    {% endblock %}
+
+    {% if object_list %}
+        {% block pagination_first %}
+            {% include "partials/pagination.html" %}
+        {% endblock %}
+
+        {% block invoice_table %}
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="basic-datatables" class="display table t/able-striped t/able-hover" >
+                        <thead>
+                            <tr>
+                                <th scope="col"><input type="checkbox" id="select-all"></th>
+                                <th scope="col">Item</th>
+                                <!-- <th>ID</th> -->
+                                <th>{% trans 'Number' %}</th>
+                                <th>{% trans 'Issued' context 'invoice issued' %}</th>
+                                <th>{% trans 'Status' context 'invoice status' %}</th>
+                                <th>{% trans 'Total' context 'total amount, value' %}</th>
+                                <th>{% trans 'City' %}</th>
+                        </thead>
+                        <tbody>
+                            {% for invoice in invoices %}
+                            <tr class="{% if invoice.status == 2 %}success{% elif invoice.status == 3 %}danger{% elif invoice.status == 4 %}warning{% elif invoice.status == 5 %}info{% endif %}">
+                                <td><input type="checkbox" class="select-row"></td>
+                                <th scope="row"><a href="{{ invoice.get_absolute_url }}">{{ forloop.counter }}</a></th> 
+                                <!-- <td><a href="{{ invoice.get_absolute_url }}">{{ invoice.pk }}</a></td> -->
+                                <td><a href="{{ invoice.get_absolute_url }}">{{ invoice.get_full_number }}</a></td>
+                                <td class="date">{{ invoice.created|date }}</td>
+                                <td class="status">{{ invoice.get_status_display }}</td>
+                                <td class="number">{{ invoice.total }}&nbsp;{{ CURRENCY }}</td>
+                                <td class="date">{{ invoice.city}}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+
+        {% block pagination_second %}
+            {% include "partials/pagination.html" %}
+        {% endblock %}
+
+    {% else %}
+        {% blocktrans %}You do not have any invoices so far.{% endblocktrans %}
+    {% endif %}
+    
+    {% block sub_js %}
+        <script >
+            $(document).ready(function() {
+                $('#basic-datatables').DataTable({
+                });
+            });
+        </script>
+    {% endblock %}
+{% endblock %}

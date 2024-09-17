@@ -1,0 +1,181 @@
+{% extends "openwisp_users/layout.html" %}
+
+
+{% if request.user.is_staff or request.user.is_superuser %}
+
+{% block sub_style %}
+<style>
+    .table {
+        border: 1px solid #dee2e6;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .table th {
+        background-color: #f8f9fa;
+    }
+    table tr:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block title %}{{block.super}} | Users List {% endblock %}
+
+{% block page_title %} <h4 class="page-title">Users List {% endblock %}
+{% block breadcumb %}
+{{block.super}}
+{% endblock %}
+
+{% block content %}
+
+<div id="user_list" class="">
+    <div class="card">
+        <div class="card-header b/g-secondary">  
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
+                    <div class="card card-stats card-round">
+                        <div class="card-body ">
+                            <div class="row align-items-center">
+                                <div class="col-icon">
+                                    <div class="icon-big text-center icon-primary bubble-shadow-small">
+                                        <i class="flaticon-users"></i>
+                                    </div>
+                                </div>
+                                <div class="col col-stats ml-3 ml-sm-0">
+                                    <div class="numbers">
+                                        <p class="card-category">Total users</p>
+                                        <h4 class="card-title"><a href="">{{users_count}}</a></h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-6 text-right">
+                    <a href="{% url 'user_create' %}" class="btn btn-secondary btn-round">
+                        <span class="btn-label">
+                            <i class="fa fa-plus"></i>
+                        </span>
+                        Add User
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="multi-filter-select" class="display table t/able-bordered t/able-hover t/able-sm">
+                    <thead>
+                        <tr>
+                            <th scope="col"><input type="checkbox" id="select-all"></th>
+                            <th scope="col">Item</th>
+                            <th scope="col">Username</th>
+                            <th scope="col">Email</th>
+                            <th scope="col">First Name</th>
+                            <th scope="col">Organization</th>
+                            <th scope="col">Active?</th>
+                            <th scope="col">Staff?</th>
+                            <!-- <th scope="col">Date Joined</th> -->
+                            <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tfoot>
+                        <tr>
+                            <th scope="col"><input type="checkbox" id="select-all-footer"></th>
+                            <th scope="col">Item</th>
+                            <th scope="col">Username</th>
+                            <th scope="col">Email</th>
+                            <th scope="col">First Name</th>
+                            <th scope="col">Organization</th>
+                            <th scope="col">Active?</th>
+                            <th scope="col">Staff?</th>
+                            <!-- <th scope="col">Date Joined</th> -->
+                            <th scope="col">Action</th>
+                        </tr>
+                    </tfoot>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td><input type="checkbox" class="select-row"></td>
+                            <th scope="row">{{ forloop.counter }}</th> 
+                            <td class="align-middle">{{ user.username }}</td>
+                            <td class="align-middle"><a href="{% url 'user_detail' user.pk %}">{{ user.email }}</a></td>
+                            <td>{{ user.first_name }}</td>
+                            <td>{{ user.organization_user }}</td>
+                            <td>{{ user.is_active }}</td>
+                            <td>{{ user.is_staff }}</td>
+                            <!-- <td>{{ user.date_joined }}</td> -->
+                            <!-- <td>
+                                {% if user.photo %}
+                                    <a href=""><img src="{{ user.photo.url }}" class="avatar-sm rounded-circle"></a>
+                                {% else %}
+                                    No photo
+                                {% endif %}
+                            </td> -->
+                            <td>
+                                <a href="{% url 'user_detail' user.pk %}" data-toggle="tooltip" title="View" class="text-primary"><i class="fa fa-eye"></i></a>
+                                <a href="{% url 'user_update' user.pk %}" data-toggle="tooltip" title="Edit" href="" title="edit" class="text-success mx-1"><i class="fa fa-pencil-alt"></i></a>
+                                <a href="{% url 'user_delete' user.pk %}" data-toggle="tooltip" title="Delete" href="" class="text-danger"><i class="fa fa-times"></i></a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block sub_js %}
+
+<script >
+    $(document).ready(function() {
+        $('#basic-datatables').DataTable({
+        });
+
+        $('#multi-filter-select').DataTable( {
+            "pageLength": 5,
+            initComplete: function () {
+                this.api().columns().every( function () {
+                    var column = this;
+                    var select = $('<select class="form-control"><option value=""></option></select>')
+                    .appendTo( $(column.footer()).empty() )
+                    .on( 'change', function () {
+                        var val = $.fn.dataTable.util.escapeRegex(
+                            $(this).val()
+                            );
+
+                        column
+                        .search( val ? '^'+val+'$' : '', true, false )
+                        .draw();
+                    } );
+
+                    column.data().unique().sort().each( function ( d, j ) {
+                        select.append( '<option value="'+d+'">'+d+'</option>' )
+                    } );
+                } );
+            }
+        });
+
+        // Add Row
+        $('#add-row').DataTable({
+            "pageLength": 5,
+        });
+
+        var action = '<td> <div class="form-button-action"> <button type="button" data-toggle="tooltip" title="" class="btn btn-link btn-primary btn-lg" data-original-title="Edit Task"> <i class="fa fa-edit"></i> </button> <button type="button" data-toggle="tooltip" title="" class="btn btn-link btn-danger" data-original-title="Remove"> <i class="fa fa-times"></i> </button> </div> </td>';
+
+        $('#addRowButton').click(function() {
+            $('#add-row').dataTable().fnAddData([
+                $("#addName").val(),
+                $("#addPosition").val(),
+                $("#addOffice").val(),
+                action
+                ]);
+            $('#addRowModal').modal('hide');
+
+        });
+    });
+</script>
+{% endblock %}
+
+{% endif %}

@@ -1,46 +1,59 @@
-{% extends 'gmtisp_billing/base.html' %}
+{% extends 'gmtisp_billing/layout.html' %}
 {% load i18n %}
 
+{% block title %}
+    {{ block.super }} | User Status
+{% endblock %}
+
 {% block content %}
-
-    {% block account_details %}
-    <h1>{% trans "Your account" %}</h1>
-    <table class="table table-striped">
-        <tr>
-            <td><strong>{% trans "Account" %}:</strong></td>
-            <td>{{ user }}</td>
-        </tr>
-        <tr>
-            <td><strong>{% trans "State" %}:</strong></td>
-            <td>{% if userplan.active %} {% trans "active" %} {% else %} {% trans "expired" %} {% endif %}</td>
-        </tr>
-        <tr>
-            <td><strong>{% trans "Expire" %}:</strong></td>
-            <td>{{ userplan.expire }}</td>
-        </tr>
-        <tr>
-            <td><strong>{% trans "Plan" %}:</strong></td>
-            <td>{{ userplan.plan }} <a href="{% url 'upgrade_plan' %}">{% trans "upgrade" %}</a></td>
-        </tr>
-    </table>
-    {% endblock %}
-
-    {% block plan_details %}
-    <h2>{% trans "Plan details" %}</h2>
     <div class="row">
-        <div class="col-md-5">
-            {% include "gmtisp_billing/plans/plan_table.html" %}
+        <div class="col-md-8">
+            {% block plan_details %}
+                <h3>{% trans "Plan details" %}</h3>
+                {% include "gmtisp_billing/plans/plan_table.html" %}
+            {% endblock %}
+        </div>
+        <div class="col-md-4">
+            {% block account_details %}
+                <h3>{% trans "Your account" %}</h3>
+                <table class="table table-bordered">
+                    <tr>
+                        <td><strong>{% trans "Account" %}:</strong></td>
+                        <td>{{ user }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "State" %}:</strong></td>
+                        <td>
+                            {% if userplan.active %}
+                                {% trans "active" %}
+                            {% else %}
+                                {% trans "expired" %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Expire" %}:</strong></td>
+                        <td>{{ userplan.expire }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>{% trans "Plan" %}:</strong></td>
+                        <td>
+                            {{ userplan.plan }}
+                            <a href="{% url 'upgrade_plan' %}">
+                                <small>{% trans "upgrade" %}</small>
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+            {% endblock %}
+
+            {% block need_more %}
+                <h3>{% trans "Need more?" %}</h3>
+                {% url 'upgrade_plan' as upgrade_url %}
+                {% blocktrans %}
+                    Please see other <a href="{{ upgrade_url }}"><small>currently available plans</small></a>.
+                {% endblocktrans %}
+            {% endblock %}
         </div>
     </div>
-    {% endblock %}
-
-    {% block need_more %}
-        <h1>{% trans "Need more?" %}</h1>
-        {% url 'upgrade_plan' as upgrade_url %}
-        {% blocktrans %}
-            Please see other <a href="{{ upgrade_url }}">currently available plans</a>.
-        {% endblocktrans %}
-    {% endblock %}
-
-
 {% endblock %}

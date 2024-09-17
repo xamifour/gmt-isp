@@ -1,0 +1,234 @@
+{
+  "count": 12,
+  "next": "http://localhost:8000/api/v1/users/user/?page=2",
+  "previous": null,
+  "results": [
+      {
+          "id": "22b9f627-a5b3-4e05-85ca-9f5661326fc2",
+          "username": "beckuser1",
+          "email": "beckuser1@you.com",
+          "first_name": "",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "60dec14c-d56b-44fc-8f34-38010e758715"
+              }
+          ]
+      },
+      {
+          "id": "8b991ffe-c0dd-4511-8ca8-e2d87cb08daa",
+          "username": "beckuser",
+          "email": "beckuser@you.com",
+          "first_name": "Beck user",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "60dec14c-d56b-44fc-8f34-38010e758715"
+              }
+          ]
+      },
+      {
+          "id": "dd7ecd95-e75c-4767-a1c9-17527d85249c",
+          "username": "meluser",
+          "email": "meluser@you.com",
+          "first_name": "",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "ead12b96-1d81-4e5d-991b-e9544e74b8e2"
+              }
+          ]
+      },
+      {
+          "id": "e8acc682-89d1-4b8e-a79e-3e61cc21c27d",
+          "username": "test2",
+          "email": "test2@you.com",
+          "first_name": "",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "60dec14c-d56b-44fc-8f34-38010e758715"
+              }
+          ]
+      },
+      {
+          "id": "4dd26236-1034-4e17-af1c-dd66b8db5cdd",
+          "username": "test1",
+          "email": "test1@you.com",
+          "first_name": "",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "60dec14c-d56b-44fc-8f34-38010e758715"
+              }
+          ]
+      },
+      {
+          "id": "40613891-72c5-4da7-bc77-8438d8db53ff",
+          "username": "user3",
+          "email": null,
+          "first_name": "",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "ead12b96-1d81-4e5d-991b-e9544e74b8e2"
+              }
+          ]
+      },
+      {
+          "id": "607ebaae-1122-4ae2-8958-1723b3e73d81",
+          "username": "user2",
+          "email": null,
+          "first_name": "",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "ead12b96-1d81-4e5d-991b-e9544e74b8e2"
+              }
+          ]
+      },
+      {
+          "id": "03e0889e-3253-40f0-b1ab-93114dc98b8c",
+          "username": "user1",
+          "email": "user1@you.com",
+          "first_name": "",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "ead12b96-1d81-4e5d-991b-e9544e74b8e2"
+              }
+          ]
+      },
+      {
+          "id": "f1ce0400-72fc-4335-a798-88045dc1e5ab",
+          "username": "testmel",
+          "email": "testmel@you.com",
+          "first_name": "Testmel",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "groups": [],
+          "organization_users": [
+              {
+                  "is_admin": false,
+                  "organization": "ead12b96-1d81-4e5d-991b-e9544e74b8e2"
+              }
+          ]
+      },
+      {
+          "id": "a36ed91f-c20b-4ccc-9f66-d7873dbe0537",
+          "username": "becky",
+          "email": "becky@you.com",
+          "first_name": "",
+          "last_name": "",
+          "phone_number": null,
+          "birth_date": null,
+          "is_active": true,
+          "is_staff": true,
+          "is_superuser": false,
+          "groups": [
+              1
+          ],
+          "organization_users": [
+              {
+                  "is_admin": true,
+                  "organization": "60dec14c-d56b-44fc-8f34-38010e758715"
+              }
+          ]
+      },
+      {
+        "id": "b9b580b6-6416-4aa1-8813-449d67b854e2",
+        "username": "xamifour@gmail.com",
+        "email": "xamifour@gmail.com",
+        "first_name": "Melvin",
+        "last_name": "Amissah",
+        "phone_number": "+233208367669",
+        "birth_date": "2024-07-11",
+        "is_active": true,
+        "is_staff": true,
+        "is_superuser": false,
+        "groups": [
+            1
+        ],
+        "organization_users": [
+            {
+                "is_admin": true,
+                "organization": "ead12b96-1d81-4e5d-991b-e9544e74b8e2"
+            }
+        ]
+    },
+    {
+        "id": "3d3b6456-6bc4-4550-bd10-beb154ea5bc5",
+        "username": "ka",
+        "email": "selftestproject@gmail.com",
+        "first_name": "",
+        "last_name": "",
+        "phone_number": null,
+        "birth_date": null,
+        "is_active": true,
+        "is_staff": true,
+        "is_superuser": true,
+        "groups": [],
+        "organization_users": []
+    }      
+  ]
+}

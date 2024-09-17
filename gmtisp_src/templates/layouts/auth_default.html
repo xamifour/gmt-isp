@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+
+{% block layout %}
+
+  {% block sub_style %}
+  {% endblock %}
+
+  <div class="wrapper">
+    <div class="main-panel">
+      {% block content %}
+      {% endblock %}
+    </div>
+  </div>
+
+{% endblock layout %}

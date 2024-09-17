@@ -33,3 +33,4 @@ def account_status(request):
         except UserPlan.DoesNotExist:
             pass
     return {}
+

@@ -1,0 +1,26 @@
+{% extends "../layouts/auth_default.html" %}
+
+{% block layout %}
+      
+    <div class="col-md-6 mx-auto mt-3">   
+      <div>
+          <ul>
+              {% if user.is_authenticated %}
+                  <li><a href="{% url 'account_logout' %}">Sign Out</a></li>
+              {% else %}
+                  <li><a href="{% url 'account_login' %}">Sign In</a></li>
+                  <!-- <li><a href="{% url 'account_signup' %}">Sign Up</a></li> -->
+              {% endif %}
+          </ul>
+      </div>
+    </div>  
+      
+      <div class="col-md-6 mx-auto my-3">
+        {% block content %}
+        {% endblock %}
+      </div>
+      
+    {% block extra_body %}
+    {% endblock %}
+
+{% endblock %}

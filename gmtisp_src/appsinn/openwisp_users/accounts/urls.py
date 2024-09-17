@@ -14,18 +14,17 @@ from django.urls import include, path, re_path, reverse_lazy
 from django.views.generic import RedirectView
 from django.views.generic.base import TemplateView
 
-from .views import password_change, password_change_success, profile_view
+from .views import password_change, password_change_success, ProfileView
 
 redirect_view = RedirectView.as_view(url=reverse_lazy('admin:index'))
 
 
 urlpatterns = [
-    path('profile/', profile_view, name='profile'),
     path('signup/', redirect_view, name='account_signup'),
     path('login/', views.login, name='account_login'),
-    # path('', include('django.contrib.auth.urls')), # django default user login
     path('logout/', views.logout, name='account_logout'),
     path('inactive/', views.account_inactive, name='account_inactive'),
+    path('profile/', ProfileView.as_view(), name='profile'),
     # E-mail
     path(
         'confirm-email/',

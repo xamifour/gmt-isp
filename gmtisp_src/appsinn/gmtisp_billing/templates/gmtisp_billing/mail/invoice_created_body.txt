@@ -5,8 +5,12 @@
 http://{{ site_domain }}{{ url }}
 {% endblocktrans %}
 
-{% trans "Details of the order can be see on:" %}:
-http://{{ site_domain }}{% url 'order' pk=order %}
+{% if order.pk %}{
+    % trans "Details of the order can be see on:" %}:
+    http://{{ site_domain }}{% url 'order' pk=order.pk %}
+{% else %}
+    Order details not available
+{% endif %}
 
 {% trans "Thank you" %}
 --

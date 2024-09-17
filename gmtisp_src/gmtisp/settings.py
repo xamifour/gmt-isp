@@ -62,11 +62,12 @@ THIRD_PARTY_APPS = [
     'private_storage',
     'drf_yasg',
     # 'related_admin',
-    # 'payments',
-    # "sequences",
+    'payments',
+    'sequences',
     'django_extensions',
     # 'integrations',
     'djangosaml2',
+    'widget_tweaks',
 ]
 
 LOCAL_APPS = [
@@ -133,7 +134,8 @@ WSGI_APPLICATION = 'gmtisp.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # 'DIRS': [],
+        'DIRS': [os.path.join(os.path.dirname(BASE_DIR), 'templates'),],
         'OPTIONS': {
             'loaders': [
                 'django.template.loaders.filesystem.Loader',
@@ -145,12 +147,16 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+
                 'openwisp_utils.admin_theme.context_processor.menu_groups',
+                'openwisp_utils.admin_theme.context_processor.admin_theme_settings', # For test
                 'gmtisp_billing.context_processors.account_status',
-                # For test
-                'openwisp_utils.admin_theme.context_processor.admin_theme_settings',
                 # 'openwisp_utils.context_processors.test_theme_helper',
             ],
+            'libraries':{
+                'sidebar_links': 'templatetags.sidebar_links',
+                'payment_buttons': 'gmtisp_billing.templatetags.payment_buttons',
+            }
         },
     }
 ]
@@ -290,10 +296,20 @@ STATICFILES_FINDERS = [
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
 MEDIA_URL = '/media/'
+# URL for serving static files
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(os.path.dirname(BASE_DIR), "static"),]
+# STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), "static_cdn", "static_root")
+STATIC_ROOT = os.path.join(os.path.dirname(os.path.dirname((BASE_DIR))), "static_cdn", "static_root")
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Messages contrib app
+from django.contrib.messages import constants as messages
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger'
+}
 
 # for development only
 if DEBUG:
@@ -308,7 +324,6 @@ EMAIL_SUBJECT_PREFIX = env('EMAIL_SUBJECT_PREFIX')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 NOTIFY_EMAIL = env('NOTIFY_EMAIL')
 EMAIL_TIMEOUT = 5
-EMAIL_PORT = '1025'
 
 ADMINS = [('Kwame Amissah', 'me@gmail.com'),]
 MANAGERS = ADMINS
@@ -489,7 +504,7 @@ except ImportError:
 
 # admin site interface
 OPENWISP_ADMIN_SITE_HEADER = 'GMTISP'
-OPENWISP_ADMIN_SITE_TITLE = 'GMTISP Admin'
+OPENWISP_ADMIN_SITE_TITLE = 'GMTISP'
 
 # BASE_URL='http://127.0.0.1:8000'
 
@@ -536,8 +551,8 @@ PLANS_TAX_COUNTRY = 'PL'
 PLANS_DEFAULT_COUNTRY = 'CZ'
 PLANS_GET_COUNTRY_FROM_IP = True
 PLANS_VALIDATORS = {
-    'MAX_USERS': 'gmtisp_billing.validators.max_users_validator',
-    'MAX_PLAN_COUNT': 'gmtisp_billing.validators.max_plans_validator',
+    'MAX_PLAN_COUNT': 'gmtisp_billing.validators_my.max_plans_validator',
+    'MAX_QUOTA_SIZE': 'gmtisp_billing.validators_my.max_quota_validator',
 }
 PLANS_VALIDATION = True
 PLANS_VALIDATION_PERIOD = 30
@@ -546,7 +561,7 @@ PLANS_VALIDATION_PERIOD = 30
 # PLANS_INVOICE_NUMBER_FORMAT = '{{ invoice.number }}/{{ invoice.issued|date='m/FV/Y' }}'
 from urllib.parse import urljoin
 PLANS_INVOICE_LOGO_URL = urljoin(STATIC_URL, 'my_logo.png')
-PLANS_INVOICE_TEMPLATE = 'plans/invoices/PL_EN.html'
+PLANS_INVOICE_TEMPLATE = 'gmtisp_billing/invoices/PL_EN.html'
 PLANS_ORDER_EXPIRATION = 14
 PLANS_EXPIRATION_REMIND = [1, 3 , 7] # User will receive notification before 7, 3 and 1 day to account expire.
 PLANS_DEFAULT_GRACE_PERIOD = 30 # New account default plan expiration period counted in days.
@@ -557,9 +572,33 @@ SEND_PLANS_EMAILS = True
 from typing import Dict, Tuple
 
 PAYMENT_MODEL = 'gmtisp_billing.Payment'
+
 PAYMENT_VARIANTS: Dict[str, Tuple[str, Dict]] = {
     'default': ('payments.dummy.DummyProvider', {}),
 }
+
+# # Retrieve environment variables for stripe
+# STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
+# STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+
+# PAYMENT_VARIANTS = {
+#     'stripe': (
+#         'payments.stripe.StripeProvider',
+#         {
+#             'secret_key': STRIPE_SECRET_KEY,
+#             'public_key': STRIPE_PUBLIC_KEY,
+#             'name': 'GMTISP Stripe',
+#         }
+#     )
+# }
+# stripe test card
+# 4242 4242 4242 4242
+# Use a valid future date, such as 12/34.
+# Use any three-digit CVC
+
+# Keep in mind that if you use `localhost`, external servers won't be
+# able to reach you for webhook notifications.
+PAYMENT_HOST = 'localhost:8000'
 # ------------------------------------------------------------------ end plans payments
 
 # debug_toolbar
@@ -593,7 +632,7 @@ PAYMENT_VARIANTS: Dict[str, Tuple[str, Dict]] = {
 #     }
 # ------------------------------------------------------------------ end debug_toolbar
 
-
+# from .settings_local import *
 
 
 

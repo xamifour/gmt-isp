@@ -1,0 +1,28 @@
+{% extends 'gmtisp_billing/layout.html' %}
+{% load i18n %}
+
+{% block title %}{{block.super}} | Payment Details {% endblock %}
+
+
+{% block content %}
+  {% block payment_header %}
+    <h4>{% trans "Payment Details" %}</h4>
+  {% endblock %}
+
+  <p>ID: {{ payment.id }}</p>
+  <p>Transaction id: {{ payment.transaction_id }}</p>
+  <p>User: {{ payment.user }}</p>
+  <p>Order: {{ payment.order.id }}</p>
+  <p>Order: {{ payment.order }}</p>
+  <p>Amount: {{ payment.amount }} {{ payment.currency }}</p>
+  <p>Status: {{ payment.get_status_display }}</p>
+  <p>Method: {{ payment.payment_method }}</p>
+  <p>Action: {{ payment.payment_action }}</p>
+  <p>Created: {{ payment.created }}</p>
+
+  <a href="{% url 'payment_update' payment.pk %}">Edit</a>
+  <form action="{% url 'payment_delete' payment.pk %}" method="post">{% csrf_token %}
+    <input type="submit" value="Delete">
+  </form>
+  <a href="{% url 'payment_list' %}">Back to list</a>
+{% endblock %}

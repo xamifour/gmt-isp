@@ -1,3 +1,6 @@
+
+# openwisp_users/api/urls.py
+
 from django.urls import path
 
 from openwisp_users import settings as app_settings

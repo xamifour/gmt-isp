@@ -1,0 +1,349 @@
+{% load i18n %}
+
+<div class="row align-items-center">
+    <div class="col">
+        <h4 class="page-title">
+            <h3>
+                <label>
+                    <span class="pl">
+                        {% if invoice.type == invoice.INVOICE_TYPES.INVOICE %}
+                            Faktura VAT nr
+                        {% elif invoice.type == invoice.INVOICE_TYPES.PROFORMA %}
+                            Faktura PROFORMA nr
+                        {% elif invoice.type == invoice.INVOICE_TYPES.DUPLICATE %}
+                            Faktura VAT DUPLIKAT nr
+                        {% endif %}
+                    </span><br>
+                    <span class="en">
+                        {% if invoice.type == invoice.INVOICE_TYPES.INVOICE %}
+                            Invoice ID
+                        {% elif invoice.type == invoice.INVOICE_TYPES.PROFORMA %}
+                            Order confirmation ID
+                        {% elif invoice.type == invoice.INVOICE_TYPES.DUPLICATE %}
+                            Invoice (duplicate) ID
+                        {% endif %}
+                    </span>
+                </label>
+                <span id="full_number">{{ invoice.full_number }}</span>
+            </h3>
+            </h4>
+    </div>
+    <div class="col-auto">
+        <a href="#" class="btn btn-light btn-border">
+            Download
+        </a>
+        <a href="#" class="btn btn-primary ml-2">
+            Pay
+        </a>
+    </div>
+</div>
+<div class="card">
+    <div class="card-header">
+        <div class="row col-md-12">
+            <div class="col-md-6">
+                <div class="">
+                    {% if logo_url %}
+                        <img src="{{ logo_url }}" alt="company logo">
+                    {% endif %}
+                </div>
+                <div class="">
+                    <strong>
+                        <label>
+                            <span class="pl">Sprzedawca:</span>
+                            <span class="en">Seller</span>
+                        </label>
+                    </strong>
+                    <br><br>
+                    {{ invoice.issuer_name }}<br>
+                    {{ invoice.issuer_street }}<br>
+                    {{ invoice.issuer_zipcode }} {{ invoice.issuer_city }}<br>
+                    {{ invoice.issuer_country.code }} - {{ invoice.issuer_country.name }}
+                    <p>
+                        <label>
+                            <span class="pl">Numer NIP:</span>
+                            <span class="en">VAT ID</span>
+                        </label>
+                        {{ invoice.issuer_tax_number }}
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-6 text-right">
+                <h3>
+                    <label>
+                        <span class="pl">
+                            {% if invoice.type == invoice.INVOICE_TYPES.INVOICE %}
+                                Faktura VAT nr
+                            {% elif invoice.type == invoice.INVOICE_TYPES.PROFORMA %}
+                                Faktura PROFORMA nr
+                            {% elif invoice.type == invoice.INVOICE_TYPES.DUPLICATE %}
+                                Faktura VAT DUPLIKAT nr
+                            {% endif %}
+                        </span><br>
+                        <span class="en">
+                            {% if invoice.type == invoice.INVOICE_TYPES.INVOICE %}
+                                Invoice ID
+                            {% elif invoice.type == invoice.INVOICE_TYPES.PROFORMA %}
+                                Order confirmation ID
+                            {% elif invoice.type == invoice.INVOICE_TYPES.DUPLICATE %}
+                                Invoice (duplicate) ID
+                            {% endif %}
+                        </span>
+                    </label>
+                    <span id="full_number">{{ invoice.full_number }}</span>
+                </h3>
+                <h3>{% if not copy %}ORYGINAŁ{% else %}KOPIA{% endif %}</h3>
+                <h6 class="h5 b">
+                    </h6>
+                    <label>
+                        <span class="pl">Data wystawienia:</span>
+                        <span class="en">Issued</span>
+                    </label>
+                    {{ invoice.issued|date:"Y-m-d" }}
+                </h6>
+                <br>
+                {% if invoice.type != invoice.INVOICE_TYPES.PROFORMA %}
+                    <h6 class="h5 b">
+                        <label>
+                            <span class="pl">Data sprzedaży:</span>
+                            <span class="en">Date of order</span>
+                        </label>
+                        {{ invoice.selling_date|date:"Y-m-d" }}
+                    </h6>
+                {% else %}
+                    <p>&nbsp;</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <tr class="text-right">
+                    <td class="text-left">
+                        {{ invoice.buyer_tax_number }}
+                    </td>
+                    <td id="shipping">
+                        <strong>
+                            <label>
+                                <span class="pl">Adres wysyłki:</span>
+                                <span class="en">Shipping address</span>
+                            </label>
+                        </strong>
+                        <br>
+                        {{ invoice.shipping_name }}<br>
+                        {{ invoice.shipping_street }}<br>
+                        {{ invoice.shipping_zipcode }} {{ invoice.shipping_city }}<br>
+                        {{ invoice.buyer_country.code }} - {{ invoice.buyer_country.name }}
+                    </td>
+                    <td>
+                        <strong>
+                            <label>
+                                <span class="pl">Nabywca:</span>
+                                <span class="en">Buyer</span>
+                            </label>
+                        </strong>
+                        <br>
+                        {{ invoice.buyer_name }}<br>
+                        {{ invoice.buyer_street }}<br>
+                        {{ invoice.buyer_zipcode }} {{ invoice.buyer_city }}<br>
+                        {{ invoice.buyer_country.code }} - {{ invoice.buyer_country.name }}
+                        {% if invoice.buyer_tax_number %}
+                            <p>
+                                <label>
+                                    <span class="pl">Numer NIP:</span>
+                                    <span class="en">VAT ID</span>
+                                </label>
+                                {{ invoice.buyer_tax_number }}
+                            </p>
+                        {% endif %}
+                        
+                    </td>
+                </tr>
+            </table>
+            
+            <div class="invoice-top">
+                <h3 class="title"><strong>Order summary</strong></h3>
+            </div>
+            <table id="items" class="table table-bordered">
+                <thead>
+                    <tr>
+                        <td><span class="pl">L.p.</span></td>
+                        <td>
+                            <span class="pl">Nazwa&nbsp;usługi</span><br>
+                            <span class="en">Description</span>
+                        </td>
+                        <td>
+                            <span class="pl">Cena&nbsp;j.&nbsp;netto</span><br>
+                            <span class="en">Unit&nbsp;price</span>
+                        </td>
+                        <td><span class="pl">Ilość</span><br><span class="en">Qty.</span></td>
+                        <td><span class="pl">J.m.</span></td>
+                        {% if invoice.rebate %}
+                            <td>
+                                <span class="pl">Rabat</span><br>
+                                <span class="en">Rebate</span>
+                            </td>
+                        {% endif %}
+                        <td>
+                            <span class="pl">Wartość&nbsp;netto</span><br>
+                            <span class="en">Subtotal</span>
+                        </td>
+                        <td style="width: 3%;">
+                            <span class="pl">VAT</span><br>
+                            <span class="en">TAX</span>
+                        </td>
+                        <td>
+                            <span class="pl">Kwota&nbsp;VAT</span><br>
+                            <span class="en">TAX/VAT&nbsp;Amount</span>
+                        </td>
+                        <td style="width: 8%;">
+                            <span class="pl">Wartość&nbsp;brutto</span><br>
+                            <span class="en">Subtotal&nbsp;with&nbsp;TAX/VAT</span>
+                        </td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td class="center">{{ invoice.item_description }}</td>
+                        <td class="number">{{ invoice.unit_price_net|floatformat:2 }}&nbsp;{{ invoice.currency }}</td>
+                        <td class="center">{{ invoice.quantity }}</td>
+                        <td class="center">
+                            <span class="pl">sztuk</span><br>
+                            <span class="en">units</span>
+                        </td>
+                        {% if invoice.rebate %}
+                            <td class="number">{{ invoice.rebate|floatformat:2 }}&nbsp;%</td>
+                        {% endif %}
+                        <td class="number">{{ invoice.total_net|floatformat:2 }}&nbsp;{{ invoice.currency }}</td>
+                        <td class="number">
+                            {% if invoice.tax != None %}
+                                {{ invoice.tax|floatformat:2 }}&nbsp;%
+                            {% else %}
+                                <span class="pl">n.p.</span><br>
+                                <span class="en">n/a</span>
+                            {% endif %}
+                        </td>
+                        <td class="number">
+                            {% if invoice.tax_total != None %}
+                                {{ invoice.tax_total|floatformat:2 }}&nbsp;{{ invoice.currency }}
+                            {% else %}
+                                <span class="pl">n.p.</span><br>
+                                <span class="en">n/a</span>
+                            {% endif %}
+                        </td>
+                        <td class="number">{{ invoice.total|floatformat:2 }}&nbsp;{{ invoice.currency }}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td class="text-right" colspan="{% if invoice.rebate %}6{% else %}5{% endif %}" s/tyle="background-color: #EEE;">
+                            <label>
+                                <span class="pl">Razem:</span>
+                                <span class="en">Total</span>
+                            </label>
+                        </td>
+                        <td>{{ invoice.total_net|floatformat:2 }}&nbsp;{{ invoice.currency }}</td>
+                        <td>
+                            {% if invoice.tax != None %}
+                                {{ invoice.tax|floatformat:2 }}&nbsp;%
+                            {% else %}
+                                <span class="pl">n.p.</span><br>
+                                <span class="en">n/a</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.tax_total != None %}
+                                {{ invoice.tax_total|floatformat:2 }}&nbsp;{{ invoice.currency }}
+                            {% else %}
+                                <span class="pl">n.p.</span><br>
+                                <span class="en">n/a</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ invoice.total|floatformat:2 }}&nbsp;{{ invoice.currency }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <!-- <table id="tax_details" class="table table-bordered">
+            <tr>
+                <td class="center">
+                    <label>
+                        <span class="pl">VAT</span>
+                        <span class="en">TAX</span>
+                    </label>
+                </td>
+                <td class="number">{{ invoice.tax_total|floatformat:2 }}&nbsp;{{ invoice.currency }}</td>
+            </tr>
+            <tr>
+                <td class="center">
+                    <label>
+                        <span class="pl">Wartość&nbsp;brutto</span>
+                        <span class="en">Total&nbsp;with&nbsp;TAX/VAT</span>
+                    </label>
+                </td>
+                <td class="number">{{ invoice.total|floatformat:2 }}&nbsp;{{ invoice.currency }}</td>
+            </tr>   
+            <tr>
+                <td class="center">
+                    <label>
+                        <span class="pl">Wartość&nbsp;netto</span>
+                        <span class="en">Total&nbsp;without&nbsp;TAX/VAT</span>
+                    </label>
+                </td>
+                <td class="number">{{ invoice.total_net|floatformat:2 }}&nbsp;{{ invoice.currency }}</td>
+            </tr>
+            </table> -->
+        </div>
+    </div>  
+    <div class="card-footer">
+        <div>
+            {% if invoice.type != invoice.INVOICE_TYPES.PROFORMA %}
+                <strong>
+                    <label>
+                        <span class="pl">Sposób zapłaty:</span>
+                        <span class="en">Payment</span>
+                    </label>
+                </strong>
+                <label>
+                    <span class="pl">płatność elektroniczna</span>
+                    <span class="en">electronic payment</span>
+                </label>
+                <br>
+            {% endif %}
+
+            <strong>
+                <label>
+                    <span class="pl">Termin zapłaty:</span>
+                    <span class="en">Payment till</span>
+                </label>
+            </strong>
+
+            {% if invoice.type == invoice.INVOICE_TYPES.PROFORMA %}
+                <!-- No payment date for PROFORMA invoices -->
+            {% else %}
+                <label>
+                    <span class="pl">zapłacono dnia</span>
+                    <span class="en"> paid</span>
+                </label>
+            {% endif %}
+
+            {{ invoice.payment_date|date:"Y-m-d" }}
+            <br>
+
+            {% if invoice.type == invoice.INVOICE_TYPES.PROFORMA %}
+                <p>
+                    <span class="pl">Ten dokument <strong>nie jest</strong> fakturą VAT (nie jest dokumentem księgowym).</span>
+                    <span class="en">This document <strong>is not</strong> an invoice.</span>
+                </p>
+            {% endif %}
+
+            {% if invoice.tax == None and invoice.is_UE_customer %}
+                <p>
+                    <span class="pl">Odwrotne obciążenie.</span>
+                    <span class="en">-Reverse charge.</span>
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
