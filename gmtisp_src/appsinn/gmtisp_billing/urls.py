@@ -14,20 +14,19 @@ from .views import (
     OrderListView,
     OrderPaymentReturnView,
     OrderView,
-    PricingView,
     RedirectToBilling,
     UpgradePlanView,
-    FakePaymentsView,
     PaymentListView,
     PlanDetailView,
     PaymentDetailView,
-    # PaymentCreateView,
     PaymentUpdateView,
     PaymentDeleteView,
-    # BuyPlanView,
     InvoiceListView,
-    CreatePaymentView, 
-    # PaymentDetailView,
+    payment_success,
+    payment_failed,
+    paystack_initiate_payment,
+    paystack_verify_payment,
+    paystack_webhook_view
 )
 
 
@@ -37,11 +36,9 @@ urlpatterns = [
 
     path('', PlanListView.as_view(), name='plans_list'),
     path('plan~details/<uuid:pk>/', PlanDetailView.as_view(), name='plan_details'),
-    path('plan~pricing/', PricingView.as_view(), name='pricing'),
     path('plan~current/', CurrentPlanView.as_view(), name='current_plan'),
     path('plan~upgrade/', UpgradePlanView.as_view(), name='upgrade_plan'),
     path('plan~change/<uuid:pk>/', ChangePlanView.as_view(), name='change_plan'),
-    # path('buy-plan/<int:plan_id>/', BuyPlanView.as_view(), name='buy_plan'),
 
     path('order~extend/<uuid:pk>/', CreateOrderView.as_view(), name='create_order_plan'),
     path('order~upgrade/<uuid:pk>/', CreateOrderPlanChangeView.as_view(), name='create_order_plan_change'),
@@ -60,19 +57,14 @@ urlpatterns = [
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ payment
     path('payments~list/', PaymentListView.as_view(), name='payment_list'),
-    # path('payments~details/<uuid:pk>/', PaymentDetailView.as_view(), name='payment_details'),
-    # path('payments~create/', PaymentCreateView.as_view(), name='payment_create'),
     path('payments~update/<uuid:pk>/', PaymentUpdateView.as_view(), name='payment_update'),
     path('payments~delete/<uuid:pk>/', PaymentDeleteView.as_view(), name='payment_delete'),
+    path('payment~details/<uuid:pk>/', PaymentDetailView.as_view(),name='payment_details'),
 
-    path('payment~details/<uuid:payment_id>/', PaymentDetailView.as_view(),name='payment_details'),
-    path('create~payment/<str:payment_variant>/<uuid:order_id>/', CreatePaymentView.as_view(), name='create_payment'),
+    path('payment/initiate/<uuid:order_id>/', paystack_initiate_payment, name='initiate_payment'),
+    path('verify-payment/', paystack_verify_payment, name='verify_payment'),
+    path('payment-success/', payment_success, name='payment_success'),
+    path('payment-failed/', payment_failed, name='payment_failed'),
+    path('webhook/paystack/', paystack_webhook_view, name='paystack_webhook'),
 
 ]
-
-if getattr(settings, 'DEBUG', False) or getattr(settings, 'ENABLE_FAKE_PAYMENTS', True):
-    urlpatterns += [
-        path(
-            'fakepayments/<uuid:pk>/', FakePaymentsView.as_view(), name='fake_payments'
-        ),
-    ]

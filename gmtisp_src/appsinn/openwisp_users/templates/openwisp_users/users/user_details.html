@@ -1,0 +1,11 @@
+{% extends "openwisp_users/layout.html" %}
+{% load i18n %}
+
+{% block title %} {{ block.super }} | User Details {% endblock %}
+
+{% block content %}
+{% if request.user.is_authenticated %}
+
+
+{% endif %}
+{% endblock %}

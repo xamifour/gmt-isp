@@ -57,13 +57,9 @@ class AbstractUser(BaseUser, UUIDModel):
     phone_number = PhoneNumberField(_('phone number'), unique=True, blank=True, null=True)
     birth_date = models.DateField(_('birth date'), blank=True, null=True)
     notes = models.TextField(_('notes'), help_text=_('Notes for internal usage'), blank=True)
-    language = models.CharField(max_length=8, choices=settings.LANGUAGES, default=settings.LANGUAGE_CODE,)
+    language = models.CharField(max_length=8, choices=settings.LANGUAGES, default=settings.LANGUAGE_CODE)
     password_updated = models.DateField(_('password updated'), blank=True, null=True)
-    theme = models.CharField(_('theme'), 
-        max_length=7, 
-        blank=True, null=True,
-        help_text=_('Primary theme color in hex format (e.g. #ffffff)')
-        )
+    theme = models.CharField(_('theme'), max_length=7, blank=True, null=True, help_text=_('User theme/color in hex format (e.g. #ffffff)'))
     
     objects = UserManager()
 
@@ -213,17 +209,12 @@ class BaseOrganization(UUIDModel):
     name = models.CharField(_('name'), max_length=67, unique=True)
     description = models.TextField(_('description'), blank=True)
     email = models.EmailField(_('email'), unique=True, blank=True)
+    location = models.CharField(_('location'), max_length=256, blank=True, null=True)
+    phone_number = PhoneNumberField(_('phone number'), unique=True, blank=True, null=True)
     url = models.URLField(_('URL'), blank=True)
-    logo = models.CharField(_('logo'), 
-        max_length=67, 
-        blank=True, null=True,
-        help_text=_('Logo URL')
-        )
-    theme = models.CharField(_('theme'), 
-        max_length=7, 
-        blank=True, null=True,
-        help_text=_('Primary theme color in hex format (e.g. #ffffff)')
-        )
+    logo = models.ImageField(_('logo'), max_length=67, blank=True, null=True, help_text=_('Logo URL'))
+    theme = models.CharField(_('theme'), max_length=7, blank=True, null=True, help_text=_('Primary theme color in hex format (e.g. #ffffff)'))
+    session_quota = models.PositiveIntegerField(_('session quota'), default=0, help_text=_('Number of concurrent sessions allowed'))
 
     def __str__(self):
         value = self.name

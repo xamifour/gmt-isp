@@ -46,10 +46,10 @@ django_countries
 python-stdnum
 django-ordered-model
 suds
-django-next_url_mixin
+# django-next_url_mixin
 # django-bootstrap3
 
 # plan payment
-django-related-admin
+# django-related-admin
 # django-payments
 # django-plans-payments

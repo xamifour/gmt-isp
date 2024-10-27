@@ -6,7 +6,7 @@ from django.utils.translation import gettext
 
 from .utils import get_country_code
 from .validators_my import max_plans_validator
-from .models import Plan, Order, PlanPricing, BillingInfo
+from .models import Plan, Order, PlanQuota, BillingInfo, Payment
 
 
 class PlanForm(forms.ModelForm):
@@ -22,14 +22,15 @@ class PlanForm(forms.ModelForm):
 
 
 class OrderForm(forms.Form):
-    plan_pricing = forms.ModelChoiceField(
-        queryset=PlanPricing.objects.all(), widget=HiddenInput, required=True
+    plan_quota = forms.ModelChoiceField(
+        queryset=PlanQuota.objects.all(), widget=HiddenInput, required=True
     )
 
 
 class CreateOrderForm(forms.ModelForm):
     """
-    This form is intentionally empty as all values for Order object creation need to be computed inside view
+    This form is intentionally empty as all values for Order object creation need to be 
+    computed inside view
 
     Therefore, when implementing for example a rabat coupons, you can add some fields here
      and create "recalculate" button.
@@ -82,7 +83,7 @@ class FakePaymentsForm(forms.Form):
     )
 
 
-# class PaymentForm(forms.ModelForm):
-#     class Meta:
-#         model = Payment
-#         fields = ['order', 'amount', 'currency', 'status', 'payment_method']
+class PaymentForm(forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ['order', 'amount', 'currency', 'status', 'method']

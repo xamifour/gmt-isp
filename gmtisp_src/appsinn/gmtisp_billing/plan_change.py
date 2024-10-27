@@ -5,39 +5,39 @@ from .importer import import_name
 
 
 class PlanChangePolicy(object):
-    def _calculate_day_cost(self, plan, period):
+    def _calculate_day_cost(self, plan, uptime_limit):
         """
-        Finds most fitted plan pricing for a given period, and calculates the day cost.
+        Finds most fitted plan pricing for a given uptime_limit, and calculates the day cost.
         """
         if plan.is_free():
             # If plan is free, then cost is always 0
             return Decimal("0.00")
 
-        # Ensure period is a positive integer
-        if not isinstance(period, int) or period <= 0:
-            raise ValueError("Period must be a positive integer.")
+        # Ensure uptime_limit is a positive integer
+        if not isinstance(uptime_limit, int) or uptime_limit <= 0:
+            raise ValueError("uptime_limit must be a positive integer.")
 
-        plan_pricings = plan.planpricing_set.order_by("-pricing__period").select_related("pricing")
-        selected_pricing = None
-        for plan_pricing in plan_pricings:
-            if plan_pricing.pricing.period <= period:
-                selected_pricing = plan_pricing
+        plan_quotas = plan.planquota_set.order_by("-quota__uptime_limit").select_related("quota")
+        selected_quota = None
+        for plan_quota in plan_quotas:
+            if plan_quotas.quota.uptime_limit <= uptime_limit:
+                selected_quota = plan_quota
                 break
 
-        if selected_pricing:
+        if selected_quota:
             # Calculate day cost with Decimal precision
-            return (selected_pricing.price / selected_pricing.pricing.period).quantize(Decimal("1.00"))
+            return (selected_quota.plan.price / selected_quota.quota.uptime_limit).quantize(Decimal("1.00"))
         
-        raise ValueError(f"Plan {plan} has no valid pricings for the given period.")
+        raise ValueError(f"Plan {plan} has no valid pricings for the given uptime_limit.")
 
-    def _calculate_final_price(self, period, day_cost_diff):
+    def _calculate_final_price(self, uptime_limit, day_cost_diff):
         """
-        Calculates the final price based on the period and day cost difference.
+        Calculates the final price based on the uptime_limit and day cost difference.
         """
         if day_cost_diff is None:
             return None
-        if not isinstance(period, int) or period < 0:
-            raise ValueError("Period must be a non-negative integer.")
+        if not isinstance(uptime_limit, int) or uptime_limit < 0:
+            raise ValueError("uptime_limit must be a non-negative integer.")
         if not isinstance(day_cost_diff, (Decimal, int)):
             raise TypeError("Day cost difference must be a Decimal or integer.")
         
@@ -45,28 +45,28 @@ class PlanChangePolicy(object):
         if isinstance(day_cost_diff, int):
             day_cost_diff = Decimal(day_cost_diff)
 
-        return period * day_cost_diff
+        return uptime_limit * day_cost_diff
 
-    def get_change_price(self, plan_old, plan_new, period):
+    def get_change_price(self, plan_old, plan_new, uptime_limit):
         """
         Calculates the total price of a plan change. Returns None if no payment is required.
         """
-        # Ensure period is valid
-        if not isinstance(period, int) or period < 1:
-            raise ValueError("Period must be a positive integer.")
+        # Ensure uptime_limit is valid
+        if not isinstance(uptime_limit, int) or uptime_limit < 1:
+            raise ValueError("uptime_limit must be a positive integer.")
 
-        plan_old_day_cost = self._calculate_day_cost(plan_old, period)
-        plan_new_day_cost = self._calculate_day_cost(plan_new, period)
+        plan_old_day_cost = self._calculate_day_cost(plan_old, uptime_limit)
+        plan_new_day_cost = self._calculate_day_cost(plan_new, uptime_limit)
 
         if not isinstance(plan_old_day_cost, Decimal) or not isinstance(plan_new_day_cost, Decimal):
             raise TypeError("Day costs must be of type Decimal.")
 
         # Calculate and return the final price
         if plan_new_day_cost <= plan_old_day_cost:
-            return self._calculate_final_price(period, None)
+            return self._calculate_final_price(uptime_limit, None)
         else:
             return self._calculate_final_price(
-                period, plan_new_day_cost - plan_old_day_cost
+                uptime_limit, plan_new_day_cost - plan_old_day_cost
             )
 
 
@@ -104,11 +104,11 @@ class StandardPlanChangePolicy(PlanChangePolicy):
     DOWNGRADE_CHARGE = None
     FREE_UPGRADE = Decimal("0.0")
 
-    def _calculate_final_price(self, period, day_cost_diff):
+    def _calculate_final_price(self, uptime_limit, day_cost_diff):
         if day_cost_diff is None:
             return self.DOWNGRADE_CHARGE
         cost = (
-            period * day_cost_diff * (self.UPGRADE_PERCENT_RATE / 100 + 1)
+            uptime_limit * day_cost_diff * (self.UPGRADE_PERCENT_RATE / 100 + 1)
             + self.UPGRADE_CHARGE
         ).quantize(Decimal("1.00"))
         if cost is None or cost < self.FREE_UPGRADE:
@@ -130,9 +130,9 @@ def get_change_price(userplan, plan):
     policy = get_policy()
 
     if userplan.expire is not None:
-        period = userplan.days_left()
+        uptime_limit = userplan.days_left()
     else:
-        # Use the default period of the new plan
-        period = 30
+        # Use the default uptime_limit of the new plan
+        uptime_limit = 30
 
-    return policy.get_change_price(userplan.plan, plan, period)
+    return policy.get_change_price(userplan.plan, plan, uptime_limit)

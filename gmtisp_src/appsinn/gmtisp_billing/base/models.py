@@ -16,12 +16,12 @@ try:
     from django.contrib.sites.models import Site
 except RuntimeError:
     Site = None
-from django.core.exceptions import ImproperlyConfigured, ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.template import Context
 from django.template.base import Template
 from django.urls import reverse
-from django.utils import translation
-from django.utils.timezone import now
+from django.utils import translation, timezone
+# from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
 
@@ -30,7 +30,6 @@ from sequences import get_next_value
 from swapper import load_model
 
 from openwisp_users.mixins import OrgMixin
-from openwisp_radius.models import RadiusCheck, RadiusReply
 from openwisp_utils.base import UUIDModel
 
 from ..contrib import get_user_language, send_template_email
@@ -54,6 +53,7 @@ accounts_logger = logging.getLogger('accounts')
 
 MAX_LENGTH = 67
 
+# ----------------------------------------------------------- base mixin
 class BaseMixin(UUIDModel):
     created  = models.DateTimeField(_('created'), auto_now_add=True, null=True, db_index=True, )
     modified = models.DateTimeField(_('modified'), auto_now=True, null=True)
@@ -68,6 +68,24 @@ class BaseMixin(UUIDModel):
         return load_model('gmtisp_billing', cls.__name__.replace('Abstract', ''))
 
 
+# ----------------------------------------------------------- user usage
+class AbstractUserUsage(OrgMixin, BaseMixin):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)
+    active_sessions = models.IntegerField(default=0)
+    active_sub_sessions = models.IntegerField(default=0)
+    total_download = models.BigIntegerField(default=0)
+    total_upload = models.BigIntegerField(default=0)
+    total_uptime = models.DurationField(_('Total Uptime'), default='0:00:00')
+    attributes_details = models.CharField(max_length=MAX_LENGTH, blank=True, null=True)
+
+    class Meta:
+        abstract = True
+        ordering = ['-created']
+
+    def __str__(self):
+        return f"User ID: {self.user_id} - Download: {self.total_download} bytes, Upload: {self.total_upload} bytes"
+
+
 # ----------------------------------------------------------- plans
 class AbstractPlan(OrgMixin, BaseMixin):
     '''
@@ -80,94 +98,38 @@ class AbstractPlan(OrgMixin, BaseMixin):
     is using this plan already will be able to extend this plan again. If plan is not visible and not
     available, he will be forced then to change plan next time he extends an account.
     '''
-    name = models.CharField(_('name'), max_length=MAX_LENGTH)
-    slug = models.SlugField(
-        _('slug'),
-        max_length=MAX_LENGTH,           
-        blank=False,
-        editable=True,
-        )
-    description = models.CharField(_('description'), max_length=200, blank=True)
-    customized = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        verbose_name=_('customized:'),
-        on_delete=models.CASCADE,
-    )
-    available = models.BooleanField(
-        _('Available:'),
-        default=False,
-        db_index=True,
-        help_text=_('Is still available for purchase'),
-    )
-    visible = models.BooleanField(
-        _('Visible:'),
-        default=True,
-        db_index=True,
-        help_text=_('Is visible in current offer'),
-    )
-    requires_payment = models.BooleanField(
-        _('Requires payment:'),
-        default=False,
-        db_index=True,
-        help_text=_('If this flag is enabled, it means that you are required to perform a payment.'),
-    )
-    rollover_allowed = models.BooleanField(
-        _('Allow rollover:'),
-        default=True,
-        db_index=True,
-        help_text=_('Data purchasing now will be added to your remaining data, if you have any'),
-    )
-    quotas = models.ManyToManyField('gmtisp_billing.Quota', through='PlanQuota')
-    plan_setup_cost = models.DecimalField(_('Plan Setup Cost'), max_digits=7, decimal_places=2, db_index=True,
-        blank=True,
-        null=True,
-        )    
-    url = models.URLField(
-        max_length=200,
-        blank=True,
-        help_text=_(
-            'Optional link to page with more information (for clickable pricing table headers)'
-        ),
-    )
-    default = models.BooleanField(
-        default=None,
-        db_index=True,
-        unique=True,
-        null=True,
-        help_text=_("Both 'Unknown' and 'No' means that the plan is not default"),
-    )
+
+    WHEN_START_CHOICES = [
+        ('assigned', 'Assigned'),
+        ('first-auth', 'First authentication'),
+    ]
+    name = models.CharField(_('name'), max_length=MAX_LENGTH, unique=True)
+    slug = models.SlugField(_('slug'), max_length=MAX_LENGTH, blank=False, editable=True)
+    description = models.CharField(_('description'), max_length=256, blank=True)
+    name_for_users = models.CharField(_('name for users'), max_length=MAX_LENGTH, blank=True, null=True, help_text='Friendly name for user, e.g., Plan-100MB')
+    price = models.DecimalField(_('price'), max_digits=10, decimal_places=2, default='0.00', help_text='If price is 0.00, it means free/bonus')
+    starts_when = models.CharField(_('starts when'), max_length=MAX_LENGTH, choices=WHEN_START_CHOICES, default='first-auth')
+    override_shared_users = models.CharField(_('override shared users'), max_length=MAX_LENGTH, default='off')
+    customized = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, verbose_name=_('customized:'))
+    default = models.BooleanField(default=None, db_index=True, unique=True, null=True, help_text=_("Both 'Unknown' and 'No' means that the plan is not default"))
+    available = models.BooleanField(_('Available:'), default=False, db_index=True, help_text=_('available for purchase'))
+    visible = models.BooleanField(_('Visible:'), default=True, db_index=True, help_text=_('Is visible in current offer'))
+    payment_required = models.BooleanField(_('Requires payment:'), default=True, db_index=True, help_text=_('require payment or not.'))
+    rollover_allowed = models.BooleanField(_('Allow rollover:'), default=True, db_index=True, help_text=_('If true, Data purchasing now will be added to your remaining data, if you have any'))
+    setup_cost = models.DecimalField(_('Plan Setup Cost'), max_digits=7, decimal_places=2, db_index=True, blank=True, null=True)
     BANDWIDTH, DATA, TIME = 'Bandwidth', 'Data', 'Time'
-    plan_class_choices = (
-        (BANDWIDTH, _('Bandwidth')),
-        (DATA, _('Data')),
-        (TIME, _('Time')),
-    )
-    plan_class = models.CharField(_('Plan Class:'), max_length=16, default=DATA, choices=plan_class_choices) 
+    VARIANT_CHOICES = ((BANDWIDTH, _('Bandwidth')), (DATA, _('Data')), (TIME, _('Time')))
+    variant = models.CharField(_('Plan Variant:'), max_length=16, default=DATA, choices=VARIANT_CHOICES) 
     PREPAID, POSTPAID = 'Prepaid', 'Postpaid'
-    plan_type_choices = (
-        (PREPAID, _('Prepaid')),
-        (POSTPAID, _('Postpaid')),
-    )
-    plan_type = models.CharField(_('Plan Type:'), max_length=16, default=PREPAID, choices=plan_type_choices)
+    TYPE_CHOICES = ((PREPAID, _('Prepaid')), (POSTPAID, _('Postpaid')))
+    type = models.CharField(_('Plan Type:'), max_length=16, default=PREPAID, choices=TYPE_CHOICES)
     rating = models.FloatField(_('Rating'), blank=True, null=True, editable=False) 
-    radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        verbose_name=_('RADIUS group:'), 
-        related_name='plan_radius_group',
-        )
-    temp_radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        verbose_name=_('Temporary RADIUS group:'), 
-        related_name='plan_temp_radius_group',
-        )
+    radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE, blank=True, null=True, verbose_name=_('RADIUS group:'), related_name='plan_radius_group')
+    temp_radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE, blank=True, null=True, verbose_name=_('Temporary RADIUS group:'), related_name='plan_temp_radius_group')
+    url = models.URLField(max_length=200, blank=True, help_text=_('Optional link to page with more information (for clickable plan table headers)'))
 
     class Meta:
         abstract = True
-        unique_together = ('name', 'organization')
         verbose_name = _('Plan')
         verbose_name_plural = _('Plans')
 
@@ -179,9 +141,7 @@ class AbstractPlan(OrgMixin, BaseMixin):
     
     @classmethod
     def get_default_plan(cls):
-        """
-        Returns the default plan or None if no default plan exists.
-        """
+        """ Returns the default plan or None if no default plan exists."""
         default_plan = cls.objects.filter(default=True).first()
         return default_plan
 
@@ -196,36 +156,36 @@ class AbstractPlan(OrgMixin, BaseMixin):
         ):
             default_plan = cls.get_default_plan()
             if default_plan is None or not default_plan.is_free():
-                # raise ValidationError(_('User plan has expired'))
-                return None
+                raise ValidationError(_('User plan has expired'))
+                # return None
             return default_plan
         return user.userplan.plan
 
     def get_quota_dict(self):
-        quota_dict = dict(self.planquota_set.values_list('quota__codename', 'value'))
+        quota_dict = dict(self.planquota_set.values_list('quota__name', 'quota__uptime_limit'))
         return quota_dict
     
-    # def get_quota_string(self):
-    #     # Retrieve the queryset of (codename, value) tuples
-    #     quota_tuples = self.planquota_set.values_list('quota__codename', 'value')
-    #     # Format the output string using f-strings
-    #     quota_string = ', '.join(f"Quota: '{codename}', Value: '{value}'" for codename, value in quota_tuples)   
-    #     return quota_string
-    
     def get_plan_quota(self):
-        quota = self.planquota_set.values_list('value', flat=True)
-        quota = quota[0] if quota else None
-        return quota
+        return self.planquota_set.all()
 
     def get_plan_price(self):
-        price = self.planpricing_set.values_list('price')
-        price = price[0][0]
-        return price
-        
+        return self.price
+
+    def get_plan_setup_cost(self):
+        return self.setup_cost
+    
     def is_free(self):
-        return self.planpricing_set.count() == 0
+        return self.price == 0
 
     is_free.boolean = True
+
+    def is_payment_required(self):
+        if self.price == 0.00:
+            return self.payment_required == False
+        
+    def is_visible(self):    
+        if self.price == 0.00:
+            return self.visible == False
 
 
 class AbstractUserPlan(OrgMixin, BaseMixin):
@@ -233,49 +193,37 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
     Currently selected plan for user account.
     '''
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name=_('user'))
-    plan = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE, 
-        verbose_name=_('plan'),
-        help_text=_('Plan that user is subscribed to.'),
-        )
-    expire = models.DateField( _('expire'), default=None, blank=True, null=True, db_index=True)
+    plan = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE, verbose_name=_('Plan'), help_text=_('Plan that user is subscribed to.'))
+    expire = models.DateTimeField( _('expire'), default=None, blank=True, null=True, db_index=True)
     active = models.BooleanField(_('active'), default=True, db_index=True)
-    radius_check = models.ForeignKey('openwisp_radius.RadiusCheck', on_delete=models.CASCADE, blank=True, null=True, related_name='user_plan_radius_check')
-    radius_reply = models.ForeignKey('openwisp_radius.RadiusReply', on_delete=models.CASCADE, blank=True, null=True, related_name='user_plan_radius_reply')
-    radius_accounting = models.ForeignKey('openwisp_radius.RadiusAccounting', on_delete=models.CASCADE, blank=True, null=True, related_name='user_plan_radius_accounting')
-    radius_user_group = models.ForeignKey('openwisp_radius.RadiusUserGroup', on_delete=models.CASCADE, blank=True, null=True, related_name='user_plan_radius_user_group')
-    radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE, blank=True, null=True, related_name='user_plan_radius_group')
-    temp_radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE, blank=True, null=True, related_name='user_plan_temp_radius_group')
-    
+    status = models.CharField(_('state'), max_length=MAX_LENGTH, blank=True, null=True, db_index=True)
+    start_time = models.DateTimeField(_('start time'), null=True, blank=True)
+    end_time = models.DateTimeField(_('end time'), null=True, blank=True)
+
     class Meta:
         abstract = True
         verbose_name = _('User plan')
         verbose_name_plural = _('Users plans')
     
+    def __str__(self):
+        return f'{self.user.username} - {self.plan.name}'
+    
     def get_absolute_url(self):
         return reverse('gmtisp_billing:userplan-details', kwargs={'pk': self.pk})
 
-    def __str__(self):
-        return f'{self.user.username} - {self.plan.name}'
-
     def is_active(self):
-        if not self.active:
-            reason = self.reason_not_active or "No specific reason provided."
-            return f"No (Reason: {reason})"
-        return "Yes"
+        return self.active
 
     def is_expired(self):
         if self.expire is None:
-            return "No"
-        else:
-            expired = self.expire < date.today()
-            return "Yes" if expired else "No"
+            return False
+        return self.expire < timezone.now()  # Compare with current timezone-aware datetime
 
     def days_left(self):
         if self.expire is None:
-            return "N/A"
+            return None
         else:
-            days_remaining = (self.expire - date.today()).days
-            return f"{days_remaining} days" if days_remaining > 0 else "Expired"
+            return (self.expire - timezone.now()).days
 
     def clean_activation(self):
         errors = plan_validation(self.user)
@@ -298,38 +246,14 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
             self.save()
             account_deactivated.send(sender=self, user=self.user)
 
-    # def activate(self):
-    #     super().activate()
-    #     # Create RadiusCheck and RadiusReply when plan is activated
-    #     if not self.radius_check:
-    #         self.radius_check = RadiusCheck.objects.create(
-    #             user=self.user, attribute='Auth-Type', op=':=', value='Accept'
-    #         )
-    #     if not self.radius_reply:
-    #         self.radius_reply = RadiusReply.objects.create(
-    #             user=self.user, attribute='Session-Timeout', op='=', value='3600'
-    #         )
-    #     self.save()
-    #     account_activated.send(sender=self, user=self.user)
-
-    # def deactivate(self):
-    #     super().deactivate()
-    #     # Delete RadiusCheck and RadiusReply when plan is deactivated
-    #     if self.radius_check:
-    #         self.radius_check.delete()
-    #     if self.radius_reply:
-    #         self.radius_reply.delete()
-    #     account_deactivated.send(sender=self, user=self.user)
-
     def initialize(self):
-        '''
-        Set up user plan for first use
-        '''
-        if not self.is_active():
-            # Plans without pricings don't need to expire
-            if self.expire is None and self.plan.planpricing_set.count():
-                self.expire = now() + timedelta(
-                    days=getattr(settings, 'PLANS_DEFAULT_GRACE_PERIOD', 30)
+        '''Set up user plan for first use'''
+        if not self.is_active(): # if not active
+            quota = self.plan.planquota_set.first() # Access the quota associated with the plan
+            # Plans without quota.uptime_limit don't need to expire
+            if self.expire is None and quota.uptime_limit is not None:
+                self.expire = timezone.now() + timedelta(
+                    days=getattr(settings, "PLANS_DEFAULT_GRACE_PERIOD", 30)
                 )
             self.activate()  # this will call self.save()
 
@@ -347,13 +271,13 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
             != self.recurring.RENEWAL_TRIGGERED_BY.USER
             and self.recurring.token_verified
         )
-
-    def get_plan_extended_until(self, plan, pricing):
+    
+    def get_plan_extended_until(self, plan, quota):
         if plan.is_free():
             return None
-        if pricing is None:
+        if quota is None:
             return self.expire
-        return self.get_plan_extended_from(plan) + timedelta(days=pricing.period)
+        return self.get_plan_extended_from(plan) + quota.uptime_limit
 
     def plan_autorenew_at(self):
         '''
@@ -403,7 +327,7 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
 
         # Set new values
         self.recurring.user_plan = self
-        self.recurring.pricing = order.pricing
+        self.recurring.quota = order.quota
         self.recurring.amount = order.amount
         self.recurring.tax = order.tax
         self.recurring.currency = order.currency
@@ -413,22 +337,28 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
         self.recurring.save()
         return self.recurring
 
-    def extend_account(self, plan, pricing):
+    def extend_account(self, plan, quota):
         '''
-        Manages extending account after plan or pricing order
-        :param plan:
-        :param pricing: if pricing is None then account will be only upgraded
-        :return:
+        Manages extending account after plan or quota order
+        :param plan: New plan to extend to
+        :param quota: If quota is None, then the account will be only upgraded
+        :return: Status of the extension operation
         '''
-        status = False  # flag; if extending account was successful?
-        expire = self.get_plan_extended_until(plan, pricing)
-        if pricing is None:
-            # Process a plan change request (downgrade or upgrade)
-            # No account activation or extending at this point
-            self.plan = plan
+        status = False  # Flag; if extending account was successful?
 
-            if self.expire is not None and not plan.planpricing_set.count():
-                # Assume no expiry date for plans without pricing.
+        # Access the quota associated with the plan
+        plan_quota = self.plan.planquota_set.first()
+        if plan_quota is None:
+            raise ValueError("No quota associated with the plan.")
+
+        uptime_limit = plan_quota.quota.uptime_limit  # Ensure uptime_limit is accessed correctly
+
+        # Get the new expiration date based on the plan and uptime_limit
+        expire = self.get_plan_extended_until(plan, plan_quota.quota)  # Pass the quota object here
+
+        if uptime_limit is None:
+            self.plan = plan  # Process a plan change request (downgrade or upgrade)
+            if self.expire is not None:
                 self.expire = None
 
             self.save()
@@ -452,8 +382,6 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
             if self.plan == plan:
                 status = True
             else:
-                # This should not ever happen (as this case should be managed by plan change request)
-                # but just in case we consider a case when user has a different plan
                 if not self.plan.is_free() and self.expire is None:
                     status = True
                 elif not self.plan.is_free() and self.expire > date.today():
@@ -472,14 +400,14 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
                 self.save()
                 accounts_logger.info(
                     "Account '%s' [id=%d] has been extended by %d days using plan '%s' [id=%d]"
-                    % (self.user, self.user.pk, pricing.period, plan, plan.pk)
+                    % (self.user, self.user.pk, uptime_limit.days, plan, plan.pk)  # Use .days to get days from timedelta
                 )
                 if getattr(settings, 'PLANS_SEND_EMAILS_PLAN_EXTENDED', True):
                     mail_context = {
                         'user': self.user,
                         'userplan': self,
                         'plan': plan,
-                        'pricing': pricing,
+                        'quota': plan_quota,
                     }
                     send_template_email(
                         [self.user.email],
@@ -488,21 +416,18 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
                         mail_context,
                         get_user_language(self.user),
                     )
-
         if status:
             self.clean_activation()
-
         return status
+
 
     def expire_account(self):
         '''manages account expiration'''
 
         self.deactivate()
-
         accounts_logger.info(
             "Account '%s' [id=%d] has expired" % (self.user, self.user.pk)
         )
-
         mail_context = {'user': self.user, 'userplan': self}
         send_template_email(
             [self.user.email],
@@ -511,7 +436,6 @@ class AbstractUserPlan(OrgMixin, BaseMixin):
             mail_context,
             get_user_language(self.user),
         )
-
         account_expired.send(sender=self, user=self.user)
 
     def remind_expire_soon(self):
@@ -563,69 +487,17 @@ class AbstractRecurringUserPlan(OrgMixin, BaseMixin):
         ]
     )
     user_plan = models.OneToOneField('UserPlan', on_delete=models.CASCADE, related_name='recurring')
-    token = models.CharField(
-        _('recurring token'), 
-        max_length=200, 
-        default=None, 
-        null=True,
-        blank=True,
-        help_text=_('Token, that will be used for payment renewal. Depends on used payment provider'), 
-        )
-    payment_provider = models.CharField(
-        _('payment provider'), 
-        max_length=200, 
-        default=None, 
-        null=True, 
-        blank=True,
-        help_text=_('Provider, that will be used for payment renewal'), 
-        )
-    pricing = models.ForeignKey(
-        'gmtisp_billing.Pricing', 
-        default=None, 
-        null=True, 
-        blank=True, 
-        on_delete=models.CASCADE,
-        help_text=_('Recurring pricing'), 
-        )
+    token = models.CharField(_('recurring token'), max_length=200, default=None, null=True, blank=True, help_text=_('Token, that will be used for payment renewal. Depends on used payment provider'))
+    payment_provider = models.CharField(_('payment provider'), max_length=200, default=None, null=True, blank=True, help_text=_('Provider, that will be used for payment renewal'))
+    quota = models.ForeignKey('gmtisp_billing.Quota', default=None, null=True, blank=True, on_delete=models.CASCADE, help_text=_('Recurring quota'))
     amount = models.DecimalField(_('amount'), max_digits=7, decimal_places=2, db_index=True, null=True, blank=True)
-    tax = models.DecimalField(
-        _('tax'), 
-        max_digits=4, 
-        decimal_places=2, 
-        db_index=True, 
-        null=True, 
-        blank=True
-        )  # Tax=None is when tax is not applicable
+    tax = models.DecimalField(_('tax'), max_digits=4, decimal_places=2, db_index=True, null=True, blank=True)  # Tax=None is when tax is not applicable
     currency = models.CharField(_('currency'), max_length=3)
-    renewal_triggered_by = models.IntegerField(
-        _("renewal triggered by"),
-        choices=RENEWAL_TRIGGERED_BY,
-        help_text=_(
-            "The source of the associated plan's renewal (USER = user-initiated renewal, "
-            "TASK = autorenew_account-task-initiated renewal, OTHER = renewal is triggered using another mechanism)."
-        ),
-        default=RENEWAL_TRIGGERED_BY.USER,
-        db_index=True,
-    )
-    # A backup of the old has_automatic_renewal field to support data migration to the new renewal_triggered_by field.
-    # Do not make any other modifications to the field in order to let user's auto-migrations detect the renaming.
-    # TODO: _has_automatic_renewal_backup_deprecated deprecated. Remove in the next major release.
-    _has_automatic_renewal_backup_deprecated = models.BooleanField(
-        _("has automatic plan renewal"),
-        help_text=_(
-            "Automatic renewal is enabled for associated plan. "
-            "If False, the plan renewal can be still initiated by user.",
-        ),
-        db_column="has_automatic_renewal",
-        default=False,
-    )
-    token_verified = models.BooleanField(
-        _('token has been verified by payment'), 
-        default=False,
-        help_text=_('The recurring token has been verified by at least one payment to be working.'), 
-        )
-    card_expire_year   = models.IntegerField(null=True, blank=True)
-    card_expire_month  = models.IntegerField(null=True, blank=True)
+    renewal_triggered_by = models.IntegerField(_("renewal triggered by"), choices=RENEWAL_TRIGGERED_BY, default=RENEWAL_TRIGGERED_BY.USER, db_index=True, help_text=_("The source of the associated plan's renewal (USER = user-initiated renewal, TASK = autorenew_account-task-initiated renewal, OTHER = renewal is triggered using another mechanism)."))
+    _has_automatic_renewal_backup_deprecated = models.BooleanField(_("has automatic plan renewal"), db_column="has_automatic_renewal", default=False, help_text=_("Automatic renewal is enabled for associated plan. If False, the plan renewal can be still initiated by user."))  # TODO: Remove in the next major release.
+    token_verified = models.BooleanField(_('token has been verified by payment'), default=False, help_text=_('The recurring token has been verified by at least one payment to be working.'))
+    card_expire_year = models.IntegerField(null=True, blank=True)
+    card_expire_month = models.IntegerField(null=True, blank=True)
     card_masked_number = models.CharField('CVV', null=True, blank=True, max_length=200)
 
     class Meta:
@@ -668,7 +540,7 @@ class AbstractRecurringUserPlan(OrgMixin, BaseMixin):
         order = AbstractOrder.get_concrete_model().objects.create(
             user=userplan.user,
             plan=userplan.plan,
-            pricing=userplan.recurring.pricing,
+            quota=userplan.recurring.quota,
             amount=userplan.recurring.amount,
             tax=userplan.recurring.tax,  # Fallback value in case of VIES fault
             currency=userplan.recurring.currency,
@@ -689,7 +561,7 @@ class AbstractRecurringUserPlan(OrgMixin, BaseMixin):
         '''
         self.token = None
         self.payment_provider = None
-        self.pricing = None
+        self.quota = None
         self.amount = None
         self.tax = None
         self.currency = None
@@ -700,123 +572,79 @@ class AbstractRecurringUserPlan(OrgMixin, BaseMixin):
         self.card_masked_number = None
 
 
-class AbstractPricing(OrgMixin, models.Model):
-    '''
-    Type of plan period that could be purchased (e.g. 10 days, month, year, etc)
-    '''
-    FIXED, ANNIVERSARY, ACCUMULATIVE = 'Fixed', 'Anniversary', 'Accumulative'
-    period_type_choices = (
-        (FIXED, _('Fixed')),
-        (ANNIVERSARY, _('Anniversary')),
-        (ACCUMULATIVE, _('Accumulative')),
-    )
-    name   = models.CharField(_('name'), max_length=MAX_LENGTH)
-    period = models.PositiveIntegerField(_('period'), 
-        default=30, 
-        null=True, 
-        blank=True, 
-        db_index=True,
-        help_text=_('Type of plan period that could be purchased (e.g. 10 days, month, year, etc)'),
-        )
-    period_type = models.CharField(_('period type'), max_length=MAX_LENGTH, 
-        choices=period_type_choices,
-        default=ANNIVERSARY,
-        help_text=_('Fixed: expire at the end of month, Anniversary: expire 30 days from refill date, Accumulative: for rollover.'),
-    )
-    url = models.URLField(
-        max_length=200,
-        blank=True,
-        help_text=_(
-            'Optional link to page with more information (for clickable pricing table headers)'
-        ),
-    )
+# ----------------------------------------------------------- quota
+class AbstractQuota(OrgMixin, BaseMixin):
 
-    class Meta:
-        abstract = True
-        ordering = ('period',)
-        verbose_name = _('Pricing')
-        verbose_name_plural = _('Pricings')
+    RESET_COUNTERS_INTERVAL = [
+        ('disabled', 'Disabled'),
+        ('monthly', 'Monthly'),
+        ('weekly', 'Weekly'),
+        ('daily', 'Daily'),
+        ('hourly', 'Hourly'),
+    ]
+    
+    VALIDITY_TYPE_CHOICES = [
+        ('duration', 'Duration (days)'),
+        ('time', 'Time (hours:minutes)'),
+    ]
 
-    def __str__(self):
-        return f'{self.name} ({self.period} days)'
+    class Priority(models.IntegerChoices):
+        CRITICAL = 1, 'Critical'
+        HIGH = 2, 'High'
+        IMPORTANT = 3, 'Important'
+        MEDIUM = 4, 'Medium'
+        LOW = 5, 'Low'
+        MINOR = 6, 'Minor'
+        TRIVIAL = 7, 'Trivial'
 
-
-class PlanPricingManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().select_related('plan', 'pricing')
-
-class AbstractPlanPricing(OrgMixin, BaseMixin):
-    plan    = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE)
-    pricing = models.ForeignKey('gmtisp_billing.Pricing', on_delete=models.CASCADE)
-    price   = models.DecimalField(max_digits=7, decimal_places=2, db_index=True)
-    order   = models.IntegerField(default=0, null=False, blank=False)
-    has_automatic_renewal = models.BooleanField(
-        _('auto renewal'),
-        default=False,
-        help_text=_('Use automatic renewal if possible?'),
-    )
-    visible = models.BooleanField(
-        _('visible'),
-        help_text=_('Is visible in current offer'),
-        default=True,
-    )
-
-    objects = PlanPricingManager()
-
-    class Meta:
-        abstract = True
-        ordering = ('order', 'pricing__period', )
-        verbose_name = _('Plan pricing')
-        verbose_name_plural = _('Plans pricings')
-
-    def __str__(self):
-        # return f"{self.plan.name} {self.pricing} {'recurring' if self.has_automatic_renewal else ''}"
-        renewal_type = 'recurring' if self.has_automatic_renewal else ''
-        return f"{self.plan.name} - {self.pricing.name} ({renewal_type})"
-
-
-class AbstractQuota(OrgMixin, models.Model):
-    '''
-    Single countable or boolean property of system (limitation).
-    '''
-    MB, GB = 'MB', 'GB'
-    quota_unit_choices = (
-        (MB, _('MB')),
-        (GB, _('GB')),
-    )
-    codename = models.CharField(_('codename'), max_length=MAX_LENGTH, unique=True, db_index=True)
-    name     = models.CharField(_('name'), max_length=MAX_LENGTH)
-    unit     = models.CharField(_('unit'), max_length=MAX_LENGTH, choices=quota_unit_choices, default=MB)
-    description = models.TextField(_('description'), blank=True)
-    is_boolean  = models.BooleanField(_('is boolean'), default=False)
+    priority = models.IntegerField(choices=Priority.choices, default='4')
+    name = models.CharField(max_length=MAX_LENGTH, unique=True, blank=True, null=True, help_text="limit-1gb")
+    description = models.CharField(max_length=1024, blank=True, null=True)
+    download_limit = models.BigIntegerField(default=0, help_text="")
+    upload_limit = models.BigIntegerField(default=0, help_text="")
+    transfer_limit = models.BigIntegerField(default=0, help_text="Total data limit, eq. 10GB")
+    uptime_limit = models.DurationField(default='30 00:00:00', blank=True, null=True, help_text="'00:30:00' (30 minutes), '15 00:45:00' (15 days, 0 hours, 45 minutes, and 0 seconds), 'Empty' (no expiration)")
+    rate_limit_rx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_tx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_min_rx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_min_tx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_priority = models.BigIntegerField(default=0, help_text="")
+    rate_limit_burst_rx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_burst_tx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_burst_threshold_rx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_burst_threshold_tx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_burst_time_rx = models.BigIntegerField(default=0, help_text="")
+    rate_limit_burst_time_tx = models.BigIntegerField(default=0, help_text="")
+    reset_counters_start_time = models.DateTimeField(blank=True, null=True, help_text="")
+    reset_counters_interval = models.CharField(max_length=MAX_LENGTH, choices=RESET_COUNTERS_INTERVAL, default='disabled', help_text="")
+    is_boolean = models.BooleanField(_("is boolean"), default=False)
     url = models.CharField(
         max_length=200,
         blank=True,
         help_text=_(
-            'Optional link to page with more information (for clickable pricing table headers)'
+            "Optional link to page with more information (for clickable quota table headers)"
         ),
     )
+
 
     class Meta:
         abstract = True
         verbose_name = _('Quota')
         verbose_name_plural = _('Quotas')
-
+        
     def __str__(self):
-        return '%s' % (self.codename,)
-    
-    def quota_name(self):
-        return self.name
-
+        return self.name 
 
 class PlanQuotaManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().select_related('plan', 'quota')
-
+    
 class AbstractPlanQuota(OrgMixin, BaseMixin):
     plan  = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE)
     quota = models.ForeignKey('gmtisp_billing.Quota', on_delete=models.CASCADE)
-    value = models.BigIntegerField(default=1, null=True, blank=True)
+    from_time = models.TimeField(default='00:00:00')
+    till_time = models.TimeField(default='23:59:59')
+    weekdays = models.CharField(max_length=MAX_LENGTH, blank=True, null=True)  # Comma-separated weekdays
 
     objects = PlanQuotaManager()
 
@@ -831,73 +659,7 @@ class AbstractPlanQuota(OrgMixin, BaseMixin):
     def get_absolute_url(self):
         return reverse('admin:gmtisp_billing_planquota_change', args=[self.pk])
 
-
-class AbstractBandwidthSettings(OrgMixin, models.Model):
-    name = models.CharField(_('Bandwidth Name'), 
-        max_length=MAX_LENGTH, 
-        blank=True, 
-        null=True,
-        help_text=_('Bandwidth determines how much traffic can pass through, ' 
-                    '5Mbps means, user can transmit data up to a capacity/speed 5Mbps')
-        )
-
-    class Priority(models.IntegerChoices):
-        CRITICAL = 1, 'Critical'
-        HIGH = 2, 'High'
-        IMPORTANT = 3, 'Important'
-        MEDIUM = 4, 'Medium'
-        LOW = 5, 'Low'
-        MINOR = 6, 'Minor'
-        TRIVIAL = 7, 'Trivial'
-
-    priority = models.IntegerField(choices=Priority.choices)
-
-    class Meta:
-        abstract = True
-        verbose_name = _('Bandwidth Settings')
-        verbose_name_plural = _('Bandwidth Settings')
-
-    def __str__(self):
-        return self.name
     
-    def bandwidth_priority(self):
-        if self.name == 'Unlimited':
-            return self.Priority.TRIVIAL
-        return self.priority
-    
-    
-class PlanBandwidthSettingsManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().select_related('plan', 'bandwidth')
-
-class AbstractPlanBandwidthSettings(OrgMixin, BaseMixin):
-    plan = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE)
-    bandwidth = models.ForeignKey('gmtisp_billing.BandwidthSettings', on_delete=models.CASCADE, blank=True, null=True)
-    description = models.CharField(_('Description'), max_length=MAX_LENGTH, blank=True, null=True, help_text='5Mbps')
-    rate_limit_up = models.CharField(_('Rate limit up'), max_length=MAX_LENGTH, blank=True, null=True)
-    rate_limit_down = models.CharField(_('Rate limit down'), max_length=MAX_LENGTH, blank=True, null=True)
-    burst_rate_up = models.CharField(_('Burst rate up'), max_length=MAX_LENGTH, blank=True, null=True)
-    burst_rate_down = models.CharField(_('Burst rate down'), max_length=MAX_LENGTH, blank=True, null=True)
-    burst_threshold_up = models.CharField(_('Burst threshold up'), max_length=MAX_LENGTH, blank=True, null=True)
-    burst_threshold_down = models.CharField(_('Burst threshold down'), max_length=MAX_LENGTH, blank=True, null=True)
-    min_rate_up = models.CharField(_('Min rate up'), max_length=MAX_LENGTH, blank=True, null=True)
-    min_rate_down = models.CharField(_('Min rate down'), max_length=MAX_LENGTH, blank=True, null=True)
-    burst_time_up = models.CharField(_('Burst time up'), max_length=MAX_LENGTH, blank=True, null=True)
-    burst_time_down = models.CharField(_('Burst time down'), max_length=MAX_LENGTH, blank=True, null=True)
-
-    objects = PlanBandwidthSettingsManager()
-
-    class Meta:
-        abstract = True
-        verbose_name = _('Plan bandwidth setting')
-        verbose_name_plural = _('Plans bandwidth settings')
-
-    def __str__(self):
-        plan_name = self.plan.name if self.plan else 'No Plan'
-        bandwidth_name = self.bandwidth.name if self.bandwidth else 'No Bandwidth'
-        return f'{plan_name} {bandwidth_name}'
-
-
 # ----------------------------------------------------------- billing info
 class AbstractBillingInfo(OrgMixin, BaseMixin):
     '''
@@ -968,10 +730,10 @@ class AbstractBillingInfo(OrgMixin, BaseMixin):
 class AbstractOrder(OrgMixin, BaseMixin):
     '''
     Order in this app supports only one item per order. This item is defined by
-    plan and pricing attributes. If both are defined the order represents buying
+    plan and quota attributes. If both are defined the order represents buying
     an account extension.
 
-    If only plan is provided (with pricing set to None) this means that user purchased
+    If only plan is provided (with quota set to None) this means that user purchased
     a plan upgrade.
     '''
     STATUS = Enumeration(
@@ -986,36 +748,18 @@ class AbstractOrder(OrgMixin, BaseMixin):
     flat_name = models.CharField(max_length=MAX_LENGTH, blank=True, null=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name=_('user'))
     plan = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE, verbose_name=_('plan'), related_name='plan_order')
-    pricing = models.ForeignKey(
-       'gmtisp_billing.Pricing',
-        blank=True,
-        null=True,
-        verbose_name=_('pricing'),
-        on_delete=models.CASCADE,
-    )  # if pricing is None the order is upgrade plan, not buy new pricing
-    completed = models.DateTimeField( _('completed'), null=True, blank=True, db_index=True)
-    plan_extended_from = models.DateField(
-        _('plan extended from'),
-        help_text=_('The plan was extended from this date'),
-        null=True,
-        blank=True,
-    )
-    plan_extended_until = models.DateField(
-        _('plan extended until'),
-        help_text=('The plan was extended until this date'),
-        null=True,
-        blank=True,
-    )
+    quota = models.ForeignKey('gmtisp_billing.Quota', blank=True, null=True, verbose_name=_('quota'), on_delete=models.CASCADE)  # if quota is None the order is upgrade plan, not buy new quota
+    completed = models.DateTimeField(_('completed'), null=True, blank=True, db_index=True)
+    plan_extended_from = models.DateField(_('plan extended from'), help_text=_('The plan was extended from this date'), null=True, blank=True)
+    plan_extended_until = models.DateField(_('plan extended until'), help_text=_('The plan was extended until this date'), null=True, blank=True)
     amount = models.DecimalField(_('amount'), max_digits=7, decimal_places=2, db_index=True)
-    tax = models.DecimalField(
-        _('tax'), max_digits=4, decimal_places=2, db_index=True, null=True, blank=True
-    )  # Tax=None is when tax is not applicable
-    currency = models.CharField(_('currency'), max_length=3, default='EUR')
+    tax = models.DecimalField(_('tax'), max_digits=4, decimal_places=2, db_index=True, null=True, blank=True)  # Tax=None is when tax is not applicable
+    currency = models.CharField(_('currency'), max_length=3, default='GHS')
     status = models.IntegerField(_('status'), choices=STATUS, default=STATUS.NEW)
 
     class Meta:
         abstract = True
-        ordering = ('-created',)
+        ordering = ('-completed',)
         verbose_name = _('Order')
         verbose_name_plural = _('Orders')
 
@@ -1029,23 +773,22 @@ class AbstractOrder(OrgMixin, BaseMixin):
     def name(self):
         '''
         Support for two kind of Order names:
-        * (preferred) dynamically generated from Plan and Pricing (if flatname is not provided) (translatable)
+        * (preferred) dynamically generated from Plan and Quota (if flatname is not provided) (translatable)
         * (legacy) just return flat name, which is any text (not translatable)
 
         Flat names are only introduced for legacy system support, when you need to migrate old orders into
-        django-plans and you cannot match Plan&Pricings convention.
+        django-plans and you cannot match Plan&Quota convention.
         '''
         if self.flat_name:
             return self.flat_name
         else:
-            return '%s %s %s ' % (
-                _('Plan'),
+            return '%s %s ' % (
                 self.plan.name,
-                '(upgrade)' if self.pricing is None else '- %s' % self.pricing,
+                '(upgrade)' if self.quota.name is None else '- %s' % self.quota.name,
             )
 
     def is_ready_for_payment(self):
-        return self.status == self.STATUS.NEW and (now() - self.created).days < getattr(
+        return self.status == self.STATUS.NEW and (timezone.now() - self.created).days < getattr(
             settings, 'PLANS_ORDER_EXPIRATION', 14
         )
 
@@ -1053,7 +796,7 @@ class AbstractOrder(OrgMixin, BaseMixin):
         return self.user.userplan.get_plan_extended_from(self.plan)
 
     def get_plan_extended_until(self):
-        return self.user.userplan.get_plan_extended_until(self.plan, self.pricing)
+        return self.user.userplan.get_plan_extended_until(self.plan, self.quota)
 
     @transaction.atomic()
     def complete_order(self):
@@ -1065,42 +808,11 @@ class AbstractOrder(OrgMixin, BaseMixin):
             .get()
         )
 
-        # if order.completed is None:
-        #     self.plan_extended_from = self.get_plan_extended_from()
-        #     status = self.user.userplan.extend_account(self.plan, self.pricing)
-        #     self.plan_extended_until = self.user.userplan.expire
-        #     order.completed = self.completed = now()
-            
-        #     # Create a payment record
-        #     payment = AbstractPayment.get_concrete_model().objects.create(
-        #         user=self.user,
-        #         order=self,
-        #         amount=self.amount,
-        #         currency=self.currency,
-        #         payment_method='credit_card',  # You might want to dynamically determine this
-        #         status='pending'
-        #     )
-            
-        #     # Process the payment
-        #     payment.process_payment()
-
-        #     if payment.is_successful():
-        #         self.status = self.STATUS.COMPLETED
-        #     else:
-        #         self.status = self.STATUS.NOT_VALID
-
-        #     self.save()
-        #     order_completed.send(self)
-        #     return True
-        # else:
-        #     return False
-
-
         if order.completed is None:
             self.plan_extended_from = self.get_plan_extended_from()
-            status = self.user.userplan.extend_account(self.plan, self.pricing)
+            status = self.user.userplan.extend_account(self.plan, self.quota)
             self.plan_extended_until = self.user.userplan.expire
-            order.completed = self.completed = now()
+            order.completed = self.completed = timezone.now()
             if status:
                 self.status = self.STATUS.COMPLETED
             else:
@@ -1114,7 +826,7 @@ class AbstractOrder(OrgMixin, BaseMixin):
     def return_order(self):
         if self.status != self.STATUS.RETURNED:
             if self.status == self.STATUS.COMPLETED:
-                if self.pricing is not None:
+                if self.quota is not None:
                     extended_from = self.plan_extended_from
                     if extended_from is None:
                         extended_from = self.completed
@@ -1123,15 +835,15 @@ class AbstractOrder(OrgMixin, BaseMixin):
                         self.plan_extended_until is None
                         or extended_from is None
                         or self.plan_extended_until - extended_from
-                        != timedelta(days=self.pricing.period)
+                        != timedelta(days=self.quota.uptime_limit)
                     ):
                         raise ValueError(
                             f"Invalid order state: completed={self.completed}, "
                             f"plan_extended_from={self.plan_extended_from}, "
                             f"plan_extended_until={self.plan_extended_until}, "
-                            f"pricing.period={self.pricing.period}"
+                            f"quota.uptime_limit={self.quota.uptime_limit}"
                         )
-                self.user.userplan.reduce_account(self.pricing)
+                self.user.userplan.reduce_account(self.quota)
             elif self.status != self.STATUS.NOT_VALID:
                 raise ValueError(
                     f"Cannot return order with status other than COMPLETED and NOT_VALID: {self.status}"
@@ -1147,12 +859,11 @@ class AbstractOrder(OrgMixin, BaseMixin):
 
     def get_all_invoices(self):
         return self.invoice_set.order_by('issued', 'issued_duplicate', 'pk')
-
-    def get_plan_pricing(self):
-        return AbstractPlanPricing.get_concrete_model().objects.get(
-            plan=self.plan, pricing=self.pricing
+    
+    def get_plan_quota(self):
+        return AbstractPlanQuota.get_concrete_model().objects.get(
+            plan=self.plan, quota=self.quota
         )
-
     def tax_total(self):
         if self.tax is None:
             return Decimal('0.00')
@@ -1209,29 +920,6 @@ class AbstractOrder(OrgMixin, BaseMixin):
         ):  # Don't change the tax, if the request was not successful
             self.tax = Decimal(tax) if tax != 'None' else None
 
-    # def update_order_status(self):
-    #     '''
-    #     Update order status when payment is made.
-    #     '''
-    #     self.status = 'paid'  # Example: Update order status to paid
-    #     self.save()
-
-    # def create_invoice(self):
-    #     '''
-    #     Create invoice for the order when payment is made.
-    #     '''
-    #     # Example: Create invoice associated with this order
-    #     AbstractInvoice.get_concrete_model().objects.create(order=self, amount=self.total_amount)
-
-    # def update_billing_info(self):
-    #     '''
-    #     Update billing information associated with the order when payment is made.
-    #     '''
-    #     # Example: Update billing information associated with this order
-    #     billing_info = AbstractBillingInfo.get_concrete_model().objects.get(order=self)
-    #     billing_info.update_info()  # Example method to update billing info
-    #     billing_info.save()
-
 
 # ----------------------------------------------------------- invoices
 class InvoiceManager(models.Manager):
@@ -1242,7 +930,6 @@ class InvoiceManager(models.Manager):
             .filter(type=AbstractInvoice.INVOICE_TYPES['INVOICE'])
         )
 
-
 class InvoiceProformaManager(models.Manager):
     def get_queryset(self):
         return (
@@ -1250,7 +937,6 @@ class InvoiceProformaManager(models.Manager):
             .get_queryset()
             .filter(type=AbstractInvoice.INVOICE_TYPES['PROFORMA'])
         )
-
 
 class InvoiceDuplicateManager(models.Manager):
     def get_queryset(self):
@@ -1260,13 +946,11 @@ class InvoiceDuplicateManager(models.Manager):
             .filter(type=AbstractInvoice.INVOICE_TYPES['DUPLICATE'])
         )
 
-
 def get_initial_number(older_invoices):
     return (
         getattr(older_invoices.order_by('number').values('number').last(), 'number', 0)
         + 1
     )
-
 
 class AbstractInvoice(OrgMixin, BaseMixin):
     '''
@@ -1557,81 +1241,99 @@ class AbstractInvoice(OrgMixin, BaseMixin):
 
 
 # ----------------------------------------------------------- payments
-import json
-import logging
-import warnings
-from decimal import Decimal
-from urllib.parse import urljoin
-
-from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import models
-from django.dispatch.dispatcher import receiver
-from django.urls import reverse
-from payments import PaymentStatus, PurchasedItem
+from ..signals import status_changed
 from payments.core import get_base_url
-from payments.models import BasePayment
-from payments.signals import status_changed
-from ..base.models import AbstractRecurringUserPlan
-from ..contrib import get_user_language, send_template_email
-# from ..models import Order
-from ..signals import account_automatic_renewal
 
-# from ..views import create_payment_object
-logger = logging.getLogger(__name__)
+class AbstractPayment(OrgMixin, BaseMixin):
 
-class AbstractPayment(OrgMixin, BasePayment, BaseMixin):
-    order = models.ForeignKey(
-        "gmtisp_billing.Order",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+    PAYMENT_METHOD_CHOICES = (
+        ('momo', _('Mobile Money (MoMo)')),
+        ('cash', _('Cash')),
+        ('credit_card', _('Credit Card')),
     )
-    transaction_fee: models.DecimalField = models.DecimalField(
-        max_digits=9,
-        decimal_places=2,
-        default=Decimal("0.0"),
+    PAYMENT_ACTION_CHOICES = (
+        ('online', _('Online')),
+        ('offline', _('Back Office')),
     )
-    autorenewed_payment: models.BooleanField = models.BooleanField(
-        default=False,
-    )
+
+    WAITING = "waiting"
+    CONFIRMED = "confirmed"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+
+    PAYMENT_STATUS_CHOICES = [
+        (WAITING, pgettext_lazy("payment status", "Waiting for confirmation")),
+        (CONFIRMED, pgettext_lazy("payment status", "Confirmed")),
+        (FAILED, pgettext_lazy("payment status", "Failed")),
+        (REFUNDED, pgettext_lazy("payment status", "Refunded")),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name=_('user'), on_delete=models.CASCADE)
+    order = models.ForeignKey('gmtisp_billing.Order', on_delete=models.SET_NULL, blank=True, null=True, verbose_name=_('order'))
+    amount = models.DecimalField(_('amount'), max_digits=MAX_LENGTH, decimal_places=2)
+    currency = models.CharField(_('currency'), max_length=3, default='GHS')
+    method = models.CharField(_('payment method'), max_length=MAX_LENGTH, choices=PAYMENT_METHOD_CHOICES)
+    action = models.CharField(_('payment action'), max_length=MAX_LENGTH, choices=PAYMENT_ACTION_CHOICES, default='offline')
+    status = models.CharField(_('status'), max_length=MAX_LENGTH, choices=PAYMENT_STATUS_CHOICES, default=WAITING)
+    transaction_ref = models.CharField(_('transaction ID'), max_length=255, blank=True, null=True)
+    payment_date = models.DateTimeField(_('payment date'), default=timezone.now)
+    customer_ip_address = models.GenericIPAddressField(blank=True, null=True)
+    delivery = models.DecimalField(max_digits=9, decimal_places=2, default="0.0")
+    autorenewed_payment = models.BooleanField(default=False)
+    user_message = models.CharField(max_length=256, null=True, blank=True)
 
     class Meta:
         indexes = [
             models.Index(fields=["status"]),
-            models.Index(fields=["status", "transaction_id"]),
+            models.Index(fields=["status", "transaction_ref"]),
         ]
         abstract = True
         verbose_name = _('Payment')
         verbose_name_plural = _('Payments')
         ordering = ('-created',)
 
-    def save(self, **kwargs):
-        if "payu" in self.variant:
-            # TODO: base this on actual payment methods and currency fees on PayU
-            # or even better on real PayU info
-            self.transaction_fee = self.total * Decimal("0.029") + Decimal("0.05")
-        elif hasattr(self, "extra_data") and self.extra_data:
-            extra_data = json.loads(self.extra_data)
-            if "response" in extra_data:
-                transactions = extra_data["response"]["transactions"]
-                for transaction in transactions:
-                    related_resources = transaction["related_resources"]
-                    if len(related_resources) == 1:
-                        sale = related_resources[0]["sale"]
-                        if "transaction_fee" in sale:
-                            self.transaction_fee = Decimal(
-                                sale["transaction_fee"]["value"]
-                            )
-                        else:
-                            logger.warning(
-                                "Payment fee not included",
-                                extra={
-                                    "extra_data": extra_data,
-                                },
-                            )
-        ret_val = super().save(**kwargs)
-        return ret_val
+    def __str__(self):
+        return f'Payment {self.id} - {self.user} - {self.amount} {self.currency}'
+        
+    def is_successful(self):
+        return self.status == self.CONFIRMED
+
+    def is_pending(self):
+        return self.status == self.WAITING
+
+    def is_failed(self):
+        return self.status == self.FAILED
+
+    def is_refunded(self):
+        return self.status == self.REFUNDED
+
+    def refund_payment(self):
+        """Refund the payment if it's confirmed."""
+        if self.status == self.CONFIRMED:
+            self.status = self.REFUNDED
+            self.save()
+
+    def update_user_plan(self):
+        """Handle user plan updates after successful payment."""
+        UserPlan = AbstractUserPlan.get_concrete_model()
+        try:
+            user_plan = UserPlan.objects.get(user=self.user)
+            user_plan.extend_plan()  # Example method to extend plan duration
+            user_plan.save()
+            account_change_plan.send(sender=self.__class__, user=self.user)
+        except UserPlan.DoesNotExist:
+            pass  # Handle if user has no plan or other logic
+
+    def check_plan_quota(self):
+        """Check and validate quotas related to user's plan after payment."""
+        plan_validation(self.user, on_activation=False)
+
+    def save(self, *args, **kwargs):
+        """Override save method to handle updates and signals."""
+        is_new = not self.pk
+        super().save(*args, **kwargs)
+        if is_new and self.is_successful():
+            self.process_payment()
 
     def get_failure_url(self):
         return reverse("order_payment_failure", kwargs={"pk": self.order.pk})
@@ -1642,158 +1344,11 @@ class AbstractPayment(OrgMixin, BasePayment, BaseMixin):
     def get_payment_url(self):
         return reverse("payment_details", kwargs={"payment_id": self.pk})
 
-    def get_purchased_items(self):
-        yield PurchasedItem(
-            name=self.description,
-            sku=self.order.pk,
-            quantity=1,
-            price=self.order.amount,
-            tax_rate=(1 + self.order.tax / 100) if self.order.tax else 1,
-            currency=self.currency,
-        )
-
-    def get_renew_token(self):
-        """
-        Get the recurring payments renew token for user of this payment
-        Used by PayU provider for now
-        """
-        try:
-            recurring_plan = self.order.user.userplan.recurring
-            if (
-                recurring_plan.token_verified
-                and self.variant == recurring_plan.payment_provider
-            ):
-                return recurring_plan.token
-        except ObjectDoesNotExist:
-            pass
-        return None
-
-    def set_renew_token(
-        self,
-        token,
-        card_expire_year=None,
-        card_expire_month=None,
-        card_masked_number=None,
-        # TODO: automatic_renewal deprecated. Remove in the next major release.
-        automatic_renewal=None,
-        # TODO: renewal_triggered_by=None deprecated. Set to TASK in the next major release.
-        renewal_triggered_by=None,
-    ):
-        """
-        Store the recurring payments renew token for user of this payment
-        The renew token is string defined by the provider
-        Used by PayU provider for now
-        """
-        if automatic_renewal is None and renewal_triggered_by is None:
-            automatic_renewal = True
-        if automatic_renewal is not None:
-            warnings.warn(
-                "automatic_renewal is deprecated. Use renewal_triggered_by instead.",
-                DeprecationWarning,
-            )
-        if renewal_triggered_by == "user":
-            renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.USER
-        elif renewal_triggered_by == "task":
-            renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
-        elif renewal_triggered_by == "other":
-            renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.OTHER
-        elif renewal_triggered_by is None:
-            warnings.warn(
-                "renewal_triggered_by=None is deprecated. "
-                "Set an AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY instead.",
-                DeprecationWarning,
-            )
-            renewal_triggered_by = (
-                AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
-                if automatic_renewal
-                else AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.USER
-            )
-        else:
-            raise ValueError(f"Invalid renewal_triggered_by: {renewal_triggered_by}")
-
-        self.order.user.userplan.set_plan_renewal(
-            order=self.order,
-            token=token,
-            payment_provider=self.variant,
-            card_expire_year=card_expire_year,
-            card_expire_month=card_expire_month,
-            card_masked_number=card_masked_number,
-            renewal_triggered_by=renewal_triggered_by,
-        )
-
-
-@receiver(status_changed, sender=AbstractPayment)
-def change_payment_status(sender, *args, **kwargs):
-    payment = kwargs["instance"]
-    order = payment.order
-    if payment.status == PaymentStatus.CONFIRMED:
-        if hasattr(order.user.userplan, "recurring"):
-            order.user.userplan.recurring.token_verified = True
-            order.user.userplan.recurring.save()
-        order.complete_order()
-    if (
-        getattr(settings, "PLANS_PAYMENTS_RETURN_ORDER_WHEN_PAYMENT_REFUNDED", False)
-        and payment.status == PaymentStatus.REFUNDED
-    ):
-        order._change_reason = (
-            f"Django-plans-payments: Payment status changed to {payment.status}"
-        )
-        order.return_order()
-    elif order.status != AbstractOrder.get_concrete_model().STATUS.COMPLETED and payment.status not in (
-        PaymentStatus.CONFIRMED,
-        PaymentStatus.WAITING,
-        PaymentStatus.INPUT,
-    ):
-        order.status = AbstractOrder.get_concrete_model().STATUS.CANCELED
-        # In case django-simples-history is installed
-        order._change_reason = (
-            f"Django-plans-payments: Payment status changed to {payment.status}"
-        )
-        order.save()
-        if hasattr(order.user.userplan, "recurring"):
-            order.user.userplan.recurring.token_verified = False
-            order.user.userplan.recurring.save()
-
-
-
-from payments import RedirectNeeded, get_payment_model
-
-def get_client_ip(request):
-    return request.META.get("REMOTE_ADDR")
-
-
-def create_payment_object(
-    payment_variant, order, request=None, autorenewed_payment=False
-):
-    Payment = get_payment_model()
-    if (
-        hasattr(order.user.userplan, "recurring")
-        and order.user.userplan.recurring.payment_provider != payment_variant
-    ):
-        order.user.userplan.recurring.delete()
-       
-    # Create the payment object,
-    return Payment.objects.create(
-        variant=payment_variant,
-        order=order,
-        organization=order.organization,  # Ensure the organization is set
-        description=f"{order.name} purchase",
-        total=Decimal(order.total()),
-        tax=Decimal(order.tax_total()),
-        currency=order.currency,
-        delivery=Decimal(0),
-        billing_first_name=order.user.first_name,
-        billing_last_name=order.user.last_name,
-        billing_email=order.user.email or "",
-        billing_address_1=order.user.billinginfo.street,
-        # billing_address_2=order.user.billinginfo.zipcode,
-        billing_city=order.user.billinginfo.city,
-        billing_postcode=order.user.billinginfo.zipcode,
-        billing_country_code=order.user.billinginfo.country,
-        # billing_country_area=order.user.billinginfo.zipcode,
-        customer_ip_address=get_client_ip(request) if request else "127.0.0.1",
-        autorenewed_payment=autorenewed_payment,
-    )
+    def delete(self, *args, **kwargs):
+        """Handle deletion of payments."""
+        if self.status == self.CONFIRMED:
+            self.refund_payment()
+        super().delete(*args, **kwargs)
 
 @receiver(account_automatic_renewal)
 def renew_accounts(sender, user, *args, **kwargs):
@@ -1804,287 +1359,62 @@ def renew_accounts(sender, user, *args, **kwargs):
         == AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
     ):
         order = userplan.recurring.create_renew_order()
-
-        payment = create_payment_object(
-            userplan.recurring.payment_provider, order, autorenewed_payment=True
+        payment = AbstractPayment(
+            user=user,
+            order=order,
+            amount=order.total(),
+            currency=order.currency,
+            method=userplan.recurring.payment_provider,
+            autorenewed_payment=True
         )
-
+        payment.save()
         try:
             redirect_url = payment.auto_complete_recurring()
         except Exception as e:
-            print(f"Exceptin during automatic renewal: {e}")
             logger.exception(
                 "Exception during account renewal",
-                extra={
-                    "payment": payment,
-                },
+                extra={"payment": payment},
             )
             redirect_url = urljoin(
                 get_base_url(),
-                reverse(
-                    "create_order_plan", kwargs={"pk": order.get_plan_pricing().pk}
-                ),
+                reverse("create_order_plan", kwargs={"pk": order.get_plan_quota().pk}),
             )
-
         if redirect_url != "success":
-            print("CVV2/3DS code is required, enter it at %s" % redirect_url)
             send_template_email(
                 [payment.order.user.email],
-                "mail/renew_cvv_3ds_title.txt",
-                "mail/renew_cvv_3ds_body.txt",
+                "gmtisp_billing/mail/renew_cvv_3ds_title.txt",
+                "gmtisp_billing/mail/renew_cvv_3ds_body.txt",
                 {"redirect_url": redirect_url},
                 get_user_language(payment.order.user),
             )
-        if payment.status == PaymentStatus.CONFIRMED:
+        if payment.status == AbstractPayment.CONFIRMED:
             order.complete_order()
 
+@receiver(status_changed, sender=AbstractPayment)
+def change_payment_status(sender, *args, **kwargs):
+    payment = kwargs["instance"]
+    order = payment.order
+    if payment.status == payment.CONFIRMED:
+        if hasattr(order.user.userplan, "recurring"):
+            order.user.userplan.recurring.token_verified = True
+            order.user.userplan.recurring.save()
+        order.complete_order()
+    if (
+        getattr(settings, "PLANS_PAYMENTS_RETURN_ORDER_WHEN_PAYMENT_REFUNDED", False)
+        and payment.status == payment.REFUNDED
+    ):
+        order._change_reason = f"Django-plans-payments: Payment status changed to {payment.status}"
+        order.return_order()
+    elif order.status != AbstractOrder.get_concrete_model().STATUS.COMPLETED and payment.status not in (
+        payment.CONFIRMED,
+        payment.WAITING,
+    ):
+        order.status = AbstractOrder.get_concrete_model().STATUS.CANCELED
+        order._change_reason = f"Django-plans-payments: Payment status changed to {payment.status}"
+        order.save()
+        if hasattr(order.user.userplan, "recurring"):
+            order.user.userplan.recurring.token_verified = False
+            order.user.userplan.recurring.save()
 
-# class AbstractPayment(OrgMixin, BaseMixin):
-#     '''
-#     Model to handle payments related to orders.
-#     '''
-#     PAYMENT_METHOD_CHOICES = (
-#         ('momo', _('Mobile Money (MoMo)')),
-#         ('cash', _('Cash')),
-#         ('credit_card', _('Credit Card')),
-#         ('paypal', _('PayPal')),
-#         ('bank_transfer', _('Bank Transfer')),
-#         ('crypto', _('Cryptocurrency')),
-#         # Add more payment methods as needed
-#     )
-#     PAYMENT_ACTION_CHOICES = (
-#         ('online', _('Online)')),
-#         ('offline', _('Back Office')),
-#     )
-#     STATUS_CHOICES = (
-#         ('pending', _('Pending')),
-#         ('completed', _('Completed')),
-#         ('failed', _('Failed')),
-#         ('refunded', _('Refunded')),
-#     )
-
-#     user  = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name=_('user'), on_delete=models.CASCADE)
-#     order = models.ForeignKey(
-#         'gmtisp_billing.Order',
-#         on_delete=models.SET_NULL,
-#         blank=True,
-#         null=True,
-#         verbose_name=_('order'),
-#     )
-#     amount = models.DecimalField(_('amount'), max_digits=10, decimal_places=2)
-#     currency = models.CharField(_('currency'), max_length=3, default='EUR')
-#     payment_method = models.CharField(_('payment method'), max_length=50, choices=PAYMENT_METHOD_CHOICES)
-#     payment_action = models.CharField(_('payment action'), max_length=50, choices=PAYMENT_ACTION_CHOICES, default='offline')
-#     status = models.CharField(_('status'), max_length=20, choices=STATUS_CHOICES, default='pending')
-#     transaction_id = models.CharField(_('transaction ID'), max_length=255, blank=True, null=True)
-#     payment_date = models.DateTimeField(_('payment date'), default=now)
-#     autorenewed_payment = models.BooleanField(default=False)
-
-#     class Meta:
-#         indexes = [
-#             models.Index(fields=["status"]),
-#             models.Index(fields=["status", "transaction_id"]),
-#         ]
-#         abstract = True
-#         verbose_name = _('Payment')
-#         verbose_name_plural = _('Payments')
-#         ordering = ('-created',)
-
-#     def __str__(self):
-#         return f'Payment {self.id} - {self.user} - {self.amount} {self.currency}'
-
-#     def process_payment(self):
-#         '''
-#         Logic to process the payment.
-#         '''
-#         # Integrate with a payment gateway here
-#         # Example: Replace with actual integration code
-#         self.status = 'completed'
-#         self.transaction_id = 'simulated_transaction_id'
-#         self.payment_date = now()
-#         self.save()
-        
-#         # Emit signal indicating order completion
-#         order_completed.send(sender=self.__class__)
-
-#         # Check if this payment affects user plan or quotas
-#         self.update_user_plan()
-#         self.check_plan_quota()
-
-#         # Update related order, invoice, billing info
-#         self.order.update_order_status()
-#         self.order.create_invoice()
-#         self.order.update_billing_info()
-
-#     def refund_payment(self):
-#         '''
-#         Logic to refund the payment.
-#         '''
-#         if self.status == 'completed':
-#             self.status = 'refunded'
-#             self.save()
-
-#     def is_successful(self):
-#         return self.status == 'completed'
-
-#     def is_pending(self):
-#         return self.status == 'pending'
-
-#     def is_failed(self):
-#         return self.status == 'failed'
-
-#     def is_refunded(self):
-#         return self.status == 'refunded'
-
-#     def update_user_plan(self):
-#         '''
-#         Handle user plan updates after successful payment.
-#         '''
-#         UserPlan = AbstractUserPlan.get_concrete_model()
-#         try:
-#             user_plan = UserPlan.objects.get(user=self.user)
-#             user_plan.extend_plan()  # Example method to extend plan duration
-#             user_plan.save()
-#             account_change_plan.send(sender=self.__class__, user=self.user)
-#         except UserPlan.DoesNotExist:
-#             pass  # Handle if user has no plan or other logic
-
-#     def check_plan_quota(self):
-#         '''
-#         Check and validate quotas related to user's plan after payment.
-#         '''
-#         plan_validation(self.user, on_activation=False)
-
-#     def save(self, *args, **kwargs):
-#         '''
-#         Overriding save method to handle updates and signals.
-#         '''
-#         is_new = not self.pk
-#         super().save(*args, **kwargs)
-#         if is_new and self.status == 'completed':
-#             self.process_payment()
-
-#     def get_failure_url(self):
-#         return reverse("order_payment_failure", kwargs={"pk": self.order.pk})
-
-#     def get_success_url(self):
-#         return reverse("order_payment_success", kwargs={"pk": self.order.pk})
-
-#     def get_payment_url(self):
-#         return reverse("payment_details", kwargs={"payment_id": self.pk})
-    
-#     def get_renew_token(self):
-#         """
-#         Get the recurring payments renew token for user of this payment
-#         Used by PayU provider for now
-#         """
-#         try:
-#             recurring_plan = self.order.user.userplan.recurring
-#             if (
-#                 recurring_plan.token_verified
-#                 and self.payment_method == recurring_plan.payment_provider
-#             ):
-#                 return recurring_plan.token
-#         except ObjectDoesNotExist:
-#             pass
-#         return None
-
-#     def set_renew_token(
-#         self,
-#         token,
-#         card_expire_year=None,
-#         card_expire_month=None,
-#         card_masked_number=None,
-#         automatic_renewal=None,
-#         renewal_triggered_by=None,
-#     ):
-#         """
-#         Store the recurring payments renew token for user of this payment
-#         The renew token is string defined by the provider
-#         Used by PayU provider for now
-#         """
-#         if automatic_renewal is None and renewal_triggered_by is None:
-#             automatic_renewal = True
-#         if automatic_renewal is not None:
-#             warnings.warn(
-#                 "automatic_renewal is deprecated. Use renewal_triggered_by instead.",
-#                 DeprecationWarning,
-#             )
-#         if renewal_triggered_by == "user":
-#             renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.USER
-#         elif renewal_triggered_by == "task":
-#             renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
-#         elif renewal_triggered_by == "other":
-#             renewal_triggered_by = AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.OTHER
-#         elif renewal_triggered_by is None:
-#             warnings.warn(
-#                 "renewal_triggered_by=None is deprecated. "
-#                 "Set an AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY instead.",
-#                 DeprecationWarning,
-#             )
-#             renewal_triggered_by = (
-#                 AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
-#                 if automatic_renewal
-#                 else AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.USER
-#             )
-#         else:
-#             raise ValueError(f"Invalid renewal_triggered_by: {renewal_triggered_by}")
-
-#         self.order.user.userplan.set_plan_renewal(
-#             order=self.order,
-#             token=token,
-#             payment_provider=self.payment_method,
-#             card_expire_year=card_expire_year,
-#             card_expire_month=card_expire_month,
-#             card_masked_number=card_masked_number,
-#             renewal_triggered_by=renewal_triggered_by,
-#         )
-
-#     def delete(self, *args, **kwargs):
-#         '''
-#         Handle deletion of payments.
-#         '''
-#         if self.status == 'completed':
-#             self.refund_payment()
-#         super().delete(*args, **kwargs)
-
-
-# @receiver(account_automatic_renewal)
-# def renew_accounts(sender, user, *args, **kwargs):
-#     userplan = user.userplan
-#     if (
-#         userplan.recurring.payment_provider in settings.PAYMENT_VARIANTS
-#         and userplan.recurring.renewal_triggered_by
-#         == AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK
-#     ):
-#         order = userplan.recurring.create_renew_order()
-#         payment = AbstractPayment(
-#             user=user,
-#             order=order,
-#             amount=order.total,
-#             currency=order.currency,
-#             payment_method=userplan.recurring.payment_provider,
-#             autorenewed_payment=True
-#         )
-#         payment.save()
-#         try:
-#             redirect_url = payment.auto_complete_recurring()
-#         except Exception as e:
-#             logger.exception(
-#                 "Exception during account renewal",
-#                 extra={"payment": payment},
-#             )
-#             redirect_url = urljoin(
-#                 get_base_url(),
-#                 reverse("create_order_plan", kwargs={"pk": order.get_plan_pricing().pk}),
-#             )
-#         if redirect_url != "success":
-#             send_template_email(
-#                 [payment.order.user.email],
-#                 "gmtisp_billing/mail/renew_cvv_3ds_title.txt",
-#                 "gmtisp_billing/mail/renew_cvv_3ds_body.txt",
-#                 {"redirect_url": redirect_url},
-#                 get_user_language(payment.order.user),
-#             )
-#         if payment.status == PaymentStatus.CONFIRMED:
-#             order.complete_order()
+def get_client_ip(request):
+    return request.META.get("REMOTE_ADDR")

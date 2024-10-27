@@ -24,19 +24,9 @@ class RecurringUserPlanViewSet(viewsets.ModelViewSet):
     serializer_class = RecurringUserPlanSerializer
 
 
-class PricingViewSet(viewsets.ModelViewSet):
-    queryset = Pricing.objects.all()
-    serializer_class = PricingSerializer
-
-
 class QuotaViewSet(viewsets.ModelViewSet):
     queryset = Quota.objects.all()
     serializer_class = QuotaSerializer
-
-
-class PlanPricingViewSet(viewsets.ModelViewSet):
-    queryset = PlanPricing.objects.all()
-    serializer_class = PlanPricingSerializer
 
 
 class PlanQuotaViewSet(viewsets.ModelViewSet):
@@ -52,3 +42,8 @@ class OrderViewSet(viewsets.ModelViewSet):
 class InvoiceViewSet(viewsets.ModelViewSet):
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
+
+
+class PaymentViewSet(viewsets.ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer

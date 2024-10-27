@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch.dispatcher import receiver
 
-from .signals import activate_user_plan, order_completed
+from .signals import activate_user_plan, order_completed, user_activated
 from .models import Plan, UserPlan, Order, Invoice
 
 User = get_user_model()
@@ -45,6 +45,8 @@ def invoice_notification(sender, instance, created, **kwargs):
             context,
             user_language,
         )
+
+        
 @receiver(post_save, sender=User)
 def set_default_user_plan(sender, instance, created, **kwargs):
     """
@@ -77,6 +79,18 @@ try:
 
 except ImportError:
     pass
+
+
+# @receiver(order_completed)
+# def assign_plan_on_order_completion(sender, **kwargs):
+#     order = kwargs.get('order')
+#     if order:
+#         try:
+#             user_plan, created = UserPlan.objects.get_or_create(user=order.user)
+#             user_plan.plan_pricing = order.plan_pricing
+#             user_plan.save()
+#         except UserPlan.DoesNotExist:
+#             pass
 
 
 # Hook to django-getpaid if it is installed

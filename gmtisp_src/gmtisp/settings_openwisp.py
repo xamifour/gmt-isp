@@ -49,10 +49,18 @@ OPENWISP_RADIUS_BATCH_MAIL_SUBJECT = 'Credentials'
 OPENWISP_RADIUS_BATCH_MAIL_MESSAGE = 'username: {}, password: {}'
 OPENWISP_RADIUS_BATCH_MAIL_SENDER = 'settings.DEFAULT_FROM_EMAIL'
 
-
-OPENWISP_RADIUS_COUNTERS = []
+# counters
+OPENWISP_RADIUS_COUNTERS = [
+    # default counters for PostgreSQL, may be removed if not needed
+    'openwisp_radius.counters.postgresql.daily_counter.DailyCounter',
+    'openwisp_radius.counters.postgresql.daily_traffic_counter.DailyTrafficCounter',
+    # custom counters
+    # 'myproject.counters.CustomCounter1',
+    # 'myproject.counters.CustomCounter2',
+    ]
 OPENWISP_RADIUS_TRAFFIC_COUNTER_CHECK_NAME = 'Max-Daily-Session-Traffic'
-OPENWISP_RADIUS_TRAFFIC_COUNTER_REPLY_NAME = 'ChilliSpot-Max-Total-Octets'
+# OPENWISP_RADIUS_TRAFFIC_COUNTER_REPLY_NAME = 'ChilliSpot-Max-Total-Octets'
+OPENWISP_RADIUS_TRAFFIC_COUNTER_REPLY_NAME = 'Mikrotik-Max-Total-Octets' # for Mikrotik
 OPENWISP_RADIUS_SOCIAL_REGISTRATION_ENABLED = False
 
 # SAML related settings

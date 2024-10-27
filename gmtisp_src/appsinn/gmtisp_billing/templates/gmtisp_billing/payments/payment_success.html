@@ -1,0 +1,16 @@
+{% extends 'gmtisp_billing/layout.html' %}
+{% load i18n %}
+
+{% block title %} {{ block.super }} | Payment Success {% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-body text-center">
+            <h1 class="text-success">Payment Successful!</h1>
+            <p>Thank you for your purchase. Your payment has been successfully processed.</p>
+            <a href="{# url 'user_profile_list' #}" class="btn btn-primary">View Your Profiles</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

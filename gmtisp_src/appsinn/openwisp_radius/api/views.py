@@ -119,7 +119,6 @@ class BatchView(ThrottledAPIMixin, CreateAPIView):
             return Response(response.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 batch = BatchView.as_view()
 
 
@@ -161,7 +160,6 @@ class DownloadRadiusBatchPdfView(ThrottledAPIMixin, DispatchOrgMixin, RetrieveAP
         else:
             message = _('Only available for users created with prefix strategy')
             raise NotFound(message)
-
 
 download_rad_batch_pdf = DownloadRadiusBatchPdfView.as_view()
 
@@ -260,7 +258,6 @@ class RegisterView(
         data['radius_user_token'] = radius_token.key
         return data
 
-
 register = RegisterView.as_view()
 
 
@@ -340,7 +337,6 @@ class ObtainAuthTokenView(
                 ).format(organization=self.organization.name)
                 raise PermissionDenied(message)
 
-
 obtain_auth_token = ObtainAuthTokenView.as_view()
 
 
@@ -400,7 +396,6 @@ class ValidateAuthTokenView(
                 return Response(response, 200)
         return Response(response, 401)
 
-
 validate_auth_token = ValidateAuthTokenView.as_view()
 
 
@@ -443,7 +438,6 @@ class UserAccountingView(ThrottledAPIMixin, DispatchOrgMixin, ListAPIView):
             .filter(organization=self.organization, username=self.request.user.username)
         )
 
-
 user_accounting = UserAccountingView.as_view()
 
 
@@ -467,7 +461,6 @@ class UserRadiusUsageView(ThrottledAPIMixin, DispatchOrgMixin, RetrieveAPIView):
     def get_object(self):
         return self.request.user
 
-
 user_radius_usage = UserRadiusUsageView.as_view()
 
 
@@ -489,7 +482,6 @@ class PasswordChangeView(ThrottledAPIMixin, DispatchOrgMixin, BasePasswordChange
         """
         self.validate_membership(request.user)
         return super().update(request, *args, **kwargs)
-
 
 password_change = PasswordChangeView.as_view()
 
@@ -551,7 +543,6 @@ class PasswordResetView(ThrottledAPIMixin, DispatchOrgMixin, BasePasswordResetVi
             return user
         raise ParseError(_('The email field is required.'))
 
-
 password_reset = PasswordResetView.as_view()
 
 
@@ -582,7 +573,6 @@ class PasswordResetConfirmView(
                 raise Http404()
             self.validate_membership(user)
             return user
-
 
 password_reset_confirm = PasswordResetConfirmView.as_view()
 
@@ -664,7 +654,6 @@ class CreatePhoneTokenView(
                 cooldown=remaining_cooldown,
             )
 
-
 create_phone_token = CreatePhoneTokenView.as_view()
 
 
@@ -701,7 +690,6 @@ class GetPhoneTokenStatusView(DispatchOrgMixin, GenericAPIView):
             data={'active': is_active},
             status=200,
         )
-
 
 get_phone_token_status = GetPhoneTokenStatusView.as_view()
 
@@ -756,7 +744,6 @@ class ValidatePhoneTokenView(DispatchOrgMixin, GenericAPIView):
             cache.delete(f'rt-{phone_token.phone_number}')
             return Response(None, status=200)
 
-
 validate_phone_token = ValidatePhoneTokenView.as_view()
 
 
@@ -798,6 +785,5 @@ class ChangePhoneNumberView(ThrottledAPIMixin, CreatePhoneTokenView):
     def create_phone_token(self, *args, **kwargs):
         kwargs['enforce_unverified'] = False
         return super().create(*args, **kwargs)
-
 
 change_phone_number = ChangePhoneNumberView.as_view()

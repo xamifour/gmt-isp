@@ -10,14 +10,10 @@ from .base.models import (
     AbstractInvoice,
     AbstractOrder,
     AbstractPlan,
-    AbstractPlanPricing,
     AbstractPlanQuota,
-    AbstractPricing,
     AbstractQuota,
     AbstractRecurringUserPlan,
     AbstractUserPlan,
-    AbstractBandwidthSettings,
-    AbstractPlanBandwidthSettings,
     AbstractPayment,
 )
 
@@ -50,18 +46,6 @@ class RecurringUserPlan(AbstractRecurringUserPlan):
         swappable = swappable_setting('gmtisp_billing', 'RecurringUserPlan')
 
 
-class Pricing(AbstractPricing):
-    class Meta(AbstractPricing.Meta):
-        abstract = False
-        swappable = swappable_setting('gmtisp_billing', 'Pricing')
-
-
-class PlanPricing(AbstractPlanPricing):
-    class Meta(AbstractPlanPricing.Meta):
-        abstract = False
-        swappable = swappable_setting('gmtisp_billing', 'PlanPricing')
-
-
 class Quota(AbstractQuota):
     class Meta(AbstractQuota.Meta):
         abstract = False
@@ -72,18 +56,6 @@ class PlanQuota(AbstractPlanQuota):
     class Meta(AbstractPlanQuota.Meta):
         abstract = False
         swappable = swappable_setting('gmtisp_billing', 'PlanQuota')
-
-
-class BandwidthSettings(AbstractBandwidthSettings):
-    class Meta(AbstractBandwidthSettings.Meta):
-        abstract = False
-        swappable = swappable_setting('gmtisp_billing', 'BandwidthSettings')
-
-
-class PlanBandwidthSettings(AbstractPlanBandwidthSettings):
-    class Meta(AbstractPlanBandwidthSettings.Meta):
-        abstract = False
-        swappable = swappable_setting('gmtisp_billing', 'PlanBandwidthSettings')
 
 
 class BillingInfo(AbstractBillingInfo):

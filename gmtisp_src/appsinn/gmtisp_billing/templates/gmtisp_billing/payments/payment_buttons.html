@@ -1,22 +1,26 @@
 {% load static %}
+{% load i18n %}
 
 {% block "buttons" %}
-{% for variant in variants %}
-   <a class="btn btn-success" role="button" href="{% url "create_payment" payment_variant=variant order_id=object.id %}">
-      Pay using
-      {% if variant == 'paypal' %}
-      PayPal
-      {% elif variant == 'paypal-sandbox' %}
-      PayPal (sandbox)
-      {% else %}
-      {{ variant }}
-      {% endif %}
+   {% for variant in variants %}
+      <a class="btn btn-success" role="button" href="{% url 'initiate_payment' order_id=object.pk %}">
+         Pay using
+         {% if variant == 'paypal' %}
+         PayPal
+         {% elif variant == 'paypal-sandbox' %}
+         PayPal (sandbox)
+         {% else %}
+         {{ variant }}
+         {% endif %}
 
-      {% if variant == 'paypal' or variant == 'paypal-sandbox' %}
-      <img src="{% static 'img/visa-logo.svg' %}" height="30px" alt="Visa icon"></img>
-      <img src="{% static 'img/mastercard.svg' %}" height="30px" alt="Mastercard icon"></img>
-      <img src="{% static 'img/discover.svg' %}" height="30px" alt="Discover card icon"></img>
-      {% endif %}
-   </a>
-{% endfor %}
+         {% if variant == 'paypal' or variant == 'paypal-sandbox' %}
+         <img src="{% static 'img/visa-logo.svg' %}" height="30px" alt="Visa icon"></img>
+         <img src="{% static 'img/mastercard.svg' %}" height="30px" alt="Mastercard icon"></img>
+         <img src="{% static 'img/discover.svg' %}" height="30px" alt="Discover card icon"></img>
+         {% endif %}
+      </a>
+   {% endfor %}
 {% endblock %}
+
+<br><br>
+<a class="btn btn-primary" href="{% url 'initiate_payment' order_id=object.id %}">{% trans 'Paystack' %}</a>

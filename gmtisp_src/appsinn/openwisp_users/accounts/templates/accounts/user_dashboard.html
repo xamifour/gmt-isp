@@ -1,0 +1,636 @@
+{% extends "openwisp_users/layout.html" %}
+{% load i18n %}
+
+{% block title %} {{ block.super }} | User Home {% endblock %}
+
+{% block sub_head %} 
+<!-- <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet"> -->
+{% endblock %}
+
+{% block sub_style %}
+{{ block.super }}
+<style>
+    .userhome {
+        font-family: 'Arial', sans-serif;
+        font-size: 13px;
+        font-weight: 400;
+        color: #333;
+        background-color: #f4f7f8;
+        margin: 0;
+        padding: 0;
+    }
+    .card {
+        background: #fff;
+        border-radius: 0px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+        border-bottom: 1px solid #dee2e6 !important; 
+        margin-bottom: 0;
+        overflow-y: auto;
+    }
+    .card-header {
+        background: #e2d9f3;
+        color: #333;
+        padding: 0.5rem !important;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .userhome .card-header:hover {
+        background: linear-gradient(90deg, #f0f8ff, #CCCCFF); /* Change background color on hover */
+        /* background: #e7f0ff; Change background color on hover */
+        color: #fff !important; /* Change text color on hover */
+    }
+    .card-header.active {
+        background: #CCCCFF; /* Change background color when active */
+        color: #fff; /* Change text color when active */
+    }
+    .userhome .card-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.9rem;
+        text-decoration: none;
+        /* color: #900C3F !important; */
+    }
+    .card-title i {
+        font-size: 1.3rem;
+        /* margin-right: 10px; */
+    }
+    .card-title .ml-auto {
+        margin-left: auto; /* Pushes the chevron to the right */
+    }
+    .card-title .ml-auto {
+        position: absolute;
+        right: 10px;
+        transition: transform 0.10s ease;
+    }
+    .card-body {
+        padding: 1rem;
+        background: #fff;
+    }
+
+    .accordion {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }            
+    .accordion .collapse {
+        display: none;
+    }
+    .accordion .collapse.show {
+        display: block;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(53, 6, 135, 0.1);
+    }
+    .table th, .table td {
+        border: 1px solid #dee2e6;
+        padding: 8px;
+        vertical-align: top;
+    }
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 500;
+    }
+    .table td[align="right"] {
+        text-align: right;
+    }
+    table:hover {
+        /* border: 1px solid #222; */
+        box-shadow: 5px 0 10px rgba(167, 50, 50, 0.2);
+    }
+    table tr:hover {
+        background-color: #f8f9fa;
+        transition: background-color 0.3s ease; /* Smooth transition effect */
+    }
+    /* .table td{
+        font-weight: 600;
+    } */
+    /* #plan_order_details td {
+        font-weight: 600;
+    } */
+
+    .rotate-icon {
+    display: inline-block;
+    transition: transform 0.10s ease-in-out;
+    }
+    .rotate-icon.rotate {
+        transform: rotate(90deg);
+    }
+
+    .des_icon {
+        margin-right: 1rem !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if request.user.is_authenticated %}
+
+    {% block chart %}
+        {# include "gmtisp_enduser/partials/charts.html" #}
+    {% endblock %}
+
+    {% include "partials/values.html" %}
+    <div>
+        <a href="{% url 'user_update' user.pk %}">Edit</a>
+        <a href="{% url 'user_delete' user.pk %}">Delete</a>
+    </div>
+
+    <div class="accordion userhome" id="aboutUser">
+        <div class="card">
+            <div class="card-header active" data-toggle="collapse" data-target="#userInfo">
+                <a href="javascript:void(0);" class="card-title">
+                    <i class="flaticon-user width-2 fs-xl des_icon" s/tyle="color: #ccc;"></i>
+                    {% trans "User Information" %}
+                    <span class="ml-auto">
+                        <i class="flaticon-right-arrow rotate-icon" s/tyle="color: #ccc;"></i>
+                    </span>
+                </a>
+            </div>
+            <div id="userInfo" class="collapse show" data-parent="#aboutUser">
+                <div class="card-body table-responsive">
+                    <table class="table" id="user_info">
+                        <h5>{% trans "Connection Information" %}</h5>
+                        <tr>
+                            <th style="width: 25%;text-align: right">Username</th>
+                            <td style="text-align: left">{{ user.username }}</td>
+                        </tr>
+                        <tr>
+                            <th style="width: 25%;text-align: right">Password</th>
+                            <td style="text-align: left">{{ user.password }}</td>
+                        </tr>
+                        <tr>
+                            <th style="width: 25%;text-align: right">Clear-text</th>
+                            <td style="text-align: left">Password</td>
+                        </tr>
+                    </table>
+                    <table class="table" id="personal_info">
+                        <h5>Personal Information</h5>
+                        <tr>
+                            <td style="width: 25%;text-align: right">First Name</td>
+                            <td style="text-align: left">{{ user.first_name }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Last Name</td>
+                            <td style="text-align: left">{{ user.last_name }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Phone</td>
+                            <td style="text-align: left">{{ user.phone_number }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Email</td>
+                            <td style="text-align: left">{{ user.email }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Address</td>
+                            <td style="text-align: left">{{ user.location }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Notes</td>
+                            <td style="text-align: left">{{ user.notes_for_user }}</td>
+                        </tr>
+                    </table>
+                    <table class="table" id="recent_orders"> 
+                        {% if recent_orders %}          
+                        <h5>{% trans "Recent Orders" %}</h5>     
+                        <tr>
+                            {{ current_order | safe }}
+                        </tr>        
+                        <tr>
+                            <td style="text-align: left">
+                                <ul>
+                                    {% for order in recent_orders %}
+                                        <li>  
+                                            ID: {{ order.id | truncatechars:"9"}} |  
+                                            Active: {{ order.user.userplan.active }} | 
+                                            Plan: {{ order.plan.name }} | 
+                                            Amount: {{ order.total }} {{ order.currency }} | 
+                                            <!-- Pricing: {{ order.pricing }} |   -->
+                                            <!-- Completed: {{ order.completed }} |  -->
+                                            From: {{ order.plan_extended_from|date|default:"-" }} |  
+                                            Until: {{ order.plan_extended_until|date|default:"-" }}  
+                                        </li>
+                                    {% empty %}
+                                        <li>No recent completed orders.</li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% else %}  
+                            <p style="color: red; font-size: 1rem;">{% trans "No active Plan orders." %}</p>
+                        {% endif %}  
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header collapsed" data-toggle="collapse" data-target="#planInfo">
+                <a href="javascript:void(0);" class="card-title">
+                    <i class="flaticon-price-tag width-2 fs-xl des_icon"></i>
+                    Plan Information
+                    <span class="ml-auto">
+                        <i class="flaticon-right-arrow rotate-icon"></i>
+                    </span>
+                </a>
+            </div>
+            <div id="planInfo" class="collapse" data-parent="#aboutUser">
+                <div class="card-body">
+                    <table class="table" id="plan_usage">
+                        <h5>{% trans "Plan Usage Calculations" %}</h5>
+                        <tr>
+                            <th style="width: 25%">Item</th>
+                            <th style="width: 15%">Allowed</th>
+                            <th style="width: 15%">Used</th>
+                            <th style="width: 15%">Remaining</th>
+                            <th style="width: 10%">Bonus Allowed</th>
+                            <th style="width: 10%">Bonus Used</th>
+                            <th style="width: 10%">Bonus Remaining</th>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%">Plan Time</td>
+                            <td style="width: 15%">(n/a)</td>
+                            <td style="width: 15%">(n/a)</td>
+                            <td style="width: 15%">(n/a)</td>
+                            <td style="width: 10%">(n/a)</td>
+                            <td style="width: 10%">(n/a)</td>
+                            <td style="width: 10%">(n/a)</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%">Plan Traffic</td>
+                            <td style="width: 15%">{{ current_plan.get_plan_quota }}</td>
+                            <td style="width: 15%">(n/a)</td>
+                            <td style="width: 15%">(n/a)</td>
+                            <td style="width: 10%">(n/a)</td>
+                            <td style="width: 10%">(n/a)</td>
+                            <td style="width: 10%">(n/a)</td>
+                        </tr>
+                    </table>
+                    <table class="table" id="plan_order_details">
+                    {% if user_plan %}
+                        <h5>{% trans "Plan ordered details" %}</h5>
+                        <tbody>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Status</th>
+                                <td style="text-align: left;">
+                                    {% if user_plan.is_active == True %}
+                                        <span class="text-info">{% trans "Active" %}</span>
+                                    {% else %}
+                                        <span class="text-danger">{% trans "Not Active" %}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Expired</th>
+                                <td style="text-align: left;">{{ user_plan.is_expired }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Automatic Renewal</th>
+                                <td style="text-align: left;">{{ user_plan.has_automatic_renewal }}</td>
+                            </tr>
+                        </tbody>
+                        {% endif %}
+                        {% if current_order %}
+                        <tbody>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Days Left</th>
+                                <td style="text-align: left;">
+                                    {% if user_plan.days_left == 0 %}
+                                        <span class="b text-danger">{{ user_plan.days_left }}, {% trans "Expires Today, consider renewing." %}</span>
+                                    {% else %}
+                                        <span class="b">{{ user_plan.days_left }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Start Date</th>
+                                <td style="text-align: left;">{{ current_order.completed}}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Valid From</th>
+                                <td style="text-align: left;">{{ current_order.get_plan_extended_from }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Valid Until</th>
+                                <td style="text-align: left;">{{ current_order.plan_extended_until }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Unused Data/Traffic</th>
+                                <td style="text-align: left;">{{ current_order.unused_data }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Rollover Data/Traffic</th>
+                                <td style="text-align: left;">{{ current_order.rollover_data }}</td>
+                            </tr>
+                        </tbody>
+                    {% endif %}
+                    </table>
+                    {% if current_plan %}
+                    <table class="table" id="plan_info">
+                        <h5>{% trans "Plan Details" %}</h5>
+                        <!-- Basic Information -->
+                        <tbody>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Plan Name</th>
+                                <td style="text-align: left;">{{ current_plan.name_for_users }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Plan Description</th>
+                                <td style="text-align: left;">{{ current_plan.description }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Plan Variant</th>
+                                <td style="text-align: left;">{{ current_plan.variant }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Plan Type</th>
+                                <td style="text-align: left;">{{ current_plan.type }}</td>
+                            </tr>
+                            {% if current_plan.get_plan_quota %}
+                             {% for quota in current_plan.get_plan_quota %}
+                                <tr>
+                                    <th style="width: 25%; text-align: right;">Plan Quota</th>
+                                    {% if quota.quota.uptime_limit or quota.quota.transfer_limit %}
+                                    <td style="text-align: left;">Duration: {{ quota.quota.uptime_limit }} | Transfer: {{ quota.quota.transfer_limit }}</td>
+                                    {% else %}
+                                    <td style="text-align: left;">{{ Unlimited }}</td>
+                                    {% endif %}
+                                </tr>
+                             {% endfor %}
+                            {% endif %}
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Plan Customized</th>
+                                <td style="text-align: left;">{{ current_plan.customized }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Data rollover</th>
+                                <td style="text-align: left;">{{ current_plan.rollover_allowed }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Plan Rating</th>
+                                <td style="text-align: left;">{{ current_plan.rating }}</td>
+                            </tr>
+                        </tbody>
+                        <!-- Financials -->
+                        <tbody>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Plan Cost</th>
+                                <td style="text-align: left;">{{ current_plan.get_plan_price }}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 25%; text-align: right;">Plan Setup Cost</th>
+                                <td style="text-align: left;">{{ current_plan.get_plan_setup_cost }}</td>
+                            </tr>
+                        </tbody>
+                        <tbody>
+                            {% if current_plan.get_plan_quota %}
+                             {% for quota in current_plan.get_plan_quota %}
+                                <tr>
+                                    <th style="width: 25%; text-align: right;">Plan Bandwidth</th>
+                                    {% if quota.quota.rate_limit_rx or quota.quota.rate_limit_tx %}
+                                    <td style="text-align: left;">Down: {{ quota.quota.rate_limit_rx }} | Up: {{ quota.quota.rate_limit_tx }}</td>
+                                    {% else %}
+                                    <td style="text-align: left;">{{ Unlimited }}</td>
+                                    {% endif %}
+                                </tr>
+                             {% endfor %}
+                            {% endif %}
+                        </tbody>
+                    </table>                       
+                    {% else %}
+                        <p style="color: red; font-size: 1rem;">{% trans "No recent Plan." %}</p>
+                    {% endif %}            
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header collapsed" data-toggle="collapse" data-target="#sessionInfo">
+                <a href="javascript:void(0);" class="card-title">
+                    <i class="flaticon-time width-2 fs-xl des_icon"></i>
+                    {% trans "Session Information" %}
+                    <span class="ml-auto">
+                        <i class="flaticon-right-arrow rotate-icon"></i>
+                    </span>
+                </a>
+            </div>
+            <div id="sessionInfo" class="collapse" data-parent="#aboutUser">
+                <div class="card-body">       
+                    <table class="table" id="session_info">
+                        <h6>{% trans 'Your Active Session' %}</h6>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Status</td>
+                            <td style="text-align: left">{{ session.get_session_status }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Started</td>
+                            <td style="text-align: left">{{ session.started }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Online Time</td>
+                            <td id="uptime" style="text-align: left">{{ session.uptime }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Device</td>
+                            <td style="text-align: left">MAC: {{ session.calling_station_id }} - IP: {{ session.user_address }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Upload</td>
+                            <td id="upload" style="text-align: left">{{ session.upload }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Download</td>
+                            <td id="download" style="text-align: left">{{ session.download }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Download + Upload</td>
+                            <td style="text-align: left">{{ session.session_traffic }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Last Accounting</td>
+                            <td style="text-align: left">{{ session.last_accounting_packet }}</td>
+                        </tr>
+                        
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header collapsed" data-toggle="collapse" data-target="#subscriptionAnalysis">
+                <a href="javascript:void(0);" class="card-title">
+                    <i class="flaticon-analytics width-2 fs-xl des_icon"></i>
+                    {% trans "Subscription Analysis" %}
+                    <span class="ml-auto">
+                        <i class="flaticon-right-arrow rotate-icon"></i>
+                    </span>
+                </a>
+            </div>
+            <div id="subscriptionAnalysis" class="collapse" data-parent="#aboutUser">
+                <div class="card-body">
+                    <table class="table" id="subscription_analysis">
+                        <tr>
+                            <th style="width: 25%">Item</th>
+                            <th>Global (All Time)</th>
+                            <th>Monthly</th>
+                            <th>Weekly</th>
+                            <th>Daily</th>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: left;">Login Count</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: left;">Session Time</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: left;">Session Downloaded</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: left;">Session Uploaded</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: left;">Session Traffic (Down + Up)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: left;">Bonus Traffic (Down + Up)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                            <td>(n/a)</td>
+                        </tr>
+                    </table>
+                    <table class="table">
+                        <tr>
+                            <td style="width: 25%;text-align: right">Expiration</td>
+                            <td style="text-align: left">(n/a)</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Session-Timeout</td>
+                            <td style="text-align: left">(n/a)</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 25%;text-align: right">Idle-Timeout</td>
+                            <td style="text-align: left">(n/a)</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+    {{ block.super }}
+{% endblock %}
+
+{% block sub_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var accordions = document.querySelectorAll('.card-header');
+
+        accordions.forEach(function(accordion) {
+            accordion.addEventListener('click', function() {
+                var isExpanded = accordion.classList.contains('active');
+
+                // Reset all accordions to their default state
+                accordions.forEach(function(item) {
+                    item.classList.remove('active');
+                    var icon = item.querySelector('.flaticon-right-arrow');
+                    if (icon) {
+                        icon.classList.remove('rotate');
+                    }
+                });
+
+                // Toggle the clicked accordion
+                if (!isExpanded) {
+                    accordion.classList.add('active');
+                    var icon = accordion.querySelector('.flaticon-right-arrow');
+                    if (icon) {
+                        icon.classList.add('rotate');
+                    }
+                }
+            });
+        });
+
+        // Optionally, set a default active accordion (e.g., User Information)
+        var userInfoHeader = document.querySelector('[data-target="#userInfo"]');
+        if (userInfoHeader) {
+            userInfoHeader.classList.add('active');
+            var icon = userInfoHeader.querySelector('.flaticon-right-arrow');
+            if (icon) {
+                icon.classList.add('rotate');
+            }
+        }
+    });
+</script>
+
+<!-- <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var accordions = document.querySelectorAll('.card-header');
+        accordions.forEach(function(accordion) {
+            accordion.addEventListener('click', function() {
+                var collapseElement = document.querySelector(accordion.getAttribute('data-target'));
+                var isExpanded = collapseElement.classList.contains('show');
+
+                accordions.forEach(function(item) {
+                    item.classList.remove('active');
+                    var icon = item.querySelector('.fas.fa-chevron-right');
+                    if (icon) {
+                        icon.classList.remove('rotate');
+                    }
+                });
+
+                if (isExpanded) {
+                    collapseElement.classList.remove('show');
+                    accordion.classList.remove('active');
+                } else {
+                    collapseElement.classList.add('show');
+                    accordion.classList.add('active');
+                    var icon = accordion.querySelector('.fas.fa-chevron-right');
+                    if (icon) {
+                        icon.classList.add('rotate');
+                    }
+                }
+            });
+        });
+
+        // Set User Information accordion as active by default
+        var userInfoHeader = document.querySelector('[data-target="#userInfo"]');
+        userInfoHeader.classList.add('active');
+
+        // Ensure the chevron icon rotates initially for User Information
+        var icon = userInfoHeader.querySelector('.fas.fa-chevron-right');
+        if (icon) {
+            icon.classList.add('rotate');
+        }
+    });
+</script> -->
+{% endblock %}

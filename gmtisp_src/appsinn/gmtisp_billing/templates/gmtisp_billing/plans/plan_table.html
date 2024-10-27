@@ -1,201 +1,64 @@
 {% load i18n %}
 
+{% if request.user.is_authenticated %}
+<div class="container">
+    <div class="row">
+      {% for plan in plan_list %}
+        <div class="col-md-3 mb-4">
+            <div class="card card-pricing card-pricing-focus card-primary">
+                <div class="card-header">
+                    <h4 class="card-title">{{ plan.name_for_users }}</h4>
+                    <div class="card-price">
+                        <span class="price"><small>₵</small>{{ plan.price }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="specification-list">
+                        <li>
+                            <span class="name-specification">Start When</span>
+                            <span class="status-specification">{{ plan.starts_when }}</span>
+                        </li>
+                        {% for plan_quota in plan.planquota_set.all %}
+                          {% if plan_quota.quota.name %}
+                            {% if plan_quota.quota.uptime_limit %}
+                            <li>
+                                <span class="name-specification">Validity</span>
+                                <span class="status-specification">{{ plan_quota.quota.uptime_limit }}</span>
+                            </li>
+                            {% endif %}
+                            {% if plan_quota.quota.transfer_limit %}
+                            <li>
+                                <span class="name-specification">Transfer Limit</span>
+                                <span class="status-specification">{{ plan_quota.quota.transfer_limit }}</span>
+                            </li>
+                            {% endif %}
 
-<style>
-  * {
-    box-sizing: border-box;
-  }
-
-  .columns {
-    float: left;
-    width: 33.3%;
-    padding: 8px;
-  }
-  .columns:hover {
-    box-shadow: 0 4px 10px 0 rgba(0,0,0,0.3);
-  }
-
-  .price {
-    list-style-type: none;
-    border: 1px solid #eee;
-    margin: 0;
-    padding: 0;
-    -webkit-transition: 0.3s;
-    transition: 0.3s;
-  }
-  .price .header {
-    background-color: #111;
-    color: white;
-    font-size: 25px;
-  }
-  .price li {
-    border-bottom: 1px solid #eee;
-    padding: 18px;
-    text-align: center;
-    list-style-type: none !important;
-  }
-  .price .grey {
-    background-color: #eee;
-    font-size: 16px;
-  }
-
-  .button {
-    background-color: #046daa;
-    border: none;
-    border-radius: 5%;
-    color: white;
-    padding: 8px 15px;
-    text-align: center;
-    text-decoration: none;
-    font-size: 16px;
-  }
-
-  @media only screen and (max-width: 600px) {
-    .columns {
-      width: 100%;
-    }
-  }
-</style>
-
-
-{% if user.is_authenticated %}
-  <!-- plan_table.html -->
-  {% for plan in plan_list %}
-    <div class="columns">
-      <ul class="price">
-        <li class="header plan_header {% if forloop.counter0 == current_userplan_index %}current{% endif %}" 
-            style="background-color: {% if plan == userplan.plan %}#045daa{% else %}#04AA6D{% endif %}">
-          {% if plan.url %}
-            <a href="{{ plan.url }}" class="info_link plan">
-          {% endif %}
-            <span class="plan_name">{{ plan.name }}</span>
-          {% if plan == userplan.plan %}
-            <sup style="font-size: 45%;">{% trans "Current plan" %}</sup>
-          {% endif %}
-          {% if plan.url %}
-            </a>
-          {% endif %}
-        </li>
-        <li class="grey">
-          <span class="plan_price planpricing_footer {% if forloop.counter0 == current_userplan_index %}current{% endif %}">
-            {% if plan.available %}
-              <ul>
-                {% if not plan.is_free %}
-                  {% for plan_pricing in plan.planpricing_set.all %}
-                    {% if plan_pricing.visible %}
-                      <li>
-                        {% if plan_pricing.pricing.url %}
-                          <a href="{{ plan_pricing.pricing.url }}" class="info_link pricing">
-                        {% endif %}
-                        <span class="plan_pricing_name">{{ plan_pricing.pricing.name }}</span>
-                        <span class="plan_pricing_period">({{ plan_pricing.pricing.period }} {% trans "days" %})</span>
-                        {% if plan_pricing.pricing.url %}
-                          </a>
-                        {% endif %}
-                        <span class="plan_pricing_price">{{ plan_pricing.price }}&nbsp;{{ CURRENCY }}</span>
-                        {% if plan_pricing.plan == userplan.plan or userplan.is_expired or userplan.plan.is_free %}
-                          <a href="{% url 'create_order_plan' pk=plan_pricing.pk %}" class="buy">{% trans "Buy" %}</a>
-                        {% endif %}
-                      </li>
-                    {% endif %}
-                  {% endfor %}
-                {% else %}
-                  <li class="plan-item">
-                    <span class="plan_pricing_name">{% trans "Free" %}</span>
-                    <span class="plan_pricing_period">({% trans "no expiry" %})</span>
-                    <span class="plan_pricing_price">0&nbsp;{{ CURRENCY }}</span>
-                    
-                    {% if plan != userplan.plan or userplan.is_expired %}
-                      <a href="{% url 'create_order_plan_change' pk=plan.id %}" class="change_plan_button">
-                        <small>
-                          {% if userplan.is_expired %}
-                            {% trans "Select" %}
-                          {% else %}
-                            {% trans "Change" %}
+                              {% if plan_quota.quota.rate_limit_rx and plan_quota.quota.rate_limit_tx %}
+                              <li>    
+                                  <span class="name-specification">Rate Limit</span>
+                                  <span class="status-specification">{{ plan_quota.quota.rate_limit_rx }} / {{ plan_quota.quota.rate_limit_tx }}</span>
+                              </li>
+                              {% endif %}
+                              {% if plan_quota.quota.url %}
+                                <a href="{{ plan_quota.quota.url }}" class="info_link quota">
+                              {% endif %}
+                            <li>
+                              <span class="plan_description">{{ plan.description|default:"-" }}</span>
+                            </li>
+                            {% if plan_quota.pk %}
+                              <a href="{% url 'create_order_plan' pk=plan_quota.pk %}" class="buy btn btn-info">{% trans "Buy Now" %}</a>
+                            {% else %}
+                              <span class="btn btn-secondary disabled">{% trans "Unavailable" %}</span>
+                            {% endif %}
                           {% endif %}
-                        </small>
-                      </a>
-                    {% endif %}
-                  </li>
-                {% endif %}
-              </ul>
-            {% else %}
-              <span class="plan_not_available">
-                {% url 'upgrade_plan' as upgrade_url %}
-                {% blocktrans %}
-                  This plan is not available anymore and cannot be extended.<p>
-                  You need to upgrade your account to any of <a href="{{ upgrade_url }}">currently available plans</a>.
-                {% endblocktrans %}
-              </span>
-            {% endif %}
-          </span>
-        </li>
-        <li>
-          <span class="plan_price planpricing_footer {% if forloop.counter0 == current_userplan_index %}current{% endif %}">
-            {% if plan != userplan.plan and not userplan.is_expired and not userplan.plan.is_free %}
-              <a href="{% url 'create_order_plan_change' pk=plan.id %}" class="change_plan">{% trans "Change Plan" %}</a>
-            {% endif %}
-          </span>
-        </li>
-        <li>
-          {% for quota_row in plan_table %}
-            <th class="quota_header">
-              {% if quota_row.0.url %}
-                <a href="{{ quota_row.0.url }}" class="info_link quota">
-              {% endif %}
-              <span class="quota_name">{{ quota_row.0.name }}</span>
-              <span class="quota_description">{{ quota_row.0.description }}</span>
-              {% if quota_row.0.url %}
-                </a>
-              {% endif %}
-            </th>
-
-            {% for plan_quota in quota_row.1 %}
-              <td class="{% if forloop.counter0 == current_userplan_index %}current{% endif %}">
-                {% if plan_quota != None %}
-                  {% if quota_row.0.is_boolean %}
-                    {% if plan_quota.value %} + {% else %} - {% endif %}
-                  {% else %}
-                    {% if plan_quota.value == None %}{% trans 'no limit' %}{% else %}{{ plan_quota.value }} {{ quota_row.0.unit }}{% endif %}
-                  {% endif %}
-                {% endif %}
-              </td>
-            {% endfor %}
-          {% endfor %}
-        </li>
-        <li>
-          <span class="plan_description">{{ plan.description|default:"-" }}</span>
-        </li>
-        {% if not plan.is_free %}
-          {% for plan_pricing in plan.planpricing_set.all %}
-            {% if plan_pricing.visible %}
-              <li class="grey">
-                {% if plan_pricing.plan == userplan.plan or userplan.is_expired or userplan.plan.is_free %}
-                  <a href="{% url 'create_order_plan' pk=plan_pricing.pk %}" class="buy btn btn-info">{% trans "Buy Now" %}</a>
-                {% endif %}
-              </li>
-            {% endif %}
-          {% endfor %}
-        {% else %}
-          <li class="plan-item">
-            <span class="plan_pricing_name">{% trans "Free" %}</span>
-            <span class="plan_pricing_period">({% trans "no expiry" %})</span>
-            <span class="plan_pricing_price">0&nbsp;{{ CURRENCY }}</span>
-            
-            {% if plan != userplan.plan or userplan.is_expired %}
-              <a href="{% url 'create_order_plan_change' pk=plan.id %}" class="change_plan_button">
-                <small>
-                  {% if userplan.is_expired %}
-                    {% trans "Select" %}
-                  {% else %}
-                    {% trans "Change" %}
-                  {% endif %}
-                </small>
-              </a>
-            {% endif %}
-          </li>
-        {% endif %}
-      </ul>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+      {% endfor %}
     </div>
-  {% endfor %}
+</div>
+{% else %}
+    <p>Please log in to see available plans.</p>
 {% endif %}

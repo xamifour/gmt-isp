@@ -1,0 +1,18 @@
+{% extends 'gmtisp_billing/layout.html' %}
+{% load i18n %}
+
+{% block title %} {{ block.super }} | Payment Failed {% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <div class="card">
+        <div class="card-body text-center">
+            <h1 class="text-danger">Payment Failed!</h1>
+            <p>Unfortunately, your payment could not be processed. Please try again later.</p>
+            <a href="{# url 'buy_now' 1 #}" class="btn btn-primary">Try Again</a> <!-- Replace '1' with dynamic profile_id if needed -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}

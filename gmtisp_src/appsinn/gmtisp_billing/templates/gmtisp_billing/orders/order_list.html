@@ -1,13 +1,9 @@
 {% extends 'gmtisp_billing/layout.html' %}
 {% load i18n %}
 
-
 {% block title %}{{block.super}} | Orders List {% endblock %}
 
 {% block content %}
-    {% block order_header %}
-        <h4>{% trans "List of orders" %}</h4>
-    {% endblock %}
 
     {% if object_list %}
         {% block pagination_first %}
@@ -21,24 +17,26 @@
                     <table id="basic-datatables" class="display table t/able-striped t/able-hover" >
                         <thead>
                             <tr>
+                                {% if request.user.is_superuser %}<th>{% trans 'Organisation' %}</th>{% endif %}
                                 <th>ID</th>
-                                <th>{% trans 'Name' %}</th>
+                                <th>{% trans 'Plan' %}</th>
                                 <th>{% trans 'Total' context 'total amount, value' %}</th>
                                 <th>{% trans 'Status' context 'order status' %}</th>
-                                <th>{% trans 'Created' context 'order created' %}</th>
-                                <th>{% trans 'Completed' context 'order completed' %}</th>
-                                <th>{% trans 'Plan valid from' %}</th>
-                                <th>{% trans 'Plan valid until' %}</th>
+                                <!-- <th>{% trans 'Created' context 'order created' %}</th> -->
+                                <th>{% trans 'Date' context 'order completed' %}</th>
+                                <th>{% trans 'Valid from' %}</th>
+                                <th>{% trans 'Valid until' %}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for order in object_list %}
                             <tr class="{% if order.status == 2 %}success{% elif order.status == 3 %}danger{% elif order.status == 4 %}warning{% elif order.status == 5 %}info{% endif %}">
-                                <td><a href="{{ order.get_absolute_url }}">{{ order.pk | truncatechars:14 }}</a></td>
+                                {% if request.user.is_superuser %}<td>{{ order.organization }}</td>{% endif %}
+                                <td><a href="{{ order.get_absolute_url }}">{{ order.pk | truncatechars:9 }}</a></td>
                                 <td><a href="{{ order.get_absolute_url }}">{{ order.name }}</a></td>
                                 <td class="number">{{ order.total }}&nbsp;{{ CURRENCY }}</td>
                                 <td class="status">{{ order.get_status_display }}</td>
-                                <td class="date">{{ order.created|date }}</td>
+                                <!-- <td class="date">{{ order.created }}</td> -->
                                 <td class="date">{{ order.completed|default:"-" }}</td>
                                 <td class="date">{{ order.plan_extended_from|date|default:"-" }}</td>
                                 <td class="date">{{ order.plan_extended_until|date|default:"-" }}</td>

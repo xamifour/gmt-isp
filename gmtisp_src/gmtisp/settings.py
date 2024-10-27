@@ -13,7 +13,6 @@ APPS_DIR = BASE_DIR / 'appsinn'
 env = environ.Env()
 env.read_env() # read the .env file
 
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.str('DEBUG') == '1' # 1 means True, 0 means False
 SECRET_KEY = env.str('SECRET_KEY', default='98Yt4}56^&%@!+)7748*&_?><HT]E~lrl%606sm{ticbu20=pv{r')
@@ -30,6 +29,7 @@ OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.0
 OPENWISP_RADIUS_COA_ENABLED = True
 OPENWISP_RADIUS_ALLOWED_MOBILE_PREFIXES = ['+44', '+39', '+237', '+595', '+233']
 
+# ---------------------------------------------- Installed apps
 DJANGO_APPS  = [
     # Django
     'django.contrib.auth',
@@ -40,13 +40,11 @@ DJANGO_APPS  = [
     'django.contrib.humanize',
     'django.contrib.sites',
 ]
-
 THIRD_PARTY_APPS = [
     'admin_auto_filters', # for autocomplete filter
     # all-auth
     'allauth',
     'allauth.account',  
-    # all-auth/social login
     'allauth.socialaccount',
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.google',
@@ -68,8 +66,8 @@ THIRD_PARTY_APPS = [
     # 'integrations',
     'djangosaml2',
     'widget_tweaks',
+    # 'registration',
 ]
-
 LOCAL_APPS = [
     # openwisp admin theme must come before the django admin in order to override the admin login page
     'openwisp_utils.admin_theme',
@@ -82,8 +80,6 @@ LOCAL_APPS = [
     'gmtisp_enduser',
     'gmtisp_billing', 
 ]
-
-# https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 INSTALLED_APPS += ['django.contrib.admin',] # django admin
 
@@ -94,13 +90,13 @@ AUTHENTICATION_BACKENDS = (
 )
 
 SITE_ID = 1
-
 AUTH_USER_MODEL = 'openwisp_users.User'
 
-# LOGIN_URL = '/login/'
-# LOGIN_URL_REDIRECT = '/'
+LOGIN_URL = 'account_login'
+LOGIN_REDIRECT_URL = '/dashboard/'
 # LOGOUT_URL = '/logout/'
-# LOGOUT_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = 'account_login'
+# BASE_URL='http://127.0.0.1:8000'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -120,13 +116,8 @@ MIDDLEWARE = [
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'openwisp_users.password_validation.PasswordReuseValidator'}
 ]
-
-SESSION_COOKIE_SECURE = True
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SAML_ALLOWED_HOSTS = []
-SAML_USE_NAME_ID_AS_USERNAME = True
-SAML_CREATE_UNKNOWN_USER = True
-SAML_CONFIG = {}
+# if DEBUG:
+#     AUTH_PASSWORD_VALIDATORS = [] # WARNING: for development only!
 
 ROOT_URLCONF = 'gmtisp.urls'
 WSGI_APPLICATION = 'gmtisp.wsgi.application'
@@ -134,7 +125,6 @@ WSGI_APPLICATION = 'gmtisp.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # 'DIRS': [],
         'DIRS': [os.path.join(os.path.dirname(BASE_DIR), 'templates'),],
         'OPTIONS': {
             'loaders': [
@@ -161,7 +151,12 @@ TEMPLATES = [
     }
 ]
 
-# database
+SAML_ALLOWED_HOSTS = []
+SAML_USE_NAME_ID_AS_USERNAME = True
+SAML_CREATE_UNKNOWN_USER = True
+SAML_CONFIG = {}
+
+# ---------------------------------------------- database
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -181,11 +176,6 @@ if TESTING:
 # try:
 #     from .db import *
 # except ImportError:
-#     pass
-
-# try:
-#     from .db import *
-# except ImportError:
 #     DATABASES = {
 #         'default': {
 #             'ENGINE': 'django.db.backends.sqlite3',
@@ -193,19 +183,17 @@ if TESTING:
 #             'ATOMIC_REQUESTS': True,
 #         }
 #     }
-# ------------------------------------------------------------------------------ end database
 
-# logging
+# ---------------------------------------------- logging
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'filters': {'require_debug_true': {'()': 'django.utils.log.RequireDebugTrue'}},
-    'formatters': {
-        'django.server': {
-            '()': 'django.utils.log.ServerFormatter',
-            'format': '[{server_time}] {message}',
-            'style': '{',
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
         },
+    },
+    'formatters': {
         'verbose': {
             'format': '{levelname} {asctime} {module} {message}',
             'style': '{',
@@ -214,12 +202,17 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
+        'django.server': {
+            '()': 'django.utils.log.ServerFormatter',
+            'format': '[{server_time}] {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'deployment.log'),
+            'filename': os.path.join(BASE_DIR, 'django_debug.log'),
             'formatter': 'verbose',
         },
         'console': {
@@ -234,84 +227,79 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'gmtisp_billing': {  # Replace with your actual app name
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
     },
 }
 
+# Adjust logging behavior based on DEBUG
+if not DEBUG:
+    LOGGING['loggers']['django']['level'] = 'INFO'
+    LOGGING['loggers']['gmtisp_billing']['level'] = 'INFO'
+
+# Modify logging when not in testing
 if not TESTING:
-    LOGGING['handlers'].update(
-        {
-            'django.server': {
-                'level': 'DEBUG',
-                'class': 'logging.StreamHandler',
-                'formatter': 'django.server',
-            },
-        }
-    )
-    LOGGING['loggers'] = {
-        'django': {'handlers': ['console'], 'level': 'INFO'},
-        'django.server': {
-            'handlers': ['django.server'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'openwisp_radius': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
+    LOGGING['handlers']['django.server'] = {
+        'level': 'DEBUG',
+        'class': 'logging.StreamHandler',
+        'formatter': 'django.server',
+    }
+    # Note: It's better to not overwrite the loggers entirely; merge instead
+    LOGGING['loggers']['django'].update({
+        'handlers': ['console'],  # Only use console handler in production
+        'level': 'INFO',
+    })
+    LOGGING['loggers']['django.server'] = {
+        'handlers': ['django.server'],
+        'level': 'INFO',
+        'propagate': False,
+    }
+    LOGGING['loggers']['openwisp_radius'] = {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+        'propagate': False,
     }
 
+# Special logging configuration for the shell
 if not TESTING and SHELL:
-    LOGGING['loggers'] = {
-        'django.db': {
-            'level': 'DEBUG',
-            'handlers': ['console'],
-            'propagate': False,
-        },
-        '': {
-            # this sets root level logger to log debug and higher level
-            # logs to console. All other loggers inherit settings from
-            # root level logger.
-            'handlers': ['console', 'django.server'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
+    LOGGING['loggers']['django.db'] = {
+        'level': 'DEBUG',
+        'handlers': ['console'],
+        'propagate': False,
     }
-# ------------------------------------------------------------------------------ end logging
-
-AUTH_PASSWORD_VALIDATORS = [] # WARNING: for development only!
+    LOGGING['loggers'][''] = {
+        'handlers': ['console', 'django.server'],
+        'level': 'DEBUG',
+        'propagate': False,
+    }
 
 LANGUAGE_CODE = 'en-gb'
-TIME_ZONE = 'America/Asuncion'  # used to replicate timezone related bug, do not change!
+TIME_ZONE = 'UTC'
+# TIME_ZONE = 'America/Asuncion'  # used to replicate timezone related bug, do not change!
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+# ---------------------------------------------- Static and Media Settings
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
     'openwisp_utils.staticfiles.DependencyFinder',
 ]
-
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
 MEDIA_URL = '/media/'
-# URL for serving static files
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(os.path.dirname(BASE_DIR), "static"),]
-# STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), "static_cdn", "static_root")
 STATIC_ROOT = os.path.join(os.path.dirname(os.path.dirname((BASE_DIR))), "static_cdn", "static_root")
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Messages contrib app
-from django.contrib.messages import constants as messages
-MESSAGE_TAGS = {
-    messages.ERROR: 'danger'
-}
-
-# for development only
+# ---------------------------------------------- Email Settings
 if DEBUG:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
@@ -340,13 +328,27 @@ SOCIALACCOUNT_PROVIDERS = {
     'google': {'SCOPE': ['profile', 'email'], 'AUTH_PARAMS': {'access_type': 'online'}},
 }
 
-redis_host = os.getenv('REDIS_HOST', 'localhost')
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = 'email_confirmation_success'
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = 'email_confirmation_success'
 
-OPENWISP_RADIUS_PASSWORD_RESET_URLS = {
-    '__all__': (
-        'http://localhost:8080/{organization}/password/reset/confirm/{uid}/{token}'
-    ),
+REST_AUTH = {
+    'SESSION_LOGIN': False,
+    'PASSWORD_RESET_SERIALIZER': 'openwisp_radius.api.serializers.PasswordResetSerializer',
+    'REGISTER_SERIALIZER': 'openwisp_radius.api.serializers.RegisterSerializer',
 }
+
+# only for automated test purposes
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'testing_app.api.throttling.CustomScopedRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {'anon': '20/hour'},
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+}
+
+# ---------------------------------------------- Celery Settings
+redis_host = os.getenv('REDIS_HOST', 'localhost')
 
 if not TESTING:
     CELERY_BROKER_URL = os.getenv('REDIS_URL', f'redis://{redis_host}/1')
@@ -405,52 +407,39 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-SENDSMS_BACKEND = 'sendsms.backends.console.SmsBackend'
-
-OPENWISP_RADIUS_EXTRA_NAS_TYPES = (
-    ('cisco', 'Cisco Router'),
-    ('mikrotik', 'Mikrotik'),
-    )
-
-REST_AUTH = {
-    'SESSION_LOGIN': False,
-    'PASSWORD_RESET_SERIALIZER': 'openwisp_radius.api.serializers.PasswordResetSerializer',
-    'REGISTER_SERIALIZER': 'openwisp_radius.api.serializers.RegisterSerializer',
+# ---------------------------------------------- Caching
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        # 'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
+    }
 }
-
-ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = 'email_confirmation_success'
-ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = 'email_confirmation_success'
-
-if not PARALLEL:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': 'redis://localhost/0',
-            'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'},
-        }
-    }
-# parallel testing with redis cache does not work
-# so we use the local memory cache in this case
-# we still keep redis for the standard non parallel tests
-# to avoid having bad surprises in production
-else:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'openwisp-users',
-        }
-    }
+# if not PARALLEL:
+#     CACHES = {
+#         'default': {
+#             'BACKEND': 'django_redis.cache.RedisCache',
+#             'LOCATION': 'redis://localhost/0',
+#             'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'},
+#         }
+#     }
+# # parallel testing with redis cache does not work
+# # so we use the local memory cache in this case
+# # we still keep redis for the standard non parallel tests
+# # to avoid having bad surprises in production
+# else:
+#     CACHES = {
+#         'default': {
+#             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+#             'LOCATION': 'openwisp-users',
+#         }
+#     }
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
+SESSION_COOKIE_SECURE = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
-# OPENWISP_RADIUS_PASSWORD_RESET_URLS = {
-#     # use the uuid because the slug can change
-#     # 'dabbd57a-11ca-4277-8dbb-ad21057b5ecd': 'https://org.com/{organization}/password/reset/confirm/{uid}/{token}',
-#     # fallback in case the specific org page is not defined
-#     '__all__': 'https://example.com/{{organization}/password/reset/confirm/{uid}/{token}',
-# }
-
+SENDSMS_BACKEND = 'sendsms.backends.console.SmsBackend'
 if TESTING:
     OPENWISP_RADIUS_SMS_TOKEN_MAX_USER_DAILY = 3
     OPENWISP_RADIUS_SMS_TOKEN_MAX_ATTEMPTS = 3
@@ -459,8 +448,26 @@ if TESTING:
 else:
     OPENWISP_RADIUS_SMS_TOKEN_MAX_USER_DAILY = 10
 
-OPENWISP_USERS_AUTH_API = True
+# Messages contrib app
+from django.contrib.messages import constants as messages
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger'
+}
 
+# ---------------------------------------------- OpenWISP Settings
+# OPENWISP_RADIUS_PASSWORD_RESET_URLS = {
+#     # use the uuid because the slug can change
+#     # 'dabbd57a-11ca-4277-8dbb-ad21057b5ecd': 'https://org.com/{organization}/password/reset/confirm/{uid}/{token}',
+#     # fallback in case the specific org page is not defined
+#     '__all__': 'https://example.com/{{organization}/password/reset/confirm/{uid}/{token}',
+# }
+
+OPENWISP_RADIUS_PASSWORD_RESET_URLS = {
+    '__all__': (
+        'http://localhost:8080/{organization}/password/reset/confirm/{uid}/{token}'
+    ),
+}
+OPENWISP_USERS_AUTH_API = True
 OPENWISP_ADMIN_THEME_LINKS = [
     {
         'type': 'text/css',
@@ -481,7 +488,13 @@ OPENWISP_ADMIN_THEME_LINKS = [
     },
 ]
 OPENWISP_ADMIN_THEME_JS = ['dummy.js']
-
+# admin site interface
+OPENWISP_ADMIN_SITE_HEADER = 'GMTISP'
+OPENWISP_ADMIN_SITE_TITLE = 'GMTISP'
+OPENWISP_RADIUS_EXTRA_NAS_TYPES = (
+    ('cisco', 'Cisco Router'),
+    ('mikrotik', 'Mikrotik'),
+    )
 if os.environ.get('SAMPLE_APP', False) and TESTING:
     # Required for openwisp-users tests
     OPENWISP_ORGANIZATION_USER_ADMIN = True
@@ -502,36 +515,12 @@ try:
 except ImportError:
     pass
 
-# admin site interface
-OPENWISP_ADMIN_SITE_HEADER = 'GMTISP'
-OPENWISP_ADMIN_SITE_TITLE = 'GMTISP'
-
-# BASE_URL='http://127.0.0.1:8000'
-
 # testing_app
 OPENWISP_ADMIN_SITE_CLASS = 'testing_app.site.CustomAdminSite'
-# only for automated test purposes
-REST_FRAMEWORK = {
-    'DEFAULT_THROTTLE_CLASSES': [
-        'testing_app.api.throttling.CustomScopedRateThrottle'
-    ],
-    'DEFAULT_THROTTLE_RATES': {'anon': '20/hour'},
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-}
-
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        # 'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
-    }
-}
 OPENWISP_TEST_ADMIN_MENU_ITEMS = [{'model': 'testing_app.Project'}]
-# ------------------------------------------------------------------ end testing_app
 
-# plans
+# ---------------------------------------------- plans
 PLANS_ORDER_MODEL = 'gmtisp_billing.Order'
-
 # This is required for django-plans
 PLANS_INVOICE_ISSUER = {
     'issuer_name': 'My Company Ltd',
@@ -541,8 +530,7 @@ PLANS_INVOICE_ISSUER = {
     'issuer_country': 'PL',
     'issuer_tax_number': 'PL123456789',
 }
-
-PLANS_CURRENCY = 'EUR'
+PLANS_CURRENCY = 'GHS'
 ENABLE_FAKE_PAYMENTS = True
 # The value None means “TAX not applicable, rather than value Decimal('0') which is 0% TAX.
 PLANS_TAX = Decimal('23.0')  # for 23% VAT
@@ -566,41 +554,28 @@ PLANS_ORDER_EXPIRATION = 14
 PLANS_EXPIRATION_REMIND = [1, 3 , 7] # User will receive notification before 7, 3 and 1 day to account expire.
 PLANS_DEFAULT_GRACE_PERIOD = 30 # New account default plan expiration period counted in days.
 SEND_PLANS_EMAILS = True
-# ------------------------------------------------------------------ end plans
 
-# plans payments
+# ---------------------------------------------- plans payments
 from typing import Dict, Tuple
 
 PAYMENT_MODEL = 'gmtisp_billing.Payment'
 
-PAYMENT_VARIANTS: Dict[str, Tuple[str, Dict]] = {
-    'default': ('payments.dummy.DummyProvider', {}),
-}
-
-# # Retrieve environment variables for stripe
-# STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
-# STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-
-# PAYMENT_VARIANTS = {
-#     'stripe': (
-#         'payments.stripe.StripeProvider',
-#         {
-#             'secret_key': STRIPE_SECRET_KEY,
-#             'public_key': STRIPE_PUBLIC_KEY,
-#             'name': 'GMTISP Stripe',
-#         }
-#     )
-# }
-# stripe test card
-# 4242 4242 4242 4242
-# Use a valid future date, such as 12/34.
-# Use any three-digit CVC
+if DEBUG:
+    PAYMENT_VARIANTS: Dict[str, Tuple[str, Dict]] = {
+        'dummy': ('payments.dummy.DummyProvider', {}),
+    }
 
 # Keep in mind that if you use `localhost`, external servers won't be
 # able to reach you for webhook notifications.
 PAYMENT_HOST = 'localhost:8000'
-# ------------------------------------------------------------------ end plans payments
+# 
+PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY')
+PAYSTACK_PUBLIC_KEY = os.getenv('PAYSTACK_PUBLIC_KEY')
+PAYSTACK_CALLBACK_URL = 'http://127.0.0.1/payment/verify/'
+# PAYSTACK_CALLBACK_URL = 'https://yourdomain.com/payment/verify/'
 
+
+# ---------------------------------------------- debug_toolbar
 # debug_toolbar
 # if DEBUG:
 #     INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
@@ -632,7 +607,7 @@ PAYMENT_HOST = 'localhost:8000'
 #     }
 # ------------------------------------------------------------------ end debug_toolbar
 
-# from .settings_local import *
+# from .settings_openwisp import *
 
 
 
@@ -698,4 +673,4 @@ if not DEBUG:
         },
     }
 
-    # Other settings...
+# ------------------------------------------------------------------ end production

@@ -59,40 +59,8 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
 class UserDetailView(LoginRequiredMixin, DetailView):
     model = User
-    template_name = 'openwisp_users/users/user_detail.html'
+    template_name = 'openwisp_users/users/user_details.html'
     context_object_name = 'user'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        user = self.object
-        # user = self.request.user
-
-        # user_plan = UserPlan.objects.select_related('plan').filter(user=self.object).first()
-        # if user_plan:
-        #     context['current_plan'] = user_plan.plan
-        # else:
-        #     logger.info(f'No UserPlan found for user {self.object.id}')
-        #     context['current_plan'] = None
-
-        # Get the current plan for the user, or return default plan
-        if hasattr(user, 'userplan'):
-            current_plan = user.userplan.get_current_plan()
-        else:
-            current_plan = None
-
-        if current_plan:
-            # Get the most recent 5 completed orders for the user
-            recent_orders = Order.objects.filter(
-                user=user,
-                # plan=current_plan,
-                status=Order.STATUS.COMPLETED
-            ).order_by('-completed')[:5]
-
-        context['current_plan'] = current_plan
-        context['recent_orders'] = recent_orders  
-        # Current order for the current plan of the logged in user
-        context['current_order'] = recent_orders.first()
-        return context
 
 
 class UserDeleteView(LoginRequiredMixin, DeleteView):

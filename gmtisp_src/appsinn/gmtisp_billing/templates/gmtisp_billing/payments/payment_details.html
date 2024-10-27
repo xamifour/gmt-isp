@@ -10,14 +10,14 @@
   {% endblock %}
 
   <p>ID: {{ payment.id }}</p>
-  <p>Transaction id: {{ payment.transaction_id }}</p>
+  <p>Transaction id: {{ payment.transaction_ref }}</p>
   <p>User: {{ payment.user }}</p>
   <p>Order: {{ payment.order.id }}</p>
   <p>Order: {{ payment.order }}</p>
-  <p>Amount: {{ payment.amount }} {{ payment.currency }}</p>
+  <p>Amount: {{ payment.order.total }} {{ payment.currency }}</p>
   <p>Status: {{ payment.get_status_display }}</p>
-  <p>Method: {{ payment.payment_method }}</p>
-  <p>Action: {{ payment.payment_action }}</p>
+  <p>Method: {{ payment.method }}</p>
+  <p>Action: {{ payment.action }}</p>
   <p>Created: {{ payment.created }}</p>
 
   <a href="{% url 'payment_update' payment.pk %}">Edit</a>

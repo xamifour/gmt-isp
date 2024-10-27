@@ -9,11 +9,11 @@ register = template.Library()
 def get_sidebar_links(context):
     request = context['request']
     links = [
-        {
-            'name': 'Dashboard',
-            'url_name': 'index',
-            'icon': 'fas fa-home',
-        },
+        # {
+        #     'name': 'Dashboard',
+        #     'url_name': 'index',
+        #     'icon': 'fas fa-home',
+        # },
         {
             'name': 'Users & Organizations',
             'icon': 'fas fa-users',

@@ -27,7 +27,7 @@
             <div class="content">
                 <div class="page-inner">
                     <div class="page-header">
-                        {% block page_title %}{% endblock %}
+                        <h4 class="page-title">{% block page_title %} {{ page_title }} {% endblock %}</h4>
                         {% block breadcumb %}
                         <ul class="breadcrumbs">
                             <li class="nav-home">
@@ -39,7 +39,7 @@
                                 <i class="flaticon-right-arrow"></i>
                             </li>
                             <li class="nav-item">
-                                <a href="">{% if user %}{{user.email}}{% endif %}</a>
+                                <a href="">{% if user %} {{ user.email }} {% endif %}</a>
                             </li>
                             <li class="separator">
                                 <i class="flaticon-right-arrow"></i>

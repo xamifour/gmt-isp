@@ -14,17 +14,19 @@ from django.urls import include, path, re_path, reverse_lazy
 from django.views.generic import RedirectView
 from django.views.generic.base import TemplateView
 
-from .views import password_change, password_change_success, ProfileView
+from .views import password_change, password_change_success, ProfileView, UserDashboardView
 
-redirect_view = RedirectView.as_view(url=reverse_lazy('admin:index'))
+# redirect_view = RedirectView.as_view(url=reverse_lazy('admin:index'))
+redirect_view = RedirectView.as_view(url=reverse_lazy('openwisp_users:user_dashboard'))
 
 
 urlpatterns = [
     path('signup/', redirect_view, name='account_signup'),
-    path('login/', views.login, name='account_login'),
+    path('', views.login, name='account_login'),
     path('logout/', views.logout, name='account_logout'),
     path('inactive/', views.account_inactive, name='account_inactive'),
-    path('profile/', ProfileView.as_view(), name='profile'),
+    # path('accounts/profile/', ProfileView.as_view(), name='profile'),
+    path('dashboard/', UserDashboardView.as_view(), name='user_dashboard'),
     # E-mail
     path(
         'confirm-email/',

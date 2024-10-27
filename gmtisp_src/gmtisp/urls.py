@@ -40,7 +40,7 @@ urlpatterns = [
     path('api/v1/', include('openwisp_utils.api.urls')),
     path('api/v1/', include('openwisp_users.api.urls')),
     # path('api/v1/', include('gmtisp_billing.api.urls')),
-    path('accounts/', include('openwisp_users.accounts.urls')),
+    path('', include('openwisp_users.accounts.urls')),
     path('users/', include('openwisp_users.urls')),
     radius_urls,
     # path('captive-portal-mock/login/', views.captive_portal_login, name='captive_portal_login_mock'),

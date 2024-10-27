@@ -52,7 +52,6 @@ def account_status(request):
 
 # contrib.py
 import logging
-
 from django.apps import apps
 from django.conf import settings
 from django.core import mail
@@ -64,7 +63,6 @@ from django.utils import translation
 from .signals import user_language
 
 email_logger = logging.getLogger("emails")
-
 
 def send_template_email(recipients, title_template, body_template, context, language):
     """Sends e-mail using templating system"""
@@ -120,7 +118,6 @@ def send_template_email(recipients, title_template, body_template, context, lang
         "Email (%s) sent to %s\nTitle: %s\n%s\n\n" % (language, recipients, title, body)
     )
 
-
 def get_user_language(user):
     """Simple helper that will fire django signal in order
     to get User language possibly given by other part of application.
@@ -134,7 +131,6 @@ def get_user_language(user):
 
 # enumeration.py
 import six
-
 
 class Enumeration(object):
     """
@@ -201,27 +197,7 @@ from django.forms.widgets import HiddenInput
 from django.utils.translation import gettext
 
 from .utils import get_country_code
-from .models import Plan, BillingInfo, Order, PlanPricing, Payment
-
-
-
-# class PlanForm(forms.ModelForm):
-#     class Meta:
-#         model = Plan
-#         fields = '__all__'  # Use __all__ to include all fields from the model
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         instance = kwargs.get('instance')
-#         if instance:  # Edit mode
-#             self.fields['name'].widget.attrs['readonly'] = True
-#             self.fields['slug'].widget.attrs['readonly'] = True
-
-
-class OrderForm(forms.Form):
-    plan_pricing = forms.ModelChoiceField(
-        queryset=PlanPricing.objects.all(), widget=HiddenInput, required=True
-    )
+from .models import Plan, BillingInfo, Order, Payment
 
 
 class CreateOrderForm(forms.ModelForm):
@@ -235,7 +211,6 @@ class CreateOrderForm(forms.ModelForm):
     class Meta:
         model = Order
         fields = tuple()
-
 
 class BillingInfoForm(forms.ModelForm):
     class Meta:
@@ -260,7 +235,6 @@ class BillingInfoForm(forms.ModelForm):
 
         return cleaned_data
 
-
 class BillingInfoWithoutShippingForm(BillingInfoForm):
     class Meta:
         model = BillingInfo
@@ -272,18 +246,15 @@ class BillingInfoWithoutShippingForm(BillingInfoForm):
             "shipping_city",
         )
 
-
 class FakePaymentsForm(forms.Form):
     status = forms.ChoiceField(
         choices=Order.STATUS, required=True, label=gettext("Change order status to")
     )
 
-
 class PaymentForm(forms.ModelForm):
     class Meta:
         model = Payment
         fields = ['order', 'amount', 'currency', 'status', 'payment_method']
-
 
 # importer.py
 def import_name(name):
@@ -296,7 +267,6 @@ def import_name(name):
         return getattr(mod, components[-1])
     else:
         return name
-
 
 # listners.py
 from django.contrib.auth import get_user_model
@@ -316,30 +286,23 @@ def create_proforma_invoice(sender, instance, created, **kwargs):
     if created:
         Invoice.create(instance, Invoice.INVOICE_TYPES["PROFORMA"])
 
-
 @receiver(order_completed)
 def create_invoice(sender, **kwargs):
     Invoice.create(sender, Invoice.INVOICE_TYPES["INVOICE"])
-
 
 @receiver(post_save, sender=Invoice)
 def send_invoice_by_email(sender, instance, created, **kwargs):
     if created:
         instance.send_invoice_by_email()
 
-
 @receiver(post_save, sender=User)
 def set_default_user_plan(sender, instance, created, **kwargs):
     """
     Creates default plan for the new user but also extending an account for default grace period.
     """
-
     if created:
         UserPlan.create_for_user(instance)
-
-
 # Hook to django-registration to initialize plan automatically after user has confirm account
-
 
 @receiver(activate_user_plan)
 def initialize_plan_generic(sender, user, **kwargs):
@@ -347,7 +310,6 @@ def initialize_plan_generic(sender, user, **kwargs):
         user.userplan.initialize()
     except UserPlan.DoesNotExist:
         return
-
 
 try:
     from registration.signals import user_activated
@@ -361,7 +323,6 @@ try:
 
 except ImportError:
     pass
-
 
 # Hook to django-getpaid if it is installed
 try:
@@ -380,12 +341,10 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.generic import View
 
-
 class LoginRequired(View):
     @method_decorator(login_required)
     def dispatch(self, *args, **kwargs):
         return super(LoginRequired, self).dispatch(*args, **kwargs)
-
 
 class UserObjectsOnlyMixin(object):
     def get_queryset(self):
@@ -397,7 +356,6 @@ class UserObjectsOnlyMixin(object):
 
 # plan_change.py
 from decimal import Decimal
-
 
 class PlanChangePolicy(object):
     def _calculate_day_cost(self, plan, period):
@@ -574,7 +532,9 @@ If you are using django-registration there is no need to call this signal.
 
 sends arguments: 'user'
 """
-
+# Signal sent whenever status is changed for a Payment. This usually happens
+# when a transaction is either accepted or rejected.
+status_changed = Signal()
 
 # tasks.py
 import datetime
@@ -646,11 +606,9 @@ def expire_account():
         ):
             user.userplan.remind_expire_soon()
 
-
 # utils.py
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-
 
 def get_client_ip(request):
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -659,7 +617,6 @@ def get_client_ip(request):
     else:
         ip = request.META.get("REMOTE_ADDR")
     return ip
-
 
 def get_country_code(request):
     if getattr(settings, "PLANS_GET_COUNTRY_FROM_IP", False):
@@ -677,7 +634,6 @@ def get_country_code(request):
             return country_code
     return getattr(settings, "PLANS_DEFAULT_COUNTRY", None)
 
-
 def get_currency():
     CURRENCY = getattr(settings, "PLANS_CURRENCY", "")
     if len(CURRENCY) != 3:
@@ -686,7 +642,6 @@ def get_currency():
         )
     return CURRENCY
 
-
 def country_code_transform(country_code):
     """Transform country code to the code used by VIES"""
     transform_dict = {
@@ -694,23 +649,18 @@ def country_code_transform(country_code):
     }
     return transform_dict.get(country_code, country_code)
 
-
 # validators.py
 import six
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.utils.translation import gettext_lazy as _
-# from django.apps import apps
-
 from .importer import import_name
 from .quota import get_user_quota
-
 
 class QuotaValidator(object):
     """
     Base class for all Quota validators needed for account activation
     """
-
     required_to_activate = True
     default_quota_value = None
 
@@ -750,7 +700,6 @@ class QuotaValidator(object):
         stops account activation
         """
         pass
-
 
 class ModelCountValidator(QuotaValidator):
     """
@@ -838,7 +787,6 @@ class ModelAttributeValidator(ModelCountValidator):
                 ),
                 self.get_error_params(quota_value, not_valid_objects=not_valid_objects),
             )
-
 
 def plan_validation(user, plan=None, on_activation=False):
     """

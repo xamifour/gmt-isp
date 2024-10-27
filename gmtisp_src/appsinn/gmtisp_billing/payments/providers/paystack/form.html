@@ -1,0 +1,26 @@
+<form action="{% url 'payment' %}" method="POST" id="paymentForm">
+    {% csrf_token %}
+    <input type="hidden" name="email" value="{{ email }}">
+    <input type="hidden" name="amount" value="{{ amount }}">
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <button type="button" onclick="payWithPaystack()"> Pay Now </button>
+</form>
+
+<script>
+function payWithPaystack() {
+    var handler = PaystackPop.setup({
+        key: '{{ paystack_public_key }}', // Your public key
+        email: '{{ email }}',
+        amount: {{ amount|floatformat:0|multiply:100 }}, // Amount in kobo
+        currency: "{{ currency }}", // Currency
+        callback: function(response) {
+            // Submit the form to your backend for processing
+            document.getElementById('paymentForm').submit();
+        },
+        onClose: function() {
+            alert('Transaction was not completed, window closed.');
+        }
+    });
+    handler.openIframe();
+}
+</script>

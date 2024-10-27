@@ -5,6 +5,12 @@
 
 {% block content %}
     <h3>{% trans "Confirm order" %}</h3>
+
+    <div class="alert alert-warning">
+        {% blocktrans %}
+            Paystack will reccive this payment on behalf of Xtreme Speed.
+        {% endblocktrans %}
+    </div>
     {% if FREE_ORDER %}
         {#  Free order is when user downgrades a plan and there is no additional payment it is handle by special a view. #}
         {% with object as order %}
@@ -24,9 +30,11 @@
     {% else %}
 
         <form method="post">
+            <div class="alert alert-success">
             {% with object as order %}
                 {% include "gmtisp_billing/orders/order_detail_table.html" %}
             {% endwith %}
+            </div>
 
             <h3>{% trans "Invoice" %}</h3>
             {% url "billing_info" as billing_info_url %}
@@ -66,9 +74,7 @@
             {% endif %}
             {% endwith %}
             
-            <input type="submit" class="btn btn-primary" value="{% trans 'Continue' %}">
-            
-
+            <input type="submit" class="btn btn-primary" value="{% trans 'Proceed' %}">
             {{ form.as_p }}
             {% csrf_token %}
         </form>

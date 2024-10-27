@@ -11,7 +11,6 @@ order_completed.__doc__ = """
 Sent after order was completed (payment accepted, account extended)
 """
 
-
 user_language = Signal()
 user_language.__doc__ = """
 Sent to receive information about language for user account
@@ -63,3 +62,11 @@ If you are using django-registration there is no need to call this signal.
 
 sends arguments: 'user'
 """
+
+# Signal sent whenever status is changed for a Payment. This usually happens
+# when a transaction is either accepted or rejected.
+status_changed = Signal()
+
+# A user has activated his or her account.
+# Provided args: user, request
+user_activated = Signal()
