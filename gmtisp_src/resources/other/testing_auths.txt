@@ -1,0 +1,10 @@
+# radtest <username> <password> <host> 10 <secret>
+radtest test1 aaaAAA123 localhost 0 testing1234567890
+
+
+user="test1"
+pass="aaaAAA123"
+called="00-11-22-33-44-55:localhost"
+calling="00:11:22:33:44:55"
+request="User-Name=$user,User-Password=$pass,Called-Station-ID=$called,Calling-Station-ID=$calling"
+echo $request | radclient localhost auth testing123

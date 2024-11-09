@@ -1242,7 +1242,7 @@ class AbstractInvoice(OrgMixin, BaseMixin):
 
 # ----------------------------------------------------------- payments
 from ..signals import status_changed
-from payments.core import get_base_url
+# from payments.core import get_base_url
 
 class AbstractPayment(OrgMixin, BaseMixin):
 
@@ -1390,31 +1390,31 @@ def renew_accounts(sender, user, *args, **kwargs):
         if payment.status == AbstractPayment.CONFIRMED:
             order.complete_order()
 
-@receiver(status_changed, sender=AbstractPayment)
-def change_payment_status(sender, *args, **kwargs):
-    payment = kwargs["instance"]
-    order = payment.order
-    if payment.status == payment.CONFIRMED:
-        if hasattr(order.user.userplan, "recurring"):
-            order.user.userplan.recurring.token_verified = True
-            order.user.userplan.recurring.save()
-        order.complete_order()
-    if (
-        getattr(settings, "PLANS_PAYMENTS_RETURN_ORDER_WHEN_PAYMENT_REFUNDED", False)
-        and payment.status == payment.REFUNDED
-    ):
-        order._change_reason = f"Django-plans-payments: Payment status changed to {payment.status}"
-        order.return_order()
-    elif order.status != AbstractOrder.get_concrete_model().STATUS.COMPLETED and payment.status not in (
-        payment.CONFIRMED,
-        payment.WAITING,
-    ):
-        order.status = AbstractOrder.get_concrete_model().STATUS.CANCELED
-        order._change_reason = f"Django-plans-payments: Payment status changed to {payment.status}"
-        order.save()
-        if hasattr(order.user.userplan, "recurring"):
-            order.user.userplan.recurring.token_verified = False
-            order.user.userplan.recurring.save()
+# @receiver(status_changed, sender=AbstractPayment)
+# def change_payment_status(sender, *args, **kwargs):
+#     payment = kwargs["instance"]
+#     order = payment.order
+#     if payment.status == payment.CONFIRMED:
+#         if hasattr(order.user.userplan, "recurring"):
+#             order.user.userplan.recurring.token_verified = True
+#             order.user.userplan.recurring.save()
+#         order.complete_order()
+#     if (
+#         getattr(settings, "PLANS_PAYMENTS_RETURN_ORDER_WHEN_PAYMENT_REFUNDED", False)
+#         and payment.status == payment.REFUNDED
+#     ):
+#         order._change_reason = f"Django-plans-payments: Payment status changed to {payment.status}"
+#         order.return_order()
+#     elif order.status != AbstractOrder.get_concrete_model().STATUS.COMPLETED and payment.status not in (
+#         payment.CONFIRMED,
+#         payment.WAITING,
+#     ):
+#         order.status = AbstractOrder.get_concrete_model().STATUS.CANCELED
+#         order._change_reason = f"Django-plans-payments: Payment status changed to {payment.status}"
+#         order.save()
+#         if hasattr(order.user.userplan, "recurring"):
+#             order.user.userplan.recurring.token_verified = False
+#             order.user.userplan.recurring.save()
 
 def get_client_ip(request):
     return request.META.get("REMOTE_ADDR")

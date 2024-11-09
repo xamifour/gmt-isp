@@ -1,3 +1,5 @@
+'''Django==5.1.2, Django==4.2.7'''
+
 import os
 import sys
 import environ
@@ -17,15 +19,16 @@ env.read_env() # read the .env file
 DEBUG = env.str('DEBUG') == '1' # 1 means True, 0 means False
 SECRET_KEY = env.str('SECRET_KEY', default='98Yt4}56^&%@!+)7748*&_?><HT]E~lrl%606sm{ticbu20=pv{r')
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
-# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', ['*'],]
+# ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '192.168.31.81'])
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '*']
+# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.8.102']
 
 TESTING = sys.argv[1] == 'test'
 PARALLEL = '--parallel' in sys.argv
 SHELL = 'shell' in sys.argv or 'shell_plus' in sys.argv
 SAMPLE_APP = os.environ.get('SAMPLE_APP', False)
 
-OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.0.0/24']
+OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 OPENWISP_RADIUS_COA_ENABLED = True
 OPENWISP_RADIUS_ALLOWED_MOBILE_PREFIXES = ['+44', '+39', '+237', '+595', '+233']
 
@@ -60,12 +63,13 @@ THIRD_PARTY_APPS = [
     'private_storage',
     'drf_yasg',
     # 'related_admin',
-    'payments',
+    # 'payments',
     'sequences',
     'django_extensions',
     # 'integrations',
     'djangosaml2',
     'widget_tweaks',
+    'django_recaptcha',
     # 'registration',
 ]
 LOCAL_APPS = [
@@ -95,7 +99,7 @@ AUTH_USER_MODEL = 'openwisp_users.User'
 LOGIN_URL = 'account_login'
 LOGIN_REDIRECT_URL = '/dashboard/'
 # LOGOUT_URL = '/logout/'
-LOGOUT_REDIRECT_URL = 'account_login'
+# LOGOUT_REDIRECT_URL = 'account_login'
 # BASE_URL='http://127.0.0.1:8000'
 
 MIDDLEWARE = [
@@ -104,6 +108,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # 'allauth.account.middleware.AccountMiddleware',
     'sesame.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -157,14 +162,6 @@ SAML_CREATE_UNKNOWN_USER = True
 SAML_CONFIG = {}
 
 # ---------------------------------------------- database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-        'ATOMIC_REQUESTS': True,
-    }
-}
-
 if TESTING:
     DATABASES = {
         'default': {
@@ -172,10 +169,8 @@ if TESTING:
             'NAME': ':memory:',
         }
     }
-
-# try:
-#     from .db import *
-# except ImportError:
+    
+# if DEBUG:    
 #     DATABASES = {
 #         'default': {
 #             'ENGINE': 'django.db.backends.sqlite3',
@@ -183,6 +178,12 @@ if TESTING:
 #             'ATOMIC_REQUESTS': True,
 #         }
 #     }
+
+try:
+    from .db import *
+except ImportError:
+    raise
+
 
 # ---------------------------------------------- logging
 LOGGING = {
@@ -436,8 +437,11 @@ CACHES = {
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
-SESSION_COOKIE_SECURE = True
+# SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = False #For local testing without HTTPS
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# SESSION_COOKIE_DOMAIN = None
+
 
 SENDSMS_BACKEND = 'sendsms.backends.console.SmsBackend'
 if TESTING:
@@ -574,6 +578,8 @@ PAYSTACK_PUBLIC_KEY = os.getenv('PAYSTACK_PUBLIC_KEY')
 PAYSTACK_CALLBACK_URL = 'http://127.0.0.1/payment/verify/'
 # PAYSTACK_CALLBACK_URL = 'https://yourdomain.com/payment/verify/'
 
+RECAPTCHA_PUBLIC_KEY = os.getenv('RECAPTCHA_SITE_KEY')
+RECAPTCHA_PRIVATE_KEY = os.getenv('RECAPTCHA_SECRET_KEY')
 
 # ---------------------------------------------- debug_toolbar
 # debug_toolbar

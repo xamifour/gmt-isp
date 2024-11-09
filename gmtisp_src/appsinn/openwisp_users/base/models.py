@@ -65,7 +65,7 @@ class AbstractUser(BaseUser, UUIDModel):
 
     class Meta(BaseUser.Meta):
         abstract = True
-        index_together = ('id', 'email')
+        indexes = [models.Index(fields=['id', 'email']), ]
 
     @staticmethod
     def _get_pk(obj):

@@ -1,0 +1,92 @@
+Start freeradius in debug mode
+# we need to stop the main freeradius process first
+service freeradius stop
+# alternatively if you are using systemd
+systemctl stop freeradius
+# launch freeradius in debug mode
+freeradius -X
+
+Verify that the Port is Free: After stopping the service, check again to see if the port is now free:
+sudo lsof -i :18120
+root@ka-ubuntu22:/home/ka# sudo lsof -i :18120
+COMMAND    PID    USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+freeradiu 8351 freerad   27u  IPv4 151548      0t0  UDP localhost:18120 
+root@ka-ubuntu22:/home/ka# sudo kill -9 8351
+
+
+
+To start the PostgreSQL server on Ubuntu, follow these steps:
+
+Open the Terminal: You can find it in your applications menu or press Ctrl + Alt + T.
+Start the PostgreSQL Service: Use the following command to start the PostgreSQL service:
+sudo systemctl start postgresql
+
+Enable the Service at Boot (optional): If you want PostgreSQL to start automatically on boot, run:
+sudo systemctl enable postgresql
+Check the Status: To verify that the server is running, use:
+sudo systemctl status postgresql
+Access PostgreSQL: If you need to log into the PostgreSQL prompt, you can switch to the postgres user and start the PostgreSQL command line interface:
+sudo -i -u postgres psql
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# freeradius installed location my mac OS /usr/local/etc/raddb
+
+
+# OpenWISP settings
+ln -s /usr/local/etc/raddb/mods-available/rest /usr/local/etc/raddb/mods-enabled/rest
+ln -s /usr/local/etc/raddb/mods-available/sql /usr/local/etc/raddb/mods-enabled/sql
+
+# Additional configuration files are in the
+/usr/local/etc/raddb/sites-available/
+
+
+# Default locations used by the radius server are configured
+# Or The main configuration file for FreeRADIUS is located at 
+/usr/local/etc/raddb/radiusd.conf
+
+# The defualt server site config is in
+/usr/local/etc/raddb/sites-enabled/default
+
+# Adding a user 
+/usr/local/etc/raddb/mods-config/files/authorize
+
+#	The logs are usually located in 
+/usr/local/var/log/radius/radius.log
+
+
+
+#	Test
+radtest ka aaaAAA123 localhost 0 testing123
+
+
+
+
+
+1. user profile may have "Is new installation" field, to determine if setup cost should be added
+ to the plan cost, for new installation users

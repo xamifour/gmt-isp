@@ -533,6 +533,11 @@ class AbstractRadiusPostAuth(OrgMixin, UUIDModel):
 
     def __str__(self):
         return str(self.username)
+        
+    # def save(self, *args, **kwargs):
+    #     if not self.id:
+    #         self.id = uuid.uuid4()  # Explicitly set the UUID if not already set
+    #     super().save(*args, **kwargs)
 
 
 def _get_csv_file_location(instance, filename):
@@ -911,11 +916,14 @@ class AbstractPhoneToken(TimeStampedEditableModel):
     phone_number = PhoneNumberField(blank=False, null=False)
 
     class Meta:
+        abstract = True
         verbose_name = _('Phone verification token')
         verbose_name_plural = _('Phone verification tokens')
         ordering = ('-created',)
-        index_together = (('user', 'created'), ('user', 'created', 'ip'))
-        abstract = True
+        indexes = [
+            models.Index(fields=['user', 'created']),
+            models.Index(fields=['user', 'created', 'ip']),
+        ]
 
     def clean(self):
         if not hasattr(self, 'user'):

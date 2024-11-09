@@ -8,6 +8,9 @@ from allauth.account.models import EmailAddress
 from django.contrib.auth.forms import UserCreationForm as BaseUserCreationForm, UserChangeForm as BaseUserChangeForm
 from .models import User, Organization, OrganizationOwner, OrganizationUser
 
+from django_recaptcha.fields import ReCaptchaField
+
+
 class RequiredInlineFormSet(BaseInlineFormSet):
     def _construct_form(self, i, **kwargs):
         form = super()._construct_form(i, **kwargs)
@@ -17,12 +20,21 @@ class RequiredInlineFormSet(BaseInlineFormSet):
 class UserFormMixin(forms.ModelForm):
     email = forms.EmailField(label=_('Email'), max_length=254, required=True)
 
+    # def validate_user_groups(self, data):
+    #     is_staff = data.get('is_staff')
+    #     is_superuser = data.get('is_superuser')
+    #     groups = data.get('groups')
+    #     if is_staff and not is_superuser and not groups:
+    #         raise ValidationError({'groups': _('A staff user must belong to a group, please select one.')})
     def validate_user_groups(self, data):
         is_staff = data.get('is_staff')
         is_superuser = data.get('is_superuser')
         groups = data.get('groups')
-        if is_staff and not is_superuser and not groups:
-            raise ValidationError({'groups': _('A staff user must belong to a group, please select one.')})
+        
+        if is_staff and not is_superuser:
+            # Check if groups contain any valid IDs
+            if not groups or (isinstance(groups, list) and all(g.pk is None for g in groups)):
+                raise ValidationError({'groups': _('A staff user must belong to a group, please select one.')})
 
     def clean(self):
         cleaned_data = super().clean()
