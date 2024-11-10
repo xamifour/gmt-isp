@@ -1,5 +1,5 @@
 # radtest <username> <password> <host> 10 <secret>
-radtest test1 aaaAAA123 localhost 0 testing1234567890
+radtest testa aaaAAA123 localhost 0 @testing1234567890
 
 
 user="test1"

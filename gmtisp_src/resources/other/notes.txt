@@ -1,3 +1,5 @@
+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
+
 Start freeradius in debug mode
 # we need to stop the main freeradius process first
 service freeradius stop
