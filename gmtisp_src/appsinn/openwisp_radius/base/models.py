@@ -169,7 +169,7 @@ _PASSWORD_RESET_URL_HELP_TEXT = _('Enter the URL where users can reset their pas
 OPTIONAL_SETTINGS = app_settings.OPTIONAL_REGISTRATION_FIELDS
 
 
-class AutoUsernameMixin:
+class AutoUsernameMixin(object):
     def clean(self):
         """
         automatically sets username
@@ -194,7 +194,7 @@ class AutoUsernameMixin:
         return super().clean()
 
 
-class AutoGroupnameMixin:
+class AutoGroupnameMixin(object):
     def clean(self):
         """
         automatically sets groupname
@@ -208,7 +208,7 @@ class AutoGroupnameMixin:
             )
 
 
-class AttributeValidationMixin:
+class AttributeValidationMixin(object):
     def _get_validation_queryset_kwargs(self):
         raise NotImplementedError
 
@@ -263,12 +263,33 @@ class GroupAttributeValidationMixin(AttributeValidationMixin):
         ) % {'object_name': self._object_name}
 
 
-class AbstractRadiusCheck(OrgMixin, AutoUsernameMixin, UserAttributeValidationMixin, TimeStampedEditableModel):
-    username = models.CharField(verbose_name=_('username'), max_length=64, db_index=True, blank=True)  # blank values are forbidden with custom validation
+class AbstractRadiusCheck(
+    OrgMixin, AutoUsernameMixin, UserAttributeValidationMixin, TimeStampedEditableModel
+):
+    username = models.CharField(
+        verbose_name=_('username'),
+        max_length=64,
+        db_index=True,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the user
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
     value = models.CharField(verbose_name=_('value'), max_length=253)
-    op = models.CharField(verbose_name=_('operator'), max_length=2, choices=RADOP_CHECK_TYPES, default=':=') 
-    attribute = models.CharField(verbose_name=_('attribute'), max_length=64)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)  # the foreign key is not part of the standard freeradius schema
+    op = models.CharField(
+        verbose_name=_('operator'),
+        max_length=2,
+        choices=RADOP_CHECK_TYPES,
+        default=':=',
+    )
+    attribute = models.CharField(
+        verbose_name=_('attribute'),
+        max_length=64,
+    )
+    # the foreign key is not part of the standard freeradius schema
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True
+    )
 
     class Meta:
         db_table = 'radcheck'
@@ -280,12 +301,27 @@ class AbstractRadiusCheck(OrgMixin, AutoUsernameMixin, UserAttributeValidationMi
         return self.username
 
 
-class AbstractRadiusReply(OrgMixin, AutoUsernameMixin, UserAttributeValidationMixin, TimeStampedEditableModel):
-    username = models.CharField(verbose_name=_('username'), max_length=64, db_index=True, blank=True)  # blank values are forbidden with custom validation
+class AbstractRadiusReply(
+    OrgMixin, AutoUsernameMixin, UserAttributeValidationMixin, TimeStampedEditableModel
+):
+    username = models.CharField(
+        verbose_name=_('username'),
+        max_length=64,
+        db_index=True,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the user
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
     value = models.CharField(verbose_name=_('value'), max_length=253)
-    op = models.CharField(verbose_name=_('operator'), max_length=2, choices=RADOP_REPLY_TYPES, default='=') 
+    op = models.CharField(
+        verbose_name=_('operator'), max_length=2, choices=RADOP_REPLY_TYPES, default='='
+    )
     attribute = models.CharField(verbose_name=_('attribute'), max_length=64)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)  # the foreign key is not part of the standard freeradius schema
+    # the foreign key is not part of the standard freeradius schema
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True
+    )
 
     class Meta:
         db_table = 'radreply'
@@ -297,35 +333,181 @@ class AbstractRadiusReply(OrgMixin, AutoUsernameMixin, UserAttributeValidationMi
         return self.username
 
 
-class AbstractRadiusAccounting(OrgMixin):
-    session_id = models.CharField(verbose_name=_('session ID'), max_length=64, db_column='acctsessionid', db_index=True)
-    unique_id = models.CharField(verbose_name=_('accounting unique ID'), max_length=32, db_column='acctuniqueid', unique=True, primary_key=True)
-    username = models.CharField(verbose_name=_('username'), max_length=64, db_index=True, null=True, blank=True)
-    groupname = models.CharField(verbose_name=_('group name'), max_length=64, null=True, blank=True)
-    realm = models.CharField(verbose_name=_('realm'), max_length=64, null=True, blank=True)
-    nas_ip_address = models.GenericIPAddressField(verbose_name=_('NAS IP address'), db_column='nasipaddress', db_index=True)
-    nas_port_id = models.CharField(verbose_name=_('NAS port ID'), max_length=15, db_column='nasportid', null=True, blank=True)
-    nas_port_type = models.CharField(verbose_name=_('NAS port type'), max_length=32, db_column='nasporttype', null=True, blank=True)
-    start_time = models.DateTimeField(verbose_name=_('start time'), db_column='acctstarttime', db_index=True, null=True, blank=True)
-    update_time = models.DateTimeField(verbose_name=_('update time'), db_column='acctupdatetime', null=True, blank=True)
-    stop_time = models.DateTimeField(verbose_name=_('stop time'), db_column='acctstoptime', db_index=True, null=True, blank=True)
-    interval = models.IntegerField(verbose_name=_('interval'), db_column='acctinterval', null=True, blank=True)
-    session_time = models.PositiveIntegerField(verbose_name=_('session time'), db_column='acctsessiontime', null=True, blank=True)
-    authentication = models.CharField(verbose_name=_('authentication'), max_length=32, db_column='acctauthentic', null=True, blank=True)
-    connection_info_start = models.CharField(verbose_name=_('connection info start'), max_length=50, db_column='connectinfo_start', null=True, blank=True)
-    connection_info_stop = models.CharField(verbose_name=_('connection info stop'), max_length=50, db_column='connectinfo_stop', null=True, blank=True)
-    input_octets = models.BigIntegerField(verbose_name=_('input octets'), db_column='acctinputoctets', null=True, blank=True)
-    output_octets = models.BigIntegerField(verbose_name=_('output octets'), db_column='acctoutputoctets', null=True, blank=True)
-    called_station_id = models.CharField(verbose_name=_('called station ID'), max_length=50, db_column='calledstationid', db_index=True, blank=True, null=True)
-    calling_station_id = models.CharField(verbose_name=_('calling station ID'), max_length=50, db_column='callingstationid', db_index=True, blank=True, null=True)
-    terminate_cause = models.CharField(verbose_name=_('termination cause'), max_length=32, db_column='acctterminatecause', blank=True, null=True)
-    service_type = models.CharField(verbose_name=_('service type'), max_length=32, db_column='servicetype', null=True, blank=True)
-    framed_protocol = models.CharField(verbose_name=_('framed protocol'), max_length=32, db_column='framedprotocol', null=True, blank=True)
-    framed_ip_address = models.GenericIPAddressField(verbose_name=_('framed IP address'), db_column='framedipaddress', null=True, blank=True)  # the default MySQL freeradius schema defines this as NOT NULL but defaulting to empty string but that wouldn't work on PostgreSQL
-    framed_ipv6_address = models.GenericIPAddressField(verbose_name=_('framed IPv6 address'), db_column='framedipv6address', protocol='IPv6', null=True, blank=True)
-    framed_ipv6_prefix = models.CharField(verbose_name=_('framed IPv6 prefix'), max_length=44, db_column='framedipv6prefix', validators=[ipv6_network_validator], null=True, blank=True)
-    framed_interface_id = models.CharField(verbose_name=_('framed interface ID'), max_length=19, db_column='framedinterfaceid', null=True, blank=True)
-    delegated_ipv6_prefix = models.CharField(verbose_name=_('delegated IPv6 prefix'), max_length=44, db_column='delegatedipv6prefix', validators=[ipv6_network_validator], null=True, blank=True)
+class AbstractRadiusAccounting(OrgMixin, models.Model):
+    session_id = models.CharField(
+        verbose_name=_('session ID'),
+        max_length=64,
+        db_column='acctsessionid',
+        db_index=True,
+    )
+    unique_id = models.CharField(
+        verbose_name=_('accounting unique ID'),
+        max_length=32,
+        db_column='acctuniqueid',
+        unique=True,
+        primary_key=True,
+    )
+    username = models.CharField(
+        verbose_name=_('username'), max_length=64, db_index=True, null=True, blank=True
+    )
+    groupname = models.CharField(
+        verbose_name=_('group name'), max_length=64, null=True, blank=True
+    )
+    realm = models.CharField(
+        verbose_name=_('realm'), max_length=64, null=True, blank=True
+    )
+    nas_ip_address = models.GenericIPAddressField(
+        verbose_name=_('NAS IP address'), db_column='nasipaddress', db_index=True
+    )
+    nas_port_id = models.CharField(
+        verbose_name=_('NAS port ID'),
+        max_length=15,
+        db_column='nasportid',
+        null=True,
+        blank=True,
+    )
+    nas_port_type = models.CharField(
+        verbose_name=_('NAS port type'),
+        max_length=32,
+        db_column='nasporttype',
+        null=True,
+        blank=True,
+    )
+    start_time = models.DateTimeField(
+        verbose_name=_('start time'),
+        db_column='acctstarttime',
+        db_index=True,
+        null=True,
+        blank=True,
+    )
+    update_time = models.DateTimeField(
+        verbose_name=_('update time'), db_column='acctupdatetime', null=True, blank=True
+    )
+    stop_time = models.DateTimeField(
+        verbose_name=_('stop time'),
+        db_column='acctstoptime',
+        db_index=True,
+        null=True,
+        blank=True,
+    )
+    interval = models.IntegerField(
+        verbose_name=_('interval'), db_column='acctinterval', null=True, blank=True
+    )
+    session_time = models.PositiveIntegerField(
+        verbose_name=_('session time'),
+        db_column='acctsessiontime',
+        null=True,
+        blank=True,
+    )
+    authentication = models.CharField(
+        verbose_name=_('authentication'),
+        max_length=32,
+        db_column='acctauthentic',
+        null=True,
+        blank=True,
+    )
+    connection_info_start = models.CharField(
+        verbose_name=_('connection info start'),
+        max_length=50,
+        db_column='connectinfo_start',
+        null=True,
+        blank=True,
+    )
+    connection_info_stop = models.CharField(
+        verbose_name=_('connection info stop'),
+        max_length=50,
+        db_column='connectinfo_stop',
+        null=True,
+        blank=True,
+    )
+    input_octets = models.BigIntegerField(
+        verbose_name=_('input octets'),
+        db_column='acctinputoctets',
+        null=True,
+        blank=True,
+    )
+    output_octets = models.BigIntegerField(
+        verbose_name=_('output octets'),
+        db_column='acctoutputoctets',
+        null=True,
+        blank=True,
+    )
+    called_station_id = models.CharField(
+        verbose_name=_('called station ID'),
+        max_length=50,
+        db_column='calledstationid',
+        db_index=True,
+        blank=True,
+        null=True,
+    )
+    calling_station_id = models.CharField(
+        verbose_name=_('calling station ID'),
+        max_length=50,
+        db_column='callingstationid',
+        db_index=True,
+        blank=True,
+        null=True,
+    )
+    terminate_cause = models.CharField(
+        verbose_name=_('termination cause'),
+        max_length=32,
+        db_column='acctterminatecause',
+        blank=True,
+        null=True,
+    )
+    service_type = models.CharField(
+        verbose_name=_('service type'),
+        max_length=32,
+        db_column='servicetype',
+        null=True,
+        blank=True,
+    )
+    framed_protocol = models.CharField(
+        verbose_name=_('framed protocol'),
+        max_length=32,
+        db_column='framedprotocol',
+        null=True,
+        blank=True,
+    )
+    framed_ip_address = models.GenericIPAddressField(
+        verbose_name=_('framed IP address'),
+        db_column='framedipaddress',
+        # the default MySQL freeradius schema defines
+        # this as NOT NULL but defaulting to empty string
+        # but that wouldn't work on PostgreSQL
+        null=True,
+        blank=True,
+    )
+    framed_ipv6_address = models.GenericIPAddressField(
+        verbose_name=_('framed IPv6 address'),
+        db_column='framedipv6address',
+        protocol='IPv6',
+        null=True,
+        blank=True,
+    )
+    framed_ipv6_prefix = models.CharField(
+        verbose_name=_('framed IPv6 prefix'),
+        max_length=44,
+        db_column='framedipv6prefix',
+        validators=[ipv6_network_validator],
+        null=True,
+        blank=True,
+    )
+    framed_interface_id = models.CharField(
+        verbose_name=_('framed interface ID'),
+        max_length=19,
+        db_column='framedinterfaceid',
+        null=True,
+        blank=True,
+    )
+    delegated_ipv6_prefix = models.CharField(
+        verbose_name=_('delegated IPv6 prefix'),
+        max_length=44,
+        db_column='delegatedipv6prefix',
+        validators=[ipv6_network_validator],
+        null=True,
+        blank=True,
+    )
 
     def save(self, *args, **kwargs):
         if not self.start_time:
@@ -365,15 +547,32 @@ class AbstractRadiusAccounting(OrgMixin):
 
 
 class AbstractNas(OrgMixin, TimeStampedEditableModel):
-    name = models.CharField(verbose_name=_('name'), max_length=128, help_text=_('NAS Name (or IP address)'), db_index=True, db_column='nasname')
-    short_name = models.CharField(verbose_name=_('short name'), max_length=32, db_column='shortname')
-    type = models.CharField(verbose_name=_('type'), max_length=30, default='other', choices=RAD_NAS_TYPES)
+    name = models.CharField(
+        verbose_name=_('name'),
+        max_length=128,
+        help_text=_('NAS Name (or IP address)'),
+        db_index=True,
+        db_column='nasname',
+    )
+    short_name = models.CharField(
+        verbose_name=_('short name'), max_length=32, db_column='shortname'
+    )
+    type = models.CharField(
+        verbose_name=_('type'), max_length=30, default='other', choices=RAD_NAS_TYPES
+    )
     ports = models.PositiveIntegerField(verbose_name=_('ports'), blank=True, null=True)
-    secret = models.CharField(verbose_name=_('secret'), max_length=60, help_text=_('Shared Secret'))
-    server = models.CharField(verbose_name=_('server'), max_length=64, blank=True, null=True)
-    community = models.CharField(verbose_name=_('community'), max_length=50, blank=True, null=True)
-    description = models.CharField(verbose_name=_('description'), max_length=200, null=True, blank=True)
-    gps_loc = models.CharField(verbose_name=_('GPS location'), max_length=128, blank=True, null=True)
+    secret = models.CharField(
+        verbose_name=_('secret'), max_length=60, help_text=_('Shared Secret')
+    )
+    server = models.CharField(
+        verbose_name=_('server'), max_length=64, blank=True, null=True
+    )
+    community = models.CharField(
+        verbose_name=_('community'), max_length=50, blank=True, null=True
+    )
+    description = models.CharField(
+        verbose_name=_('description'), max_length=200, null=True, blank=True
+    )
 
     class Meta:
         db_table = 'nas'
@@ -391,10 +590,20 @@ class AbstractRadiusGroup(OrgMixin, TimeStampedEditableModel):
     It's added to facilitate the management of groups.
     """
 
-    name = models.CharField(verbose_name=_('group name'), max_length=255, unique=True, db_index=True)
-    description = models.CharField(verbose_name=_('description'), max_length=64, blank=True, null=True)
-    _DEFAULT_HELP_TEXT = ('The default group is automatically assigned to new users; changing the default group has only effect on new users (existing users will keep being members of their current group)')
-    default = models.BooleanField(verbose_name=_('is default?'), help_text=_(_DEFAULT_HELP_TEXT), default=False)
+    name = models.CharField(
+        verbose_name=_('group name'), max_length=255, unique=True, db_index=True
+    )
+    description = models.CharField(
+        verbose_name=_('description'), max_length=64, blank=True, null=True
+    )
+    _DEFAULT_HELP_TEXT = (
+        'The default group is automatically assigned to new users; '
+        'changing the default group has only effect on new users '
+        '(existing users will keep being members of their current group)'
+    )
+    default = models.BooleanField(
+        verbose_name=_('is default?'), help_text=_(_DEFAULT_HELP_TEXT), default=False
+    )
 
     class Meta:
         verbose_name = _('group')
@@ -465,12 +674,36 @@ class AbstractRadiusGroup(OrgMixin, TimeStampedEditableModel):
         )
 
 
-class AbstractRadiusUserGroup(AutoGroupnameMixin, AutoUsernameMixin, TimeStampedEditableModel):
-    username = models.CharField(verbose_name=_('username'), max_length=64, db_index=True, blank=True)  # blank values are forbidden with custom validation
-    groupname = models.CharField(verbose_name=_('group name'), max_length=64, blank=True)  # blank values are forbidden with custom validation
+class AbstractRadiusUserGroup(
+    AutoGroupnameMixin, AutoUsernameMixin, TimeStampedEditableModel
+):
+    username = models.CharField(
+        verbose_name=_('username'),
+        max_length=64,
+        db_index=True,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the user
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
+    groupname = models.CharField(
+        verbose_name=_('group name'),
+        max_length=64,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the group
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
     priority = models.IntegerField(verbose_name=_('priority'), default=1)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)  # the foreign keys are not part of the standard freeradius schema, these are added here to facilitate the synchronization of the records which are related in different tables
-    group = models.ForeignKey('RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)
+    # the foreign keys are not part of the standard freeradius schema,
+    # these are added here to facilitate the synchronization of the
+    # records which are related in different tables
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True
+    )
+    group = models.ForeignKey(
+        'RadiusGroup', on_delete=models.CASCADE, blank=True, null=True
+    )
 
     class Meta:
         db_table = 'radusergroup'
@@ -483,12 +716,30 @@ class AbstractRadiusUserGroup(AutoGroupnameMixin, AutoUsernameMixin, TimeStamped
         return str(self.username)
 
 
-class AbstractRadiusGroupCheck(AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel):
-    groupname = models.CharField(verbose_name=_('group name'), max_length=64, db_index=True, blank=True)  # blank values are forbidden with custom validation
+class AbstractRadiusGroupCheck(
+    AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel
+):
+    groupname = models.CharField(
+        verbose_name=_('group name'),
+        max_length=64,
+        db_index=True,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the group
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
     attribute = models.CharField(verbose_name=_('attribute'), max_length=64)
-    op = models.CharField(verbose_name=_('operator'), max_length=2, choices=RADOP_CHECK_TYPES, default=':=') 
+    op = models.CharField(
+        verbose_name=_('operator'),
+        max_length=2,
+        choices=RADOP_CHECK_TYPES,
+        default=':=',
+    )
     value = models.CharField(verbose_name=_('value'), max_length=253)
-    group = models.ForeignKey('RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)  # the foreign key is not part of the standard freeradius schema
+    # the foreign key is not part of the standard freeradius schema
+    group = models.ForeignKey(
+        'RadiusGroup', on_delete=models.CASCADE, blank=True, null=True
+    )
 
     class Meta:
         db_table = 'radgroupcheck'
@@ -500,12 +751,27 @@ class AbstractRadiusGroupCheck(AutoGroupnameMixin, GroupAttributeValidationMixin
         return str(self.groupname)
 
 
-class AbstractRadiusGroupReply(AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel):
-    groupname = models.CharField(verbose_name=_('group name'), max_length=64, db_index=True, blank=True)  # blank values are forbidden with custom validation
+class AbstractRadiusGroupReply(
+    AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel
+):
+    groupname = models.CharField(
+        verbose_name=_('group name'),
+        max_length=64,
+        db_index=True,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the group
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
     attribute = models.CharField(verbose_name=_('attribute'), max_length=64)
-    op = models.CharField(verbose_name=_('operator'), max_length=2, choices=RADOP_REPLY_TYPES, default='=')
+    op = models.CharField(
+        verbose_name=_('operator'), max_length=2, choices=RADOP_REPLY_TYPES, default='='
+    )
     value = models.CharField(verbose_name=_('value'), max_length=253)
-    group = models.ForeignKey('RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)  # the foreign key is not part of the standard freeradius schema
+    # the foreign key is not part of the standard freeradius schema
+    group = models.ForeignKey(
+        'RadiusGroup', on_delete=models.CASCADE, blank=True, null=True
+    )
 
     class Meta:
         db_table = 'radgroupreply'
@@ -519,11 +785,27 @@ class AbstractRadiusGroupReply(AutoGroupnameMixin, GroupAttributeValidationMixin
 
 class AbstractRadiusPostAuth(OrgMixin, UUIDModel):
     username = models.CharField(verbose_name=_('username'), max_length=64)
-    password = models.CharField(verbose_name=_('password'), max_length=64, db_column='pass', blank=True)
+    password = models.CharField(
+        verbose_name=_('password'), max_length=64, db_column='pass', blank=True
+    )
     reply = models.CharField(verbose_name=_('reply'), max_length=32)
-    called_station_id = models.CharField(verbose_name=_('called station ID'), max_length=50, db_column='calledstationid', blank=True, null=True)
-    calling_station_id = models.CharField(verbose_name=_('calling station ID'), max_length=50, db_column='callingstationid', blank=True, null=True)
-    date = models.DateTimeField(verbose_name=_('date'), db_column='authdate', auto_now_add=True)
+    called_station_id = models.CharField(
+        verbose_name=_('called station ID'),
+        max_length=50,
+        db_column='calledstationid',
+        blank=True,
+        null=True,
+    )
+    calling_station_id = models.CharField(
+        verbose_name=_('calling station ID'),
+        max_length=50,
+        db_column='callingstationid',
+        blank=True,
+        null=True,
+    )
+    date = models.DateTimeField(
+        verbose_name=_('date'), db_column='authdate', auto_now_add=True
+    )
 
     class Meta:
         db_table = 'radpostauth'
@@ -546,13 +828,54 @@ def _get_csv_file_location(instance, filename):
 
 
 class AbstractRadiusBatch(OrgMixin, TimeStampedEditableModel):
-    strategy = models.CharField(_('strategy'), max_length=16, choices=_STRATEGIES, db_index=True, help_text=_('Import users from a CSV or generate using a prefix'))
-    name = models.CharField(verbose_name=_('name'), max_length=128, help_text=_('A unique batch name'), db_index=True, unique=False)
-    users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='radius_batch', help_text=_('List of users uploaded in this batch'))
-    csvfile = PrivateFileField(null=True, blank=True, verbose_name='CSV', storage=app_settings.PRIVATE_STORAGE_INSTANCE, upload_to=_get_csv_file_location, help_text=_('The csv file containing the user details to be uploaded'), max_file_size=app_settings.MAX_CSV_FILE_SIZE)
-    prefix = models.CharField(_('prefix'), null=True, blank=True, max_length=20, help_text=_('Usernames generated will be of the format [prefix][number]'))
-    user_credentials = JSONField(null=True, blank=True, verbose_name='PDF')  # List of usernames and passwords used to create PDF
-    expiration_date = models.DateField(verbose_name=_('expiration date'), null=True, blank=True, help_text=_('If left blank users will never expire'))
+    strategy = models.CharField(
+        _('strategy'),
+        max_length=16,
+        choices=_STRATEGIES,
+        db_index=True,
+        help_text=_('Import users from a CSV or generate using a prefix'),
+    )
+    name = models.CharField(
+        verbose_name=_('name'),
+        max_length=128,
+        help_text=_('A unique batch name'),
+        db_index=True,
+        unique=False,
+    )
+    users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name='radius_batch',
+        help_text=_('List of users uploaded in this batch'),
+    )
+    csvfile = PrivateFileField(
+        null=True,
+        blank=True,
+        verbose_name='CSV',
+        storage=app_settings.PRIVATE_STORAGE_INSTANCE,
+        upload_to=_get_csv_file_location,
+        help_text=_('The csv file containing the user details to be uploaded'),
+        max_file_size=app_settings.MAX_CSV_FILE_SIZE,
+    )
+    prefix = models.CharField(
+        _('prefix'),
+        null=True,
+        blank=True,
+        max_length=20,
+        help_text=_('Usernames generated will be of the format [prefix][number]'),
+    )
+    # List of usernames and passwords used to create PDF
+    user_credentials = JSONField(
+        null=True,
+        blank=True,
+        verbose_name='PDF',
+    )
+    expiration_date = models.DateField(
+        verbose_name=_('expiration date'),
+        null=True,
+        blank=True,
+        help_text=_('If left blank users will never expire'),
+    )
 
     class Meta:
         db_table = 'radbatch'
@@ -705,14 +1028,21 @@ class AbstractRadiusBatch(OrgMixin, TimeStampedEditableModel):
             self.csvfile.storage.delete(self.csvfile.name)
 
 
-class AbstractRadiusToken(OrgMixin, TimeStampedEditableModel):
+class AbstractRadiusToken(OrgMixin, TimeStampedEditableModel, models.Model):
     # key field is a primary key so additional id field will be redundant
     id = None
     # tokens are not supposed to be modified, can be regenerated if necessary
     modified = None
     key = models.CharField(_('Key'), max_length=40, primary_key=True)
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='radius_token')
-    can_auth = models.BooleanField(default=False, help_text=_('Enable the radius token to be used for freeradius authorization request'))
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='radius_token'
+    )
+    can_auth = models.BooleanField(
+        default=False,
+        help_text=(
+            'Enable the radius token to be used for freeradius authorization request'
+        ),
+    )
 
     class Meta:
         db_table = 'radiustoken'
@@ -741,28 +1071,177 @@ class AbstractRadiusToken(OrgMixin, TimeStampedEditableModel):
 
 
 class AbstractOrganizationRadiusSettings(UUIDModel):
-    organization = models.OneToOneField(swapper.get_model_name('openwisp_users', 'Organization'), verbose_name=_('organization'), related_name='radius_settings', on_delete=models.CASCADE)
+    organization = models.OneToOneField(
+        swapper.get_model_name('openwisp_users', 'Organization'),
+        verbose_name=_('organization'),
+        related_name='radius_settings',
+        on_delete=models.CASCADE,
+    )
     token = KeyField(max_length=32)
-    sms_verification = FallbackBooleanChoiceField(null=True, blank=True, default=None, help_text=_SMS_VERIFICATION_HELP_TEXT, fallback=app_settings.SMS_VERIFICATION_ENABLED, verbose_name=_('SMS verification'))
-    needs_identity_verification = FallbackBooleanChoiceField(null=True, blank=True, default=None, help_text=_IDENTITY_VERIFICATION_ENABLED_HELP_TEXT, fallback=app_settings.NEEDS_IDENTITY_VERIFICATION)
-    sms_sender = models.CharField(_('Sender'), max_length=128, blank=True, null=True, help_text=_('alpha numeric identifier used as sender for SMS sent by this organization'))
-    sms_message = FallbackTextField(_('SMS Message'), max_length=160, blank=True, null=True, help_text=_('SMS message template used for sending verification code. Must contain "{code}" placeholder for OTP value.'), fallback=app_settings.SMS_MESSAGE_TEMPLATE)
-    sms_cooldown = FallbackPositiveIntegerField(_('SMS Cooldown'), blank=True, null=True, help_text=_('Time period a user will have to wait before requesting another SMS token (in seconds).'), fallback=app_settings.SMS_COOLDOWN)
-    sms_meta_data = JSONField(null=True, blank=True, help_text=_('Additional configuration for SMS backend in JSON format (optional, leave blank if unsure)'), verbose_name=_('SMS meta data'))
-    freeradius_allowed_hosts = FallbackTextField(null=True, blank=True, help_text=_GET_IP_LIST_HELP_TEXT, default=','.join(app_settings.FREERADIUS_ALLOWED_HOSTS), fallback=','.join(app_settings.FREERADIUS_ALLOWED_HOSTS))
-    coa_enabled = FallbackBooleanChoiceField(null=True, blank=True, default=None, help_text=_COA_ENABLED_HELP_TEXT, fallback=app_settings.COA_ENABLED, verbose_name=_('CoA Enabled'))
-    allowed_mobile_prefixes = FallbackTextField(null=True, blank=True, help_text=_GET_MOBILE_PREFIX_HELP_TEXT, default=','.join(app_settings.ALLOWED_MOBILE_PREFIXES), fallback=','.join(app_settings.ALLOWED_MOBILE_PREFIXES))
-    first_name = FallbackCharChoiceField(verbose_name=_('first name'), help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT, max_length=12, null=True, blank=True, choices=OPTIONAL_FIELD_CHOICES, fallback=OPTIONAL_SETTINGS.get('first_name', None))
-    last_name = FallbackCharChoiceField(verbose_name=_('last name'), help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT, max_length=12, null=True, blank=True, choices=OPTIONAL_FIELD_CHOICES, fallback=OPTIONAL_SETTINGS.get('last_name', None))
-    location = FallbackCharChoiceField(verbose_name=_('location'), help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT, max_length=12, null=True, blank=True, choices=OPTIONAL_FIELD_CHOICES, fallback=OPTIONAL_SETTINGS.get('location', None))
-    birth_date = FallbackCharChoiceField(verbose_name=_('birth date'), help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT, max_length=12, null=True, blank=True, choices=OPTIONAL_FIELD_CHOICES, fallback=OPTIONAL_SETTINGS.get('birth_date', None))
-    registration_enabled = FallbackBooleanChoiceField(null=True, blank=True, default=None, help_text=_REGISTRATION_ENABLED_HELP_TEXT, fallback=app_settings.REGISTRATION_API_ENABLED)
-    saml_registration_enabled = FallbackBooleanChoiceField(null=True, blank=True, default=None, help_text=_SAML_REGISTRATION_ENABLED_HELP_TEXT, verbose_name=_('SAML registration enabled'), fallback=app_settings.SAML_REGISTRATION_ENABLED)
-    mac_addr_roaming_enabled = FallbackBooleanChoiceField(null=True, blank=True, default=None, help_text=_MAC_ADDR_ROAMING_ENABLED_HELP_TEXT, verbose_name=_('MAC address roaming enabled'), fallback=app_settings.MAC_ADDR_ROAMING_ENABLED)
-    social_registration_enabled = FallbackBooleanChoiceField(null=True, blank=True, default=None, help_text=_SOCIAL_REGISTRATION_ENABLED_HELP_TEXT, fallback=app_settings.SOCIAL_REGISTRATION_ENABLED)
-    login_url = models.URLField(verbose_name=_('Login URL'), null=True, blank=True, help_text=_LOGIN_URL_HELP_TEXT)
-    status_url = models.URLField(verbose_name=_('Status URL'), null=True, blank=True, help_text=_STATUS_URL_HELP_TEXT)
-    password_reset_url = FallbackCharField(verbose_name=_('Password reset URL'), null=True, blank=True, max_length=200, help_text=_PASSWORD_RESET_URL_HELP_TEXT, default=DEFAULT_PASSWORD_RESET_URL, fallback=DEFAULT_PASSWORD_RESET_URL, validators=[password_reset_url_validator])
+    sms_verification = FallbackBooleanChoiceField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_SMS_VERIFICATION_HELP_TEXT,
+        fallback=app_settings.SMS_VERIFICATION_ENABLED,
+        verbose_name=_('SMS verification'),
+    )
+    needs_identity_verification = FallbackBooleanChoiceField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_IDENTITY_VERIFICATION_ENABLED_HELP_TEXT,
+        fallback=app_settings.NEEDS_IDENTITY_VERIFICATION,
+    )
+    sms_sender = models.CharField(
+        _('Sender'),
+        max_length=128,
+        blank=True,
+        null=True,
+        help_text=_(
+            'alpha numeric identifier used as sender for SMS sent by this organization'
+        ),
+    )
+    sms_message = FallbackTextField(
+        _('SMS Message'),
+        max_length=160,
+        blank=True,
+        null=True,
+        help_text=_(
+            'SMS message template used for sending verification code.'
+            ' Must contain "{code}" placeholder for OTP value.'
+        ),
+        fallback=app_settings.SMS_MESSAGE_TEMPLATE,
+    )
+    sms_cooldown = FallbackPositiveIntegerField(
+        _('SMS Cooldown'),
+        blank=True,
+        null=True,
+        help_text=_(
+            'Time period a user will have to wait before requesting'
+            ' another SMS token (in seconds).'
+        ),
+        fallback=app_settings.SMS_COOLDOWN,
+    )
+    sms_meta_data = JSONField(
+        null=True,
+        blank=True,
+        help_text=_(
+            'Additional configuration for SMS backend in JSON format'
+            ' (optional, leave blank if unsure)'
+        ),
+        verbose_name=_('SMS meta data'),
+    )
+    freeradius_allowed_hosts = FallbackTextField(
+        null=True,
+        blank=True,
+        help_text=_GET_IP_LIST_HELP_TEXT,
+        default=','.join(app_settings.FREERADIUS_ALLOWED_HOSTS),
+        fallback=','.join(app_settings.FREERADIUS_ALLOWED_HOSTS),
+    )
+    coa_enabled = FallbackBooleanChoiceField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_COA_ENABLED_HELP_TEXT,
+        fallback=app_settings.COA_ENABLED,
+        verbose_name=_('CoA Enabled'),
+    )
+    allowed_mobile_prefixes = FallbackTextField(
+        null=True,
+        blank=True,
+        help_text=_GET_MOBILE_PREFIX_HELP_TEXT,
+        default=','.join(app_settings.ALLOWED_MOBILE_PREFIXES),
+        fallback=','.join(app_settings.ALLOWED_MOBILE_PREFIXES),
+    )
+    first_name = FallbackCharChoiceField(
+        verbose_name=_('first name'),
+        help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT,
+        max_length=12,
+        null=True,
+        blank=True,
+        choices=OPTIONAL_FIELD_CHOICES,
+        fallback=OPTIONAL_SETTINGS.get('first_name', None),
+    )
+    last_name = FallbackCharChoiceField(
+        verbose_name=_('last name'),
+        help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT,
+        max_length=12,
+        null=True,
+        blank=True,
+        choices=OPTIONAL_FIELD_CHOICES,
+        fallback=OPTIONAL_SETTINGS.get('last_name', None),
+    )
+    location = FallbackCharChoiceField(
+        verbose_name=_('location'),
+        help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT,
+        max_length=12,
+        null=True,
+        blank=True,
+        choices=OPTIONAL_FIELD_CHOICES,
+        fallback=OPTIONAL_SETTINGS.get('location', None),
+    )
+    birth_date = FallbackCharChoiceField(
+        verbose_name=_('birth date'),
+        help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT,
+        max_length=12,
+        null=True,
+        blank=True,
+        choices=OPTIONAL_FIELD_CHOICES,
+        fallback=OPTIONAL_SETTINGS.get('birth_date', None),
+    )
+    registration_enabled = FallbackBooleanChoiceField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_REGISTRATION_ENABLED_HELP_TEXT,
+        fallback=app_settings.REGISTRATION_API_ENABLED,
+    )
+    saml_registration_enabled = FallbackBooleanChoiceField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_SAML_REGISTRATION_ENABLED_HELP_TEXT,
+        verbose_name=_('SAML registration enabled'),
+        fallback=app_settings.SAML_REGISTRATION_ENABLED,
+    )
+    mac_addr_roaming_enabled = FallbackBooleanChoiceField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_MAC_ADDR_ROAMING_ENABLED_HELP_TEXT,
+        verbose_name=_('MAC address roaming enabled'),
+        fallback=app_settings.MAC_ADDR_ROAMING_ENABLED,
+    )
+    social_registration_enabled = FallbackBooleanChoiceField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_SOCIAL_REGISTRATION_ENABLED_HELP_TEXT,
+        fallback=app_settings.SOCIAL_REGISTRATION_ENABLED,
+    )
+    login_url = models.URLField(
+        verbose_name=_('Login URL'),
+        null=True,
+        blank=True,
+        help_text=_LOGIN_URL_HELP_TEXT,
+    )
+    status_url = models.URLField(
+        verbose_name=_('Status URL'),
+        null=True,
+        blank=True,
+        help_text=_STATUS_URL_HELP_TEXT,
+    )
+    password_reset_url = FallbackCharField(
+        verbose_name=_('Password reset URL'),
+        null=True,
+        blank=True,
+        max_length=200,
+        help_text=_PASSWORD_RESET_URL_HELP_TEXT,
+        default=DEFAULT_PASSWORD_RESET_URL,
+        fallback=DEFAULT_PASSWORD_RESET_URL,
+        validators=[password_reset_url_validator],
+    )
 
     class Meta:
         verbose_name = _('Organization radius settings')
@@ -1044,9 +1523,32 @@ class AbstractPhoneToken(TimeStampedEditableModel):
 
 
 class AbstractRegisteredUser(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='registered_user', primary_key=True)
-    method = models.CharField(_('registration method'), help_text=_('users can sign up in different ways, some methods are valid as indirect identity verification (eg: mobile phone SIM card in most countries)'), max_length=64, blank=True, default='', choices=REGISTRATION_METHOD_CHOICES)
-    is_verified = models.BooleanField(_('verified'), help_text=_('whether the user has completed any identity verification process successfully'), default=False)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='registered_user',
+        primary_key=True,
+    )
+    method = models.CharField(
+        _('registration method'),
+        help_text=_(
+            'users can sign up in different ways, some methods are valid as '
+            'indirect identity verification (eg: mobile phone SIM card in '
+            'most countries)'
+        ),
+        max_length=64,
+        blank=True,
+        default='',
+        choices=REGISTRATION_METHOD_CHOICES,
+    )
+    is_verified = models.BooleanField(
+        _('verified'),
+        help_text=_(
+            'whether the user has completed any identity '
+            'verification process sucessfully'
+        ),
+        default=False,
+    )
     modified = AutoLastModifiedField(_('Last verification change'), editable=True)
     _weak_verification_methods = {'', 'email'}
 
@@ -1063,10 +1565,7 @@ class AbstractRegisteredUser(models.Model):
     def unverify_inactive_users(cls):
         if not app_settings.UNVERIFY_INACTIVE_USERS:
             return
-        # Exclude users who have unspecified, manual, or email
-        # registration method because such users don't have an option
-        # to re-verify. See https://github.com/openwisp/openwisp-radius/issues/517
-        cls.objects.exclude(method__in=['', 'manual', 'email']).filter(
+        cls.objects.filter(
             user__is_staff=False,
             user__last_login__lt=timezone.now()
             - timedelta(days=app_settings.UNVERIFY_INACTIVE_USERS),
@@ -1076,16 +1575,8 @@ class AbstractRegisteredUser(models.Model):
     def delete_inactive_users(cls):
         if not app_settings.DELETE_INACTIVE_USERS:
             return
-        cutoff_date = timezone.now() - timedelta(
-            days=app_settings.DELETE_INACTIVE_USERS
-        )
         User.objects.filter(
-            Q(is_staff=False)
-            & (
-                Q(last_login__lt=cutoff_date)
-                |
-                # There could be manually created users which never logged in.
-                # We use the "date_joined" field for such users.
-                Q(last_login__isnull=True, date_joined__lt=cutoff_date)
-            )
+            is_staff=False,
+            last_login__lt=timezone.now()
+            - timedelta(days=app_settings.DELETE_INACTIVE_USERS),
         ).delete()

@@ -17,8 +17,9 @@ env.read_env() # read the .env file
 DEBUG = env.str('DEBUG') == '1' # 1 means True, 0 means False
 SECRET_KEY = env.str('SECRET_KEY', default='98Yt4}56^&%@!+)7748*&_?><HT]E~lrl%606sm{ticbu20=pv{r')
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
-# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', ['*'],]
+# ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
+# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '*']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.88.252', '192.168.8.100']
 
 TESTING = sys.argv[1] == 'test'
 PARALLEL = '--parallel' in sys.argv
