@@ -1,3 +1,26 @@
+Main css: colors
+
+text for links (active, hover)
+df5d43 - original
+900C3F - a
+5DADE2 - b
+
+menu background (active, hover)
+ffe5e5 - original
+F5D2EC - a
+D6EAF8 -b
+
+menu-group.active {
+  background: #fdf2f2; - original
+  background: #F1CAE7; - a
+}
+.mg-dropdown {
+  background: #fdf2f2; - original
+  background: #F5EBF3; -a
+}
+
+
+
 
 # freeradius installed location my mac OS /usr/local/etc/raddb
 
@@ -26,7 +49,7 @@ ln -s /usr/local/etc/raddb/mods-available/sql /usr/local/etc/raddb/mods-enabled/
 
 
 #	Test
-radtest ka aaaAAA123 localhost 0 testing123
+radtest ka 123 localhost 0 testing123
 
 
 

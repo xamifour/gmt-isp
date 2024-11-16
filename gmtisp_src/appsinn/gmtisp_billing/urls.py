@@ -4,7 +4,7 @@ from django.urls import path
 from .views import (
     AccountActivationView,
     PlanListView,
-    BillingInfoCreateOrUpdateView,
+    # BillingInfoCreateOrUpdateView,
     BillingInfoDeleteView,
     ChangePlanView,
     CreateOrderPlanChangeView,
@@ -48,7 +48,7 @@ urlpatterns = [
     path('order~/<uuid:pk>/payment~success/', OrderPaymentReturnView.as_view(status="success"), name='order_payment_success'),
     path('order~/<uuid:pk>/payment~failure/', OrderPaymentReturnView.as_view(status="failure"), name='order_payment_failure'),
     
-    path('billing~info/', BillingInfoCreateOrUpdateView.as_view(), name='billing_info'),
+    # path('billing~info/', BillingInfoCreateOrUpdateView.as_view(), name='billing_info'),
     path('billing~info/redirect/', RedirectToBilling.as_view(), name='redirect_to_billing'),
     path('billing~info/delete/', BillingInfoDeleteView.as_view(), name='billing_info_delete'),
 

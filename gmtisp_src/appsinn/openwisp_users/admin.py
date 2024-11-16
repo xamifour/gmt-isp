@@ -536,6 +536,14 @@ class OrganizationUserFilter(MultitenantOrgFilter):
             )
         return queryset
 
+    def queryset(self, request, queryset):
+        # Check if the organization is saved
+        if self.value() and Organization.objects.filter(pk=self.value()).exists():
+            queryset = queryset.filter(
+                openwisp_users_organizationuser__organization=self.value()
+            )
+        return queryset
+
 
 base_fields = list(UserAdmin.fieldsets[1][1]['fields'])
 additional_fields = ['bio', 'url', 'company', 'location', 'phone_number', 'birth_date']

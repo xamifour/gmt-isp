@@ -20,7 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import Http404, HttpResponseForbidden, HttpResponseRedirect, JsonResponse
 
 from swapper import load_model
-from next_url_mixin.mixin import NextUrlMixin
+# from next_url_mixin.mixin import NextUrlMixin
 from openwisp_utils.mixins import MultiTenantMixin, SuperuserPermissionMixin, OrganizationDbAdminMixin
 
 from .forms import BillingInfoForm, CreateOrderForm, PaymentForm
@@ -477,26 +477,26 @@ class CreateOrUpdateView(
         return super().post(request, *args, **kwargs)
 
 
-class BillingInfoCreateOrUpdateView(
-    NextUrlMixin, SuccessUrlMixin, LoginRequiredMixin, CreateOrUpdateView
-):
-    form_class = BillingInfoForm
-    template_name = "gmtisp_billing/billings/billing_info_create_or_update.html"
+# class BillingInfoCreateOrUpdateView(
+#     NextUrlMixin, SuccessUrlMixin, LoginRequiredMixin, CreateOrUpdateView
+# ):
+#     form_class = BillingInfoForm
+#     template_name = "gmtisp_billing/billings/billing_info_create_or_update.html"
 
-    def get_object(self):
-        try:
-            return self.request.user.billinginfo
-        except (AttributeError, BillingInfo.DoesNotExist):
-            return None
+#     def get_object(self):
+#         try:
+#             return self.request.user.billinginfo
+#         except (AttributeError, BillingInfo.DoesNotExist):
+#             return None
 
-    def form_valid(self, form):
-        form.instance.user = self.request.user
-        return super().form_valid(form)
+#     def form_valid(self, form):
+#         form.instance.user = self.request.user
+#         return super().form_valid(form)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs.update(request=self.request)
-        return kwargs
+#     def get_form_kwargs(self):
+#         kwargs = super().get_form_kwargs()
+#         kwargs.update(request=self.request)
+#         return kwargs
 
 
 class RedirectToBilling(RedirectView):

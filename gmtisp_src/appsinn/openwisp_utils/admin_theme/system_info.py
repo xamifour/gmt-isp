@@ -1,7 +1,7 @@
 import platform
 from collections import OrderedDict
 
-import pkg_resources
+# import pkg_resources
 from django.conf import settings
 from django.utils.module_loading import import_string
 

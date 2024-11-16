@@ -1,772 +1,899 @@
-Instrutions:
-This project is used to manage contents from multiple Organisations.
-Using get_db_for_organization and get_db_for_user function to ensure that each organization's data 
-is stored in and retrieved from its respective database.
-Example, if a user of organisation "GIES" creates a plan, it should go to "giesdb" database, 
-and if a user of organisation "GIGMEG" creates a plan, it should go to "gigmegdb" database.
-Modify the following codes to provide a "rubust" and "clean" solution based on the models and instructions mentioned in the previous conversations.
-
-Note that, 
-1. all models are associated with an organasation either directly or indirectly. 
-2. some models may depend on others to work well.
-3. without using routers
-4. all views must manupulate the contents of the right organasation the request is going to or coming from.
+Instuctions:
+am going to share some django models and other codes for you to help me implement a tasks. You should wait until i tell you what to do with them.
 
 
-#   utils.py file
-def get_db_for_organization(organization):
-    if organization:
-        return f"{organization.slug}_db"
-    return 'default'
+You should wait until i tell you what to do with them.
 
-def get_db_for_user(user):
-    if user.is_authenticated and hasattr(user, 'organization'):
-        return get_db_for_organization(user.organization)
-    return 'default'
-
-
-#   mixins.py file
-from django.utils.functional import cached_property
-from .utils import get_db_for_user
-
-
-class ValidateOrgMixin(object):
+class AbstractRadiusGroup(OrgMixin, TimeStampedEditableModel):
     """
-    - implements ``_validate_org_relation`` method
+    This is not part of the standard freeradius schema.
+    It's added to facilitate the management of groups.
     """
 
-    def _validate_org_relation(self, rel, field_error='organization'):
-        """
-        if the relation is owned by a specific organization
-        this object must be related to the same organization
-        """
-        # avoid exceptions caused by the relation not being set
-        if not hasattr(self, rel):
-            return
-        rel = getattr(self, rel)
-        if (
-            rel
-            and rel.organization_id
-            and str(self.organization_id) != str(rel.organization_id)
-        ):
-            message = _(
-                'Please ensure that the organization of this {object_label} '
-                'and the organization of the related {related_object_label} match.'
-            )
-            message = message.format(
-                object_label=self._meta.verbose_name,
-                related_object_label=rel._meta.verbose_name,
-            )
-            raise ValidationError({field_error: message})
-
-    def _validate_org_reverse_relation(self, rel_name, field_error='organization'):
-        """
-        prevents changing organization for existing objects
-        which have relations specified by ``rel_name`` pointing to them,
-        in order to prevent inconsistencies
-        (relations belonging to different organizations)
-        """
-        # do nothing on new objects, because they
-        # cannot have relations pointing to them
-        if self._state.adding:
-            return
-        old_self = self.__class__.objects.get(pk=self.pk)
-        old_org = old_self.organization
-        # org hasn't been changed, everything ok
-        if old_org == self.organization:
-            return
-        rel = getattr(self, rel_name)
-        count = rel.count()
-        if count:
-            rel_meta = rel.model._meta
-            related_label = (
-                rel_meta.verbose_name if count == 1 else rel_meta.verbose_name_plural
-            )
-            verb = _('is') if count == 1 else _('are')
-            message = _(
-                'The organization of this {object_label} cannot be changed '
-                'because {0} {related_object_label} {verb} still '
-                'related to it'.format(
-                    count,
-                    object_label=self._meta.verbose_name,
-                    related_object_label=related_label,
-                    verb=verb,
-                )
-            )
-            raise ValidationError({field_error: message})
-
-
-class OrgMixin(ValidateOrgMixin, models.Model):
-    """
-    - adds a ``ForeignKey`` field to the ``Organization`` model
-      (the relation cannot be NULL)
-    - implements ``_validate_org_relation`` method
-    """
-
-    organization = models.ForeignKey(
-        get_model_name('openwisp_users', 'Organization'),
-        verbose_name=_('organization'),
-        on_delete=models.CASCADE,
+    name = models.CharField(
+        verbose_name=_('group name'), max_length=255, unique=True, db_index=True
+    )
+    description = models.CharField(
+        verbose_name=_('description'), max_length=64, blank=True, null=True
+    )
+    _DEFAULT_HELP_TEXT = (
+        'The default group is automatically assigned to new users; '
+        'changing the default group has only effect on new users '
+        '(existing users will keep being members of their current group)'
+    )
+    default = models.BooleanField(
+        verbose_name=_('is default?'), help_text=_(_DEFAULT_HELP_TEXT), default=False
     )
 
     class Meta:
+        verbose_name = _('group')
+        verbose_name_plural = _('groups')
         abstract = True
 
+    def __str__(self):
+        return self.name
 
-class OrganizationDbMixin:
-    @cached_property
-    def db(self):
-        user = self.request.user
-        if user.is_authenticated:
-            return get_db_for_user(user)
-        return 'default'
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._initial_default = self.default
 
+    def clean(self):
+        self.check_default()
+        if not hasattr(self, 'organization'):
+            return
+        if not self.name.startswith(f'{self.organization.slug}-'):
+            self.name = f'{self.organization.slug}-{self.name}'
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        if self.default:
+            self.set_default()
+        # sync all related records
+        if not self._state.adding:
+            self.radiusgroupcheck_set.update(groupname=self.name)
+            self.radiusgroupreply_set.update(groupname=self.name)
+            self.radiususergroup_set.update(groupname=self.name)
+        return result
+
+    _DEFAULT_VALIDATION_ERROR = _(
+        'There must be at least one default group present in '
+        'the system. To change the default group, simply set '
+        'as default the group you want to make the new default.'
+    )
+    _DEFAULT_PROTECTED_ERROR = _('The default group cannot be deleted')
+
+    def delete(self, *args, **kwargs):
+        if self.default:
+            raise ProtectedError(self._DEFAULT_PROTECTED_ERROR, self)
+        return super().delete(*args, **kwargs)
+
+    def set_default(self):
+        """
+        ensures there's only 1 default group
+        (logic overridable via custom models)
+        """
+        queryset = self.get_default_queryset()
+        if queryset.exists():
+            queryset.update(default=False)
+
+    def check_default(self):
+        """
+        ensures the default group cannot be undefaulted
+        (logic overridable via custom models)
+        """
+        if not self.default and self._initial_default:
+            raise ValidationError({'default': self._DEFAULT_VALIDATION_ERROR})
+
+    def get_default_queryset(self):
+        """
+        looks for default groups excluding the current one
+        overridable by openwisp-radius and other 3rd party apps
+        """
+        return self.__class__.objects.exclude(pk=self.pk).filter(
+            default=True, organization_id=self.organization.pk
+        )
+
+
+class AbstractRadiusUserGroup(AutoGroupnameMixin, AutoUsernameMixin, TimeStampedEditableModel):
+    username = models.CharField(
+        verbose_name=_('username'),
+        max_length=64,
+        db_index=True,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the user
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
+    groupname = models.CharField(
+        verbose_name=_('group name'),
+        max_length=64,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the group
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
+    priority = models.IntegerField(verbose_name=_('priority'), default=1)
+    # the foreign keys are not part of the standard freeradius schema,
+    # these are added here to facilitate the synchronization of the
+    # records which are related in different tables
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)
+    group = models.ForeignKey( 'RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)
+
+    class Meta:
+        db_table = 'radusergroup'
+        verbose_name = _('user group')
+        verbose_name_plural = _('user groups')
+        unique_together = ('user', 'group')
+        abstract = True
+
+    def __str__(self):
+        return str(self.username)
+
+
+class AbstractRadiusGroupCheck(AutoGroupnameMixin, GroupAttributeValidationMixin, TimeStampedEditableModel):
+    groupname = models.CharField(
+        verbose_name=_('group name'),
+        max_length=64,
+        db_index=True,
+        # blank values are forbidden with custom validation
+        # because this field can left blank if the group
+        # foreign key is filled (it will be auto-filled)
+        blank=True,
+    )
+    attribute = models.CharField(verbose_name=_('attribute'), max_length=64)
+    op = models.CharField(
+        verbose_name=_('operator'),
+        max_length=2,
+        choices=RADOP_CHECK_TYPES,
+        default=':=',
+    )
+    value = models.CharField(verbose_name=_('value'), max_length=253)
+    # the foreign key is not part of the standard freeradius schema
+    group = models.ForeignKey('RadiusGroup', on_delete=models.CASCADE, blank=True, null=True)
+
+
+class AbstractQuota(OrgMixin, models.Model):
+    '''
+    Single countable or boolean property of system (limitation).
+    '''
+    MB, GB = 'MB', 'GB'
+    quota_unit_choices = (
+        (MB, _('MB')),
+        (GB, _('GB')),
+    )
+    codename = models.CharField(_('codename'), max_length=MAX_LENGTH, unique=True, db_index=True)
+    name     = models.CharField(_('name'), max_length=MAX_LENGTH)
+    unit     = models.CharField(_('unit'), max_length=MAX_LENGTH, choices=quota_unit_choices, default=MB)
+    description = models.TextField(_('description'), blank=True)
+    is_boolean  = models.BooleanField(_('is boolean'), default=False)
+
+
+class PlanQuotaManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().using(self.db)
+        return super().get_queryset().select_related('plan', 'quota')
+
+class AbstractPlanQuota(OrgMixin, BaseMixin):
+    plan  = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE)
+    quota = models.ForeignKey('gmtisp_billing.Quota', on_delete=models.CASCADE)
+    value = models.BigIntegerField(default=1, null=True, blank=True)
+
+    objects = PlanQuotaManager()
+
+
+class AbstractPlan(OrgMixin, BaseMixin):
+    name = models.CharField(_('name'), max_length=MAX_LENGTH)
+    slug = models.SlugField(
+        _('slug'),
+        max_length=MAX_LENGTH,           
+        blank=False,
+        editable=True,
+        )
+    description = models.CharField(_('description'), max_length=200, blank=True)
+    available = models.BooleanField(
+        _('Available:'),
+        default=False,
+        db_index=True,
+        help_text=_('Is still available for purchase'),
+    )
+    visible = models.BooleanField(
+        _('Visible:'),
+        default=True,
+        db_index=True,
+        help_text=_('Is visible in current offer'),
+    )
+    requires_payment = models.BooleanField(
+        _('Requires payment:'),
+        default=False,
+        db_index=True,
+        help_text=_('If this flag is enabled, it means that you are required to perform a payment.'),
+    )
+    rollover_allowed = models.BooleanField(
+        _('Allow rollover:'),
+        default=True,
+        db_index=True,
+        help_text=_('Data purchasing now will be added to your remaining data, if you have any'),
+    )
+    quotas = models.ManyToManyField('gmtisp_billing.Quota', through='PlanQuota')
+    plan_setup_cost = models.DecimalField(_('Plan Setup Cost'), max_digits=7, decimal_places=2, db_index=True,
+        blank=True,
+        null=True,
+        )    
+    radius_group = models.ForeignKey('openwisp_radius.RadiusGroup', on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        verbose_name=_('RADIUS group:'), 
+        related_name='plan_radius_group',
+        )
+
+
+class AbstractUserPlan(OrgMixin, BaseMixin):
+    '''
+    Currently selected plan for user account.
+    '''
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name=_('user'))
+    plan = models.ForeignKey('gmtisp_billing.Plan', on_delete=models.CASCADE, 
+        verbose_name=_('plan'),
+        help_text=_('Plan that user is subscribed to.'),
+        )
+    expire = models.DateField( _('expire'), default=None, blank=True, null=True, db_index=True)
+    active = models.BooleanField(_('active'), default=True, db_index=True)
     
-    def get_object(self, queryset=None):
-        if queryset is None:
-            queryset = self.get_queryset()
-        return super().get_object(queryset=queryset)
+    class Meta:
+        abstract = True
+        verbose_name = _('User plan')
+        verbose_name_plural = _('Users plans')
+    
+    def __str__(self):
+        return f'{self.user.username} - {self.plan.name}'
+    
+    def get_absolute_url(self):
+        return reverse('gmtisp_billing:userplan-details', kwargs={'pk': self.pk})
 
+    def is_active(self):
+        return self.active
 
-#   db.py file
-import environ
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve(strict=True).parent
-
-env = environ.Env()
-env.read_env() # read the .env file
-# environ.Env.read_env() # read the .env file
-
-# DATABASES for different organisations
-DATABASES = {
-    'default': {
-        'ENGINE': env('POSTGRES_ENGINE'),
-        'NAME': env('DEFAULT_DB_NAME'),
-        'USER': env('DEFAULT_DB_USER'),
-        'PASSWORD': env('DEFAULT_DB_PASSWORD'),
-        'HOST': env('DEFAULT_DB_HOST'),
-        'PORT': env('DEFAULT_DB_PORT'),
-    },
-    'gies': {
-        'ENGINE': env('POSTGRES_ENGINE'),
-        'NAME': env('GIES_DB_NAME'),
-        'USER': env('GIES_DB_USER'),
-        'PASSWORD': env('GIES_DB_PASSWORD'),
-        'HOST': env('GIES_DB_HOST'),
-        'PORT': env('GIES_DB_PORT'),
-    },
-    'gigmeg': {
-        'ENGINE': env('POSTGRES_ENGINE'),
-        'NAME': env('GIGMEG_DB_NAME'),
-        'USER': env('GIGMEG_DB_USER'),
-        'PASSWORD': env('GIGMEG_DB_PASSWORD'),
-        'HOST': env('GIGMEG_DB_HOST'),
-        'PORT': env('GIGMEG_DB_PORT'),
-    },
-}
-
-
-#   views.py file
-class AccountActivationView(LoginRequired, TemplateView):
-    template_name = "plans/account_activation.html"
-
-    def get_context_data(self, **kwargs):
-        if (
-            self.request.user.userplan.active is True
-            or self.request.user.userplan.is_expired()
-        ):
-            raise Http404()
-
-        context = super(AccountActivationView, self).get_context_data(**kwargs)
-        errors = self.request.user.userplan.clean_activation()
-
-        if errors["required_to_activate"]:
-            context["SUCCESSFUL"] = False
+    def is_expired(self):
+        if self.expire is None:
+            return False
         else:
-            context["SUCCESSFUL"] = True
-            messages.success(self.request, _("Your account is now active"))
+            return self.expire < date.today()
 
-        for error in errors["required_to_activate"]:
-            messages.error(self.request, error)
-        for error in errors["other"]:
-            messages.warning(self.request, error)
-
-        return context
-
-
-class PlanTableMixin(object):
-    def get_plan_table(self, plan_list):
-        """
-        This method return a list in following order:
-        [
-            ( Quota1, [ Plan1Quota1, Plan2Quota1, ... , PlanNQuota1] ),
-            ( Quota2, [ Plan1Quota2, Plan2Quota2, ... , PlanNQuota2] ),
-            ...
-            ( QuotaM, [ Plan1QuotaM, Plan2QuotaM, ... , PlanNQuotaM] ),
-        ]
-
-        This can be very easily printed as an HTML table element with quotas by row.
-
-        Quotas are calculated based on ``plan_list``. These are all available quotas that are
-        used by given plans. If any ``Plan`` does not have any of ``PlanQuota`` then value ``None``
-        will be propagated to the data structure.
-
-        """
-
-        # Retrieve all quotas that are used by any ``Plan`` in ``plan_list``
-        quota_list = (
-            Quota.objects.all().filter(planquota__plan__in=plan_list).distinct()
-        )
-
-        # Create random access dict that for every ``Plan`` map ``Quota`` -> ``PlanQuota``
-        plan_quotas_dic = {}
-        for plan in plan_list:
-            plan_quotas_dic[plan] = {}
-            for plan_quota in plan.planquota_set.all():
-                plan_quotas_dic[plan][plan_quota.quota] = plan_quota
-
-        # Generate data structure described in method docstring, propagate ``None`` whenever
-        # ``PlanQuota`` is not available for given ``Plan`` and ``Quota``
-        return map(
-            lambda quota: (
-                quota,
-                map(lambda plan: plan_quotas_dic[plan].get(quota, None), plan_list),
-            ),
-            quota_list,
-        )
-
-
-class PlanTableViewBase(PlanTableMixin, ListView):
-    model = Plan
-    context_object_name = "plan_list"
-
-    def get_queryset(self):
-        queryset = (
-            super(PlanTableViewBase, self)
-            .get_queryset()
-            .prefetch_related("planpricing_set__pricing", "planquota_set__quota")
-        )
-        if self.request.user.is_authenticated:
-            queryset = queryset.filter(
-                Q(available=True, visible=True)
-                & (Q(customized=self.request.user) | Q(customized__isnull=True))
-            )
+    def days_left(self):
+        if self.expire is None:
+            return None
         else:
-            queryset = queryset.filter(
-                Q(available=True, visible=True) & Q(customized__isnull=True)
+            return (self.expire - date.today()).days
+
+    def clean_activation(self):
+        errors = plan_validation(self.user)
+        if not errors['required_to_activate']:
+            plan_validation(self.user, on_activation=True)
+            self.activate()
+        else:
+            self.deactivate()
+        return errors
+
+    def activate(self):
+        if not self.active:
+            self.active = True
+            self.save()
+            account_activated.send(sender=self, user=self.user)
+
+    def deactivate(self):
+        if self.active:
+            self.active = False
+            self.save()
+            account_deactivated.send(sender=self, user=self.user)
+
+    def initialize(self):
+        '''
+        Set up user plan for first use
+        '''
+        if not self.is_active():
+            # Plans without pricings don't need to expire
+            if self.expire is None and self.plan.planpricing_set.count():
+                self.expire = now() + timedelta(
+                    days=getattr(settings, 'PLANS_DEFAULT_GRACE_PERIOD', 30)
+                )
+            self.activate()  # this will call self.save()
+
+    def get_plan_extended_from(self, plan):
+        if plan.is_free():
+            return None
+        if not self.is_expired() and self.expire is not None and self.plan == plan:
+            return self.expire
+        return date.today()
+
+    def has_automatic_renewal(self):
+        return (
+            hasattr(self, "recurring")
+            and self.recurring.renewal_triggered_by
+            != self.recurring.RENEWAL_TRIGGERED_BY.USER
+            and self.recurring.token_verified
+        )
+
+    def get_plan_extended_until(self, plan, pricing):
+        if plan.is_free():
+            return None
+        if pricing is None:
+            return self.expire
+        return self.get_plan_extended_from(plan) + timedelta(days=pricing.period)
+
+    def plan_autorenew_at(self):
+        '''
+        Helper function which calculates when the plan autorenewal will occur
+        '''
+        if self.expire:
+            plans_autorenew_before_days = getattr(
+                settings, 'PLANS_AUTORENEW_BEFORE_DAYS', 0
             )
-        return queryset
+            plans_autorenew_before_hours = getattr(
+                settings, 'PLANS_AUTORENEW_BEFORE_HOURS', 0
+            )
+            return self.expire - timedelta(
+                days=plans_autorenew_before_days, hours=plans_autorenew_before_hours
+            )
 
-    def get_context_data(self, **kwargs):
-        context = super(PlanTableViewBase, self).get_context_data(**kwargs)
+    def set_plan_renewal(self, order, has_automatic_renewal=None, renewal_triggered_by=None, **kwargs):
+        '''
+        Creates or updates plan renewal information for this userplan with given order
+        '''
+ 
+        if not hasattr(self, "recurring"):
+            self.recurring = AbstractRecurringUserPlan.get_concrete_model()()
 
-        if self.request.user.is_authenticated:
-            try:
-                self.userplan = UserPlan.objects.select_related("plan").get(
-                    user=self.request.user
+        if has_automatic_renewal is None and renewal_triggered_by is None:
+            has_automatic_renewal = True
+        if has_automatic_renewal is not None:
+            warnings.warn(
+                "has_automatic_renewal is deprecated. Use renewal_triggered_by instead.",
+                DeprecationWarning,
+            )
+        if renewal_triggered_by is None:
+            warnings.warn(
+                "renewal_triggered_by=None is deprecated. "
+                "Set an AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY instead.",
+                DeprecationWarning,
+            )
+            renewal_triggered_by = (
+                self.recurring.RENEWAL_TRIGGERED_BY.TASK
+                if has_automatic_renewal
+                else self.recurring.RENEWAL_TRIGGERED_BY.USER
+            )
+
+        # Erase values of all fields
+        # We don't want to mix the old and new values
+        self.recurring.set_all_fields_default()
+
+        # Set new values
+        self.recurring.user_plan = self
+        self.recurring.pricing = order.pricing
+        self.recurring.amount = order.amount
+        self.recurring.tax = order.tax
+        self.recurring.currency = order.currency
+        self.recurring.renewal_triggered_by = renewal_triggered_by
+        for k, v in kwargs.items():
+            setattr(self.recurring, k, v)
+        self.recurring.save()
+        return self.recurring
+
+    def extend_account(self, plan, pricing):
+        '''
+        Manages extending account after plan or pricing order
+        '''
+        status = False  # flag; if extending account was successful?
+        expire = self.get_plan_extended_until(plan, pricing)
+        if pricing is None:
+            # Process a plan change request (downgrade or upgrade)
+            # No account activation or extending at this point
+            self.plan = plan
+
+            if self.expire is not None and not plan.planpricing_set.count():
+                # Assume no expiry date for plans without pricing.
+                self.expire = None
+
+            self.save()
+            account_change_plan.send(sender=self, user=self.user)
+            if getattr(settings, 'PLANS_SEND_EMAILS_PLAN_CHANGED', True):
+                mail_context = {'user': self.user, 'userplan': self, 'plan': plan}
+                send_template_email(
+                    [self.user.email],
+                    'gmtisp_billing/mail/change_plan_title.txt',
+                    'gmtisp_billing/mail/change_plan_body.txt',
+                    mail_context,
+                    get_user_language(self.user),
                 )
-            except UserPlan.DoesNotExist:
-                self.userplan = None
-
-            context["userplan"] = self.userplan
-
-            try:
-                context["current_userplan_index"] = list(self.object_list).index(
-                    self.userplan.plan
-                )
-            except (ValueError, AttributeError):
-                pass
-
-        context["plan_table"] = self.get_plan_table(self.object_list)
-        context["CURRENCY"] = settings.PLANS_CURRENCY
-
-        return context
-
-
-class CurrentPlanView(LoginRequired, PlanTableViewBase):
-    template_name = "plans/current.html"
-
-    def get_queryset(self):
-        return Plan.objects.filter(userplan__user=self.request.user).prefetch_related(
-            "planpricing_set__pricing", "planquota_set__quota"
-        )
-
-
-class UpgradePlanView(LoginRequired, PlanTableViewBase):
-    template_name = "plans/upgrade.html"
-
-
-class PricingView(PlanTableViewBase):
-    template_name = "plans/pricing.html"
-
-
-class ChangePlanView(LoginRequired, View):
-    """
-    A view for instant changing user plan when it does not require additional payment.
-    Plan can be changed without payment when:
-    * user can enable this plan (it is available & visible and if it is customized it is for him,
-    * plan is different from the current one that user have,
-    * within current change plan policy this does not require any additional payment (None)
-
-    It always redirects to ``upgrade_plan`` url as this is a potential only one place from
-    where change plan could be invoked.
-    """
-
-    def get(self, request, *args, **kwargs):
-        return HttpResponseRedirect(reverse("upgrade_plan"))
-
-    def post(self, request, *args, **kwargs):
-        plan = get_object_or_404(
-            Plan,
-            Q(pk=kwargs["pk"])
-            & Q(available=True, visible=True)
-            & (Q(customized=request.user) | Q(customized__isnull=True)),
-        )
-        if request.user.userplan.plan != plan:
-            policy = import_name(
-                getattr(
-                    settings,
-                    "PLANS_CHANGE_POLICY",
-                    "plans.plan_change.StandardPlanChangePolicy",
-                )
-            )()
-
-            period = request.user.userplan.days_left()
-            price = policy.get_change_price(request.user.userplan.plan, plan, period)
-
-            if price is None:
-                request.user.userplan.extend_account(plan, None)
-                messages.success(request, _("Your plan has been successfully changed"))
+            accounts_logger.info(
+                "Account '%s' [id=%d] plan changed to '%s' [id=%d]"
+                % (self.user, self.user.pk, plan, plan.pk)
+            )
+            status = True
+        else:
+            # Processing standard account extending procedure
+            if self.plan == plan:
+                status = True
             else:
-                return HttpResponseForbidden()
-        return HttpResponseRedirect(reverse("upgrade_plan"))
+                # This should not ever happen (as this case should be managed by plan change request)
+                # but just in case we consider a case when user has a different plan
+                if not self.plan.is_free() and self.expire is None:
+                    status = True
+                elif not self.plan.is_free() and self.expire > date.today():
+                    status = False
+                    accounts_logger.warning(
+                        "Account '%s' [id=%d] plan NOT changed to '%s' [id=%d]"
+                        % (self.user, self.user.pk, plan, plan.pk)
+                    )
+                else:
+                    status = True
+                    account_change_plan.send(sender=self, user=self.user)
+                    self.plan = plan
 
-
-class CreateOrderView(LoginRequired, CreateView):
-    template_name = "plans/create_order.html"
-    form_class = CreateOrderForm
-
-    def recalculate(self, amount, billing_info):
-        """
-        Calculates and return pre-filled Order
-        """
-        order = Order(pk=-1)
-        order.recalculate(amount, billing_info, self.request)
-        return order
-
-    def validate_plan(self, plan):
-        validation_errors = plan_validation(self.request.user, plan)
-        if validation_errors["required_to_activate"] or validation_errors["other"]:
-            messages.error(
-                self.request,
-                _(
-                    "The selected plan is insufficient for your account. "
-                    "Your account will not be activated or will not work fully after completing this order."
-                    "<br><br>Following limits will be exceeded: <ul><li>%(reasons)s</ul>"
+            if status:
+                self.expire = expire
+                self.save()
+                accounts_logger.info(
+                    "Account '%s' [id=%d] has been extended by %d days using plan '%s' [id=%d]"
+                    % (self.user, self.user.pk, pricing.period, plan, plan.pk)
                 )
-                % {
-                    "reasons": "<li>".join(
-                        chain(
-                            validation_errors["required_to_activate"],
-                            validation_errors["other"],
-                        )
-                    ),
-                },
-            )
+                if getattr(settings, 'PLANS_SEND_EMAILS_PLAN_EXTENDED', True):
+                    mail_context = {
+                        'user': self.user,
+                        'userplan': self,
+                        'plan': plan,
+                        'pricing': pricing,
+                    }
+                    send_template_email(
+                        [self.user.email],
+                        'gmtisp_billing/mail/extend_account_title.txt',
+                        'gmtisp_billing/mail/extend_account_body.txt',
+                        mail_context,
+                        get_user_language(self.user),
+                    )
 
-    def get_all_context(self):
-        """
-        Retrieves Plan and Pricing for current order creation
-        """
-        self.plan_pricing = get_object_or_404(
-            PlanPricing.objects.all().select_related("plan", "pricing"),
-            Q(pk=self.kwargs["pk"])
-            & Q(plan__available=True)
-            & (
-                Q(plan__customized=self.request.user) | Q(plan__customized__isnull=True)
-            ),
+        if status:
+            self.clean_activation()
+
+        return status
+
+    def expire_account(self):
+        '''manages account expiration'''
+
+        self.deactivate()
+
+        accounts_logger.info(
+            "Account '%s' [id=%d] has expired" % (self.user, self.user.pk)
         )
 
-        # User is not allowed to create new order for Plan when he has different Plan
-        # unless it's a free plan. Otherwise, the should use Plan Change View for this
-        # kind of action
-        if (
-            not self.request.user.userplan.is_expired()
-            and not self.request.user.userplan.plan.is_free()
-            and self.request.user.userplan.plan != self.plan_pricing.plan
-        ):
-            raise Http404
+        mail_context = {'user': self.user, 'userplan': self}
+        send_template_email(
+            [self.user.email],
+            'gmtisp_billing/mail/expired_account_title.txt',
+            'gmtisp_billing/mail/expired_account_body.txt',
+            mail_context,
+            get_user_language(self.user),
+        )
 
-        self.plan = self.plan_pricing.plan
-        self.pricing = self.plan_pricing.pricing
+        account_expired.send(sender=self, user=self.user)
 
-    def get_billing_info(self):
+    def remind_expire_soon(self):
+        '''reminds about soon account expiration'''
+
+        mail_context = {'user': self.user, 'userplan': self, 'days': self.days_left()}
+        send_template_email(
+            [self.user.email],
+            'gmtisp_billing/mail/remind_expire_title.txt',
+            'gmtisp_billing/mail/remind_expire_body.txt',
+            mail_context,
+            get_user_language(self.user),
+        )
+
+    @classmethod
+    def create_for_user(cls, user):
+        default_plan = AbstractPlan.get_concrete_model().get_default_plan()
+        if default_plan is not None:
+            UserPlan = AbstractUserPlan.get_concrete_model()
+            return UserPlan.objects.create(
+                user=user,
+                plan=default_plan,
+                active=False,
+                expire=None,
+            )
+
+    @classmethod
+    def create_for_users_without_plan(cls):
+        userplans = get_user_model().objects.filter(userplan=None)
+        for user in userplans:
+            AbstractUserPlan.get_concrete_model().create_for_user(user)
+        return userplans
+
+    def get_current_plan(self):
+        '''Tiny helper, very usefull in templates'''
+        return AbstractPlan.get_concrete_model().get_current_plan(self.user)
+
+
+
+
+
+
+
+Todo:
+1. How to validate if a plan's quota for data traffic has reached its limit
+
+Note that,
+1. a plan is associated with 'class RadiusGroup' using a ForeignKey, which checks the RadiusGroup a plan belongs to and it limitations, very important.
+2. user and plan are associated using class AbstractUserPlan
+3. AbstractPlanQuota is used to associate plan, quota
+4. it's necessary to use the codes/models i have shared with you from the beginning
+
+# context_processors.py
+UserPlan = AbstractUserPlan.get_concrete_model()
+
+def account_status(request):
+    if hasattr(request, "user") and request.user.is_authenticated:
         try:
-            return self.request.user.billinginfo
-        except BillingInfo.DoesNotExist:
-            return None
-
-    def get_price(self):
-        return self.plan_pricing.price
-
-    def get_context_data(self, **kwargs):
-        context = super(CreateOrderView, self).get_context_data(**kwargs)
-        self.get_all_context()
-        context["billing_info"] = self.get_billing_info()
-
-        order = self.recalculate(
-            self.get_price() or Decimal("0.0"), context["billing_info"]
-        )
-        order.plan = self.plan_pricing.plan
-        order.pricing = self.plan_pricing.pricing
-        order.currency = get_currency()
-        order.user = self.request.user
-        context["object"] = order
-
-        self.validate_plan(order.plan)
-        return context
-
-    def form_valid(self, form):
-        self.get_all_context()
-        order = self.recalculate(
-            self.get_price() or Decimal("0.0"), self.get_billing_info()
-        )
-
-        self.object = form.save(commit=False)
-        self.object.user = self.request.user
-        self.object.plan = self.plan
-        self.object.pricing = self.pricing
-        self.object.amount = order.amount
-        self.object.tax = order.tax
-        self.object.currency = order.currency
-        self.object.save()
-        order_started.send(sender=self.object)
-        return super(ModelFormMixin, self).form_valid(form)
-
-
-class CreateOrderPlanChangeView(CreateOrderView):
-    template_name = "plans/create_order.html"
-    form_class = CreateOrderForm
-
-    def get_all_context(self):
-        self.plan = get_object_or_404(
-            Plan,
-            Q(pk=self.kwargs["pk"])
-            & Q(available=True, visible=True)
-            & (Q(customized=self.request.user) | Q(customized__isnull=True)),
-        )
-        self.pricing = None
-
-    def get_policy(self):
-        policy_class = getattr(
-            settings,
-            "PLANS_CHANGE_POLICY",
-            "plans.plan_change.StandardPlanChangePolicy",
-        )
-        return import_name(policy_class)()
-
-    def get_price(self):
-        policy = self.get_policy()
-        userplan = self.request.user.userplan
-
-        if userplan.expire is not None:
-            period = self.request.user.userplan.days_left()
-        else:
-            # Use the default period of the new plan
-            period = 30
-
-        return policy.get_change_price(
-            self.request.user.userplan.plan, self.plan, period
-        )
-
-    def get_context_data(self, **kwargs):
-        context = super(CreateOrderView, self).get_context_data(**kwargs)
-        self.get_all_context()
-
-        price = self.get_price()
-        context["plan"] = self.plan
-        context["billing_info"] = self.get_billing_info()
-        if price is None:
-            context["FREE_ORDER"] = True
-            price = 0
-        order = self.recalculate(price, context["billing_info"])
-        order.pricing = None
-        order.plan = self.plan
-        order.user = self.request.user
-        context["billing_info"] = context["billing_info"]
-        context["object"] = order
-        self.validate_plan(order.plan)
-        return context
-
-
-class OrderView(LoginRequired, DetailView):
-    model = Order
-
-    def get_queryset(self):
-        return (
-            super(OrderView, self)
-            .get_queryset()
-            .filter(user=self.request.user)
-            .select_related(
-                "plan",
-                "pricing",
-            )
-        )
-
-
-class OrderListView(LoginRequired, ListView):
-    model = Order
-    paginate_by = 10
-
-    def get_context_data(self, **kwargs):
-        context = super(OrderListView, self).get_context_data(**kwargs)
-        self.CURRENCY = getattr(settings, "PLANS_CURRENCY", None)
-        if len(self.CURRENCY) != 3:
-            raise ImproperlyConfigured(
-                "PLANS_CURRENCY should be configured as 3-letter currency code."
-            )
-        context["CURRENCY"] = self.CURRENCY
-        return context
-
-    def get_queryset(self):
-        return (
-            super(OrderListView, self)
-            .get_queryset()
-            .filter(user=self.request.user)
-            .select_related(
-                "plan",
-                "pricing",
-            )
-        )
-
-
-class OrderPaymentReturnView(LoginRequired, DetailView):
-    """
-    This view is a fallback from any payments processor. It allows just to set additional message
-    context and redirect to Order view itself.
-    """
-
-    model = Order
-    status = None
-
-    def render_to_response(self, context, **response_kwargs):
-        if self.status == "success":
-            messages.success(
-                self.request,
-                _(
-                    "Thank you for placing a payment. It will be processed as soon as possible."
+            return {
+                "ACCOUNT_EXPIRED": request.user.userplan.is_expired(),
+                "ACCOUNT_NOT_ACTIVE": (
+                    not request.user.userplan.is_active()
+                    and not request.user.userplan.is_expired()
                 ),
-            )
-        elif self.status == "failure":
-            messages.error(
-                self.request,
-                _(
-                    "Payment was not completed correctly. Please repeat payment process."
-                ),
-            )
+                "EXPIRE_IN_DAYS": request.user.userplan.days_left(),
+                "EXTEND_URL": reverse("current_plan"),
+                "ACTIVATE_URL": reverse("account_activation"),
+            }
+        except UserPlan.DoesNotExist:
+            pass
+    return {}
 
-        return HttpResponseRedirect(self.object.get_absolute_url())
-
-    def get_queryset(self):
-        return (
-            super(OrderPaymentReturnView, self)
-            .get_queryset()
-            .filter(user=self.request.user)
+# importer.py
+def import_name(name):
+    """import module given by str or pass the module if it is not str"""
+    if isinstance(name, str):
+        components = name.split(".")
+        mod = __import__(
+            ".".join(components[0:-1]), globals(), locals(), [components[-1]]
         )
+        return getattr(mod, components[-1])
+    else:
+        return name
 
+# listners.py
+from .signals import activate_user_plan, order_completed
 
-class SuccessUrlMixin:
-    def get_success_url(self):
-        messages.success(self.request, _("Billing info has been updated successfuly."))
-        return reverse("billing_info")
-
-
-class CreateOrUpdateView(
-    SingleObjectTemplateResponseMixin, ModelFormMixin, ProcessFormView
-):
-    def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        return super().get(request, *args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        return super().post(request, *args, **kwargs)
-
-
-class BillingInfoCreateOrUpdateView(
-    NextUrlMixin, SuccessUrlMixin, LoginRequired, CreateOrUpdateView
-):
-    form_class = BillingInfoForm
-    template_name = "plans/billing_info_create_or_update.html"
-
-    def get_object(self):
-        try:
-            return self.request.user.billinginfo
-        except (AttributeError, BillingInfo.DoesNotExist):
-            return None
-
-    def form_valid(self, form):
-        form.instance.user = self.request.user
-        return super().form_valid(form)
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs.update(request=self.request)
-        return kwargs
-
-
-class RedirectToBilling(RedirectView):
-    url = reverse_lazy("billing_info")
-    permanent = False
-    query_string = True
-
-    def get_redirect_url(self, *args, **kwargs):
-        warnings.warn(
-            "This view URL is deprecated. Use plain billing_info instead.",
-            DeprecationWarning,
-        )
-        return super().get_redirect_url(*args, **kwargs)
-
-
-class BillingInfoDeleteView(LoginRequired, DeleteView):
+@receiver(post_save, sender=Order)
+def create_proforma_invoice(sender, instance, created, **kwargs):
     """
-    Deletes billing data for user
+    For every Order if there are defined billing_data creates invoice proforma,
+    which is an order confirmation document
     """
+    if created:
+        Invoice.create(instance, Invoice.INVOICE_TYPES["PROFORMA"])
 
-    template_name = "plans/billing_info_delete.html"
+@receiver(order_completed)
+def create_invoice(sender, **kwargs):
+    Invoice.create(sender, Invoice.INVOICE_TYPES["INVOICE"])
 
-    def get_object(self):
-        try:
-            return self.request.user.billinginfo
-        except BillingInfo.DoesNotExist:
-            raise Http404
+@receiver(post_save, sender=Invoice)
+def send_invoice_by_email(sender, instance, created, **kwargs):
+    if created:
+        instance.send_invoice_by_email()
 
-    def get_success_url(self):
-        messages.success(self.request, _("Billing info has been deleted."))
-        return reverse("billing_info")
+@receiver(post_save, sender=User)
+def set_default_user_plan(sender, instance, created, **kwargs):
+    """
+    Creates default plan for the new user but also extending an account for default grace period.
+    """
+    if created:
+        UserPlan.create_for_user(instance)
+# Hook to django-registration to initialize plan automatically after user has confirm account
 
-
-class InvoiceDetailView(LoginRequired, DetailView):
-    model = Invoice
-
-    def get_template_names(self):
-        return getattr(settings, "PLANS_INVOICE_TEMPLATE", "plans/invoices/PL_EN.html")
-
-    def get_context_data(self, **kwargs):
-        context = super(InvoiceDetailView, self).get_context_data(**kwargs)
-        context["logo_url"] = getattr(settings, "PLANS_INVOICE_LOGO_URL", None)
-        context["auto_print"] = True
-        return context
-
-    def get_queryset(self):
-        if self.request.user.is_superuser:
-            return super(InvoiceDetailView, self).get_queryset().select_related("order")
-        else:
-            return (
-                super(InvoiceDetailView, self)
-                .get_queryset()
-                .filter(user=self.request.user)
-                .select_related("order")
-            )
+@receiver(activate_user_plan)
+def initialize_plan_generic(sender, user, **kwargs):
+    try:
+        user.userplan.initialize()
+    except UserPlan.DoesNotExist:
+        return
 
 
-class FakePaymentsView(LoginRequired, SingleObjectMixin, FormView):
-    form_class = FakePaymentsForm
-    model = Order
-    template_name = "plans/fake_payments.html"
+# quota.py
+def get_user_quota(user):
+    """
+    Tiny helper for getting quota dict for user
+    If user has expired plan, return default plan or None
+    """
+    from .base.models import AbstractPlan
 
-    def get_success_url(self):
-        return self.object.get_absolute_url()
-
-    def get_queryset(self):
-        return (
-            super(FakePaymentsView, self).get_queryset().filter(user=self.request.user)
-        )
-
-    def dispatch(self, *args, **kwargs):
-        if not getattr(settings, "DEBUG", False):
-            return HttpResponseForbidden("This view is accessible only in debug mode.")
-        self.object = self.get_object()
-        return super(FakePaymentsView, self).dispatch(*args, **kwargs)
-
-    def form_valid(self, form):
-        if int(form["status"].value()) == Order.STATUS.COMPLETED:
-            self.object.complete_order()
-            return HttpResponseRedirect(
-                reverse("order_payment_success", kwargs={"pk": self.object.pk})
-            )
-        else:
-            self.object.status = form["status"].value()
-            self.object.save()
-            return HttpResponseRedirect(
-                reverse("order_payment_failure", kwargs={"pk": self.object.pk})
-            )
+    Plan = AbstractPlan.get_concrete_model()
+    plan = Plan.get_current_plan(user)
+    return plan.get_quota_dict()
 
 
+# signnals.py
+from django.dispatch import Signal
 
-# ---------------------------------------------------------- Plan payment
+order_started = Signal()
+order_started.__doc__ = """
+Sent after order was started (awaiting payment)
+"""
 
-class PaymentDetailView(LoginRequiredMixin, View):
-    login_url = reverse_lazy("auth_login")
-    template_name = "plans_payments/payment.html"
+order_completed = Signal()
+order_completed.__doc__ = """
+Sent after order was completed (payment accepted, account extended)
+"""
 
-    def get(self, request, *args, payment_id=None):
-        payment = get_object_or_404(
-            get_payment_model(), order__user=request.user, id=payment_id
-        )
-        try:
-            form = payment.get_form(data=request.POST or None)
-        except RedirectNeeded as redirect_to:
-            payment.save()
-            return redirect(str(redirect_to))
-        return TemplateResponse(
-            request, "plans_payments/payment.html", {"form": form, "payment": payment}
-        )
+user_language = Signal()
+user_language.__doc__ = """
+Sent to receive information about language for user account
 
+sends arguments: 'user', 'language'
+"""
 
-def get_client_ip(request):
-    return request.META.get("REMOTE_ADDR")
+account_automatic_renewal = Signal()
+account_automatic_renewal.__doc__ = """
+Try to renew the account automatically.
+Should renew the user's UserPlan by recurring payments. If this succeeds, the plan should be extended.
 
+sends arguments: 'user'
+"""
 
-def create_payment_object(
-    payment_variant, order, request=None, autorenewed_payment=False
-):
-    Payment = get_payment_model()
-    if (
-        hasattr(order.user.userplan, "recurring")
-        and order.user.userplan.recurring.payment_provider != payment_variant
-    ):
-        order.user.userplan.recurring.delete()
-    return Payment.objects.create(
-        variant=payment_variant,
-        order=order,
-        description=f"{order.name} %s purchase",
-        total=Decimal(order.total()),
-        tax=Decimal(order.tax_total()),
-        currency=order.currency,
-        delivery=Decimal(0),
-        billing_first_name=order.user.first_name,
-        billing_last_name=order.user.last_name,
-        billing_email=order.user.email or "",
-        billing_address_1=order.user.billinginfo.street,
-        # billing_address_2=order.user.billinginfo.zipcode,
-        billing_city=order.user.billinginfo.city,
-        billing_postcode=order.user.billinginfo.zipcode,
-        billing_country_code=order.user.billinginfo.country,
-        # billing_country_area=order.user.billinginfo.zipcode,
-        customer_ip_address=get_client_ip(request) if request else "127.0.0.1",
-        autorenewed_payment=autorenewed_payment,
+account_expired = Signal()
+account_expired.__doc__ = """
+Sent on account expiration.
+This signal is send regardless ``account_deactivated``
+it only means that account has expired due to plan expire date limit.
+
+sends arguments: 'user'
+"""
+
+account_deactivated = Signal()
+account_deactivated.__doc__ = """
+Sent on account deactivation, account is not operational (it could be not expired, but does not meet quota limits).
+
+sends arguments: 'user'
+"""
+
+account_activated = Signal()
+account_activated.__doc__ = """
+Sent on account activation, account is now fully operational.
+
+sends arguments: 'user'
+"""
+account_change_plan = Signal()
+account_change_plan.__doc__ = """
+Sent on account when plan was changed after order completion
+
+sends arguments: 'user'
+"""
+
+activate_user_plan = Signal()
+activate_user_plan.__doc__ = """
+This signal should be called when user has succesfully registered (e.g. he activated account via e-mail activation).
+If you are using django-registration there is no need to call this signal.
+
+sends arguments: 'user'
+"""
+# Signal sent whenever status is changed for a Payment. This usually happens
+# when a transaction is either accepted or rejected.
+status_changed = Signal()
+
+# tasks.py
+def get_active_plans():
+    return (
+        User.objects.select_related("userplan")
+        .filter(userplan__active=True)
+        .exclude(userplan__expire=None)
     )
 
 
-class CreatePaymentView(LoginRequiredMixin, View):
-    login_url = reverse_lazy("auth_login")
+def autorenew_account(providers=None):
+    logger.info("Started automatic account renewal")
+    PLANS_AUTORENEW_BEFORE_DAYS = getattr(settings, "PLANS_AUTORENEW_BEFORE_DAYS", 0)
+    PLANS_AUTORENEW_BEFORE_HOURS = getattr(settings, "PLANS_AUTORENEW_BEFORE_HOURS", 0)
 
-    def get(self, request, *args, order_id=None, payment_variant=None):
-        order = get_object_or_404(Order, pk=order_id, user=request.user)
-        payment = create_payment_object(payment_variant, order, request)
-        return redirect(reverse("payment_details", kwargs={"payment_id": payment.id}))
+    accounts_for_renewal = get_active_plans().filter(
+        userplan__recurring__renewal_triggered_by=AbstractRecurringUserPlan.RENEWAL_TRIGGERED_BY.TASK,
+        userplan__recurring__token_verified=True,
+        userplan__expire__lt=datetime.date.today()
+        + datetime.timedelta(
+            days=PLANS_AUTORENEW_BEFORE_DAYS, hours=PLANS_AUTORENEW_BEFORE_HOURS
+        ),
+    )
 
+    if providers:
+        accounts_for_renewal = accounts_for_renewal.filter(
+            userplan__recurring__payment_provider__in=providers
+        )
+
+    logger.info(f"{len(accounts_for_renewal)} accounts to be renewed.")
+
+    for user in accounts_for_renewal.all():
+        account_automatic_renewal.send(sender=None, user=user)
+    return accounts_for_renewal
+
+
+def expire_account():
+    logger.info("Started account expiration")
+
+    expired_accounts = get_active_plans().filter(
+        userplan__expire__lt=datetime.date.today()
+    )
+
+    for user in expired_accounts.all():
+        user.userplan.expire_account()
+
+    notifications_days_before = getattr(settings, "PLANS_EXPIRATION_REMIND", [])
+
+    if notifications_days_before:
+        days = map(
+            lambda x: datetime.date.today() + datetime.timedelta(days=x),
+            notifications_days_before,
+        )
+        for user in User.objects.select_related("userplan").filter(
+            userplan__active=True, userplan__expire__in=days
+        ):
+            user.userplan.remind_expire_soon()
+
+# validators.py
+class QuotaValidator(object):
+    """
+    Base class for all Quota validators needed for account activation
+    """
+    required_to_activate = True
+    default_quota_value = None
+
+    @property
+    def code(self):
+        raise ImproperlyConfigured("Quota code name is not provided for validator")
+
+    def get_quota_value(self, user, quota_dict=None):
+        """
+        Returns quota value for a given user
+        """
+        if quota_dict is None:
+            quota_dict = get_user_quota(user)
+
+        return quota_dict.get(self.code, self.default_quota_value)
+
+    def get_error_message(self, quota_value, **kwargs):
+        return "Plan validation error"
+
+    def get_error_params(self, quota_value, **kwargs):
+        return {
+            "quota": quota_value,
+            "validator_codename": self.code,
+        }
+
+    def __call__(self, user, quota_dict=None, **kwargs):
+        """
+        Performs validation of quota limit for a user account
+        """
+        raise NotImplementedError("Please implement specific QuotaValidator")
+
+    def on_activation(self, user, quota_dict=None, **kwargs):
+        """
+        Hook for any action that validator needs to do while successful activation of the plan
+        Most useful for validators not required to activate, e.g. some "option" is turned ON for user
+        but when user downgrade plan this option should be turned OFF automatically rather than
+        stops account activation
+        """
+        pass
+
+class ModelCountValidator(QuotaValidator):
+    """
+    Validator that checks if there is no more than quota number of objects given model
+    """
+
+    @property
+    def model(self):
+        raise ImproperlyConfigured("ModelCountValidator requires model name")
+
+    def get_queryset(self, user):
+        return self.model.objects.all()
+
+    def get_error_message(self, quota_value, **kwargs):
+        return _(
+            "Limit of %(model_name_plural)s exceeded. The limit is %(quota)s items."
+        )
+
+    def get_error_params(self, quota_value, total_count, **kwargs):
+        return {
+            "quota": quota_value,
+            "model_name_plural": self.model._meta.verbose_name_plural.title().lower(),
+            "validator_codename": self.code,
+            "total_count": total_count,
+        }
+
+    def __call__(self, user, quota_dict=None, **kwargs):
+        quota = self.get_quota_value(user, quota_dict)
+        total_count = self.get_queryset(user).count() + kwargs.get("add", 0)
+        if quota is not None and total_count > quota:
+            raise ValidationError(
+                message=self.get_error_message(quota),
+                params=self.get_error_params(quota, total_count),
+            )
+
+
+class ModelAttributeValidator(ModelCountValidator):
+    """
+    Validator checks if every obj.attribute value for a given model satisfy condition
+    provided in check_attribute_value() method.
+
+    .. warning::
+        ModelAttributeValidator requires `get_absolute_url()` method on provided model.
+    """
+
+    @property
+    def attribute(self):
+        raise ImproperlyConfigured(
+            "ModelAttributeValidator requires defining attribute name"
+        )
+
+    def check_attribute_value(self, attribute_value, quota_value):
+        # default is to value is <= limit
+        return attribute_value <= quota_value
+
+    def get_error_message(self, quota_value, **kwargs):
+        return _("Following %(model_name_plural)s are not in limits: %(objects)s")
+
+    def get_error_params(self, quota_value, total_count, **kwargs):
+        return {
+            "quota": quota_value,
+            "validator_codename": self.code,
+            "model_name_plural": self.model._meta.verbose_name_plural.title().lower(),
+            "objects": ", ".join(
+                map(
+                    lambda o: '<a href="%s">%s</a>' % (o.get_absolute_url(), six.u(o)),
+                    kwargs["not_valid_objects"],
+                )
+            ),
+        }
+
+    def __call__(self, user, quota_dict=None, **kwargs):
+        quota_value = self.get_quota_value(user, quota_dict)
+        not_valid_objects = []
+        if quota_value is not None:
+            for obj in self.get_queryset(user):
+                if not self.check_attribute_value(
+                    getattr(obj, self.attribute), quota_value
+                ):
+                    not_valid_objects.append(obj)
+        if not_valid_objects:
+            raise ValidationError(
+                self.get_error_message(
+                    quota_value, not_valid_objects=not_valid_objects
+                ),
+                self.get_error_params(quota_value, not_valid_objects=not_valid_objects),
+            )
+
+def plan_validation(user, plan=None, on_activation=False):
+    """
+    Validates validator that represents quotas in a given system
+    :param user:
+    :param plan:
+    :return:
+    """
+    if plan is None:
+        # if plan is not given, the default is to use current plan of the user
+        plan = user.userplan.plan
+    quota_dict = plan.get_quota_dict()
+    validators = getattr(settings, "PLANS_VALIDATORS", {})
+    validators = import_name(validators)
+    errors = {
+        "required_to_activate": [],
+        "other": [],
+    }
+
+    for quota in validators:
+        validator = import_name(validators[quota])
+
+        if on_activation:
+            validator.on_activation(user, quota_dict)
+        else:
+            try:
+                validator(user, quota_dict)
+            except ValidationError as e:
+                if validator.required_to_activate:
+                    errors["required_to_activate"].extend(e.messages)
+                else:
+                    errors["other"].extend(e.messages)
+    return errors
