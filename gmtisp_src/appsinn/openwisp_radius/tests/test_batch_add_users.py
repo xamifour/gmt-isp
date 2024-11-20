@@ -5,7 +5,7 @@ from django.urls import reverse
 
 from ..utils import load_model
 from . import FileMixin
-from .mixins import BaseTestCase
+from .mixins import BaseTestCase, BaseTransactionTestCase
 
 RadiusBatch = load_model('RadiusBatch')
 
@@ -112,6 +112,8 @@ class TestPrefixUpload(FileMixin, BaseTestCase):
         self.assertEqual(RadiusBatch.objects.all().count(), 1)
         self.assertEqual(batch.users.all().count(), 5)
 
+
+class TestTransactionPrefixUpload(FileMixin, BaseTransactionTestCase):
     @patch('openwisp_radius.settings.API_AUTHORIZE_REJECT', True)
     def test_verified_batch_user_creation(self):
         organization = self._get_org()
@@ -136,8 +138,12 @@ class TestPrefixUpload(FileMixin, BaseTestCase):
             {
                 'control:Auth-Type': 'Accept',
                 'Session-Timeout': 10800,
-                'ChilliSpot-Max-Total-Octets': 3000000000,
+                'CoovaChilli-Max-Total-Octets': 3000000000,
             },
         )
         self.assertEqual(user.registered_user.is_verified, True)
         self.assertEqual(user.registered_user.method, 'manual')
+
+
+del BaseTestCase
+del BaseTransactionTestCase

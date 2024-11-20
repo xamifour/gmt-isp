@@ -1,7 +1,7 @@
-Django==5.1.2 #django==4.2.7
+Django==5.1.2 #django==4.2.9
 celery==5.4.0
 django-admin-autocomplete-filter==0.7.1
-django-allauth==65.1.0 #django-allauth==0.54.0
+django-allauth==65.1.0 
 django-countries==7.6.1
 django-environ==0.11.2
 django-extensions==3.2.3
@@ -20,7 +20,7 @@ djangorestframework-simplejwt==5.3.1
 dj-rest-auth==6.0.0
 djangosaml2==1.9.3
 drf-link-header-pagination==0.2.0
-drf-yasg==1.21.8 # replace with drf-spectacular
+drf-yasg==1.21.8 # replace with drf-spectacular if need be
 jsonfield==3.1.0
 pyrad==2.4
 python-stdnum==1.20

@@ -18,8 +18,8 @@
       container = document.getElementById('plot-container');
 
   const layout = {
-    height: 270,
-    width: 270,
+    height: 450,
+    width: 450,
     margin: {
       t: 0,
       b: 0
@@ -33,8 +33,8 @@
     },
     title: {
       yanchor: 'center',
-      y: 0.80,
-      font: {size: 14}
+      y: 0.92,
+      font: {size: 20}
     }
   },
   options = {
@@ -94,7 +94,7 @@
     layout.annotations = [
       {
         font: {
-          size: 12,
+          size: 20,
           weight: 'bold'
         },
         showarrow: false,

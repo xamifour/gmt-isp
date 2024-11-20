@@ -1,14 +1,11 @@
 import swapper
 from allauth.account.apps import AccountConfig
 from allauth.socialaccount.apps import SocialAccountConfig
-
-from django.db.models import Case, Count, Sum, When
 from django.contrib.auth import get_user_model
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.utils.translation import gettext_lazy as _
 from swapper import get_model_name
 
-from openwisp_utils.admin_theme import register_dashboard_chart
 from openwisp_utils.admin_theme.menu import register_menu_group
 from openwisp_utils.api.apps import ApiAppConfig
 from openwisp_utils.utils import default_or_test
@@ -32,7 +29,7 @@ from .utils import load_model, update_user_related_records
 class OpenwispRadiusConfig(ApiAppConfig):
     name = 'openwisp_radius'
     label = 'openwisp_radius'
-    verbose_name = _('Freeradius')
+    verbose_name = 'Freeradius'
 
     API_ENABLED = True
     REST_FRAMEWORK_SETTINGS = {
@@ -57,9 +54,8 @@ class OpenwispRadiusConfig(ApiAppConfig):
         from . import checks  # noqa
 
         super().ready(*args, **kwargs)
-        self.register_menu_group()
-        self.register_dashboard_charts()
         self.connect_signals()
+        self.regiser_menu_groups()
 
         if app_settings.SOCIAL_REGISTRATION_CONFIGURED:
             register_registration_method('social_login', _('Social login'))
@@ -152,8 +148,7 @@ class OpenwispRadiusConfig(ApiAppConfig):
     def radiusorgsettings_post_delete(self, instance, **kwargs):
         instance.delete_cache()
 
-    # menu grouping
-    def register_menu_group(self):
+    def regiser_menu_groups(self):
         items = {
             1: {
                 'label': _('Accounting Sessions'),
@@ -209,57 +204,6 @@ class OpenwispRadiusConfig(ApiAppConfig):
             position=12,
             config={'label': _('RADIUS'), 'items': items, 'icon': 'ow-radius'},
         )
-
-    # charts on admin dashboard, using positions 5 to 8
-    def register_dashboard_charts(self):
-        register_dashboard_chart(
-            position=5,
-            config={
-                'name': _('Nas'),
-                'query_params': {
-                    'app_label': 'openwisp_radius',
-                    'model': 'nas',
-                    'annotate': {
-                        'with_nas': Count(
-                            Case(
-                                When(
-                                    server__isnull=False,
-                                    then=1,
-                                )
-                            )
-                        ),
-                        'without_nas': Count(
-                            Case(
-                                When(
-                                    server__isnull=True,
-                                    then=1,
-                                )
-                            )
-                        ),
-                    },
-                    'aggregate': {
-                        'with_nas__sum': Sum('with_nas'),
-                        'without_nas__sum': Sum('without_nas'),
-                    },
-                },
-                'colors': {
-                    'with_nas__sum': '#76D7C4',
-                    'without_nas__sum': '#DAF7A6',
-                },
-                'labels': {
-                    # the <strong> is for testing purposes to
-                    # verify it's being HTML escaped correctly
-                    'with_nas__sum': _('<strong>With Nas</strong>'),
-                    'without_nas__sum': _('Without Nas'),
-                },
-                'filters': {
-                    'key': 'with_nas',
-                    'with_nas__sum': 'true',
-                    'without_nas__sum': 'false',
-                },
-            },
-        )
-
 
 
 del ApiAppConfig

@@ -1,7 +1,7 @@
 import platform
 from collections import OrderedDict
 
-# import pkg_resources
+import pkg_resources
 from django.conf import settings
 from django.utils.module_loading import import_string
 
@@ -17,11 +17,19 @@ def get_installed_openwisp_packages():
     }
 
 
-def get_openwisp_version():
+def _get_openwisp2_detail(attribute_name, fallback=None):
     try:
-        return import_string('openwisp2.__openwisp_version__')
+        return import_string(f'openwisp2.{attribute_name}')
     except ImportError:
-        return None
+        return fallback
+
+
+def get_openwisp_version():
+    return _get_openwisp2_detail('__openwisp_version__')
+
+
+def get_openwisp_installation_method():
+    return _get_openwisp2_detail('__openwisp_installation_method__', 'unspecified')
 
 
 def get_enabled_openwisp_modules():
@@ -52,5 +60,4 @@ def get_os_details():
         'os_version': uname.version,
         'kernel_version': uname.release,
         'hardware_platform': uname.machine,
-        'node': uname.node,
     }

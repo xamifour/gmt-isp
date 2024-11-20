@@ -1,9 +1,10 @@
 from unittest.mock import patch
 
-from allauth.account.models import EmailAddress
+from allauth.account.models import EmailAddress, get_emailconfirmation_model
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.exceptions import ValidationError
+from django.templatetags.l10n import localize
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.timezone import now, timedelta
@@ -16,7 +17,7 @@ from .utils import TestOrganizationMixin
 Organization = load_model('openwisp_users', 'Organization')
 OrganizationUser = load_model('openwisp_users', 'OrganizationUser')
 OrganizationOwner = load_model('openwisp_users', 'OrganizationOwner')
-EmailConfirmation = load_model('account', 'EmailConfirmation')
+EmailConfirmation = get_emailconfirmation_model()
 User = get_user_model()
 
 
@@ -185,6 +186,16 @@ class TestUsers(TestOrganizationMixin, TestCase):
         self.assertEqual(user1.is_member(org), False)
         self.assertEqual(user2.is_member(org), True)
 
+    def test_invalidate_cache_org_status_changed(self):
+        org = self._create_org(name='testorg1')
+        user1 = self._create_user(username='testuser1', email='user1@test.com')
+        self._create_org_user(user=user1, organization=org)
+        self.assertEqual(user1.is_member(org), True)
+        org.is_active = False
+        org.full_clean()
+        org.save()
+        self.assertEqual(user1.is_member(org), False)
+
     def test_organizations_managed(self):
         user = self._create_user(username='organizations_pk')
         self.assertEqual(user.organizations_managed, [])
@@ -304,6 +315,7 @@ class TestUsers(TestOrganizationMixin, TestCase):
     )
     def test_email_verification_success(self):
         user = self._create_user()
+        user.emailaddress_set.update(verified=False)
         email_address = user.emailaddress_set.first()
         email_confirmation = EmailConfirmation.create(email_address)
         email_confirmation.send()
@@ -432,7 +444,7 @@ class TestUsers(TestOrganizationMixin, TestCase):
                 password_updated=user_expiry_date
             )
             password_expiration_email.delay()
-            formatted_expiry_date = (now() + timedelta(days=7)).strftime('%-d %b %Y')
+            expected_date = localize((now() + timedelta(days=7)).date())
             self.assertEqual(len(mail.outbox), 1)
             email = mail.outbox.pop()
             self.assertEqual(email.to, [verified_email_user.email])
@@ -440,13 +452,13 @@ class TestUsers(TestOrganizationMixin, TestCase):
             self.assertEqual(
                 email.body,
                 'We inform you that the password for your account tester will expire'
-                f' in 7 days, precisely on {formatted_expiry_date}.\n\n'
+                f' in 7 days, precisely on {expected_date}.\n\n'
                 'Kindly proceed with updating your password by clicking on the'
                 ' button below.',
             )
             self.assertIn(
                 '<p>We inform you that the password for your account tester will expire'
-                f' in 7 days, precisely on {formatted_expiry_date}.<p>\n\n<p>',
+                f' in 7 days, precisely on {expected_date}.<p>\n\n<p>',
                 email.alternatives[0][0],
             )
             self.assertIn(

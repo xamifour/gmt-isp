@@ -815,11 +815,6 @@ class AbstractRadiusPostAuth(OrgMixin, UUIDModel):
 
     def __str__(self):
         return str(self.username)
-        
-    # def save(self, *args, **kwargs):
-    #     if not self.id:
-    #         self.id = uuid.uuid4()  # Explicitly set the UUID if not already set
-    #     super().save(*args, **kwargs)
 
 
 def _get_csv_file_location(instance, filename):
@@ -1003,7 +998,7 @@ class AbstractRadiusBatch(OrgMixin, TimeStampedEditableModel):
         RegisteredUser = swapper.load_model('openwisp_radius', 'RegisteredUser')
         user.save()
         registered_user = RegisteredUser(user=user, method='manual')
-        if self.organization.radius_settings.get_setting('needs_identity_verification'):
+        if self.organization.radius_settings.needs_identity_verification:
             registered_user.is_verified = True
         registered_user.save()
         self.users.add(user)
@@ -1084,17 +1079,11 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
     )
     token = KeyField(max_length=32)
     sms_verification = FallbackBooleanChoiceField(
-        null=True,
-        blank=True,
-        default=None,
         help_text=_SMS_VERIFICATION_HELP_TEXT,
         fallback=app_settings.SMS_VERIFICATION_ENABLED,
         verbose_name=_('SMS verification'),
     )
     needs_identity_verification = FallbackBooleanChoiceField(
-        null=True,
-        blank=True,
-        default=None,
         help_text=_IDENTITY_VERIFICATION_ENABLED_HELP_TEXT,
         fallback=app_settings.NEEDS_IDENTITY_VERIFICATION,
     )
@@ -1110,8 +1099,6 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
     sms_message = FallbackTextField(
         _('SMS Message'),
         max_length=160,
-        blank=True,
-        null=True,
         help_text=_(
             'SMS message template used for sending verification code.'
             ' Must contain "{code}" placeholder for OTP value.'
@@ -1120,8 +1107,6 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
     )
     sms_cooldown = FallbackPositiveIntegerField(
         _('SMS Cooldown'),
-        blank=True,
-        null=True,
         help_text=_(
             'Time period a user will have to wait before requesting'
             ' another SMS token (in seconds).'
@@ -1138,33 +1123,22 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
         verbose_name=_('SMS meta data'),
     )
     freeradius_allowed_hosts = FallbackTextField(
-        null=True,
-        blank=True,
         help_text=_GET_IP_LIST_HELP_TEXT,
-        default=','.join(app_settings.FREERADIUS_ALLOWED_HOSTS),
         fallback=','.join(app_settings.FREERADIUS_ALLOWED_HOSTS),
     )
     coa_enabled = FallbackBooleanChoiceField(
-        null=True,
-        blank=True,
-        default=None,
         help_text=_COA_ENABLED_HELP_TEXT,
         fallback=app_settings.COA_ENABLED,
         verbose_name=_('CoA Enabled'),
     )
     allowed_mobile_prefixes = FallbackTextField(
-        null=True,
-        blank=True,
         help_text=_GET_MOBILE_PREFIX_HELP_TEXT,
-        default=','.join(app_settings.ALLOWED_MOBILE_PREFIXES),
         fallback=','.join(app_settings.ALLOWED_MOBILE_PREFIXES),
     )
     first_name = FallbackCharChoiceField(
         verbose_name=_('first name'),
         help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT,
         max_length=12,
-        null=True,
-        blank=True,
         choices=OPTIONAL_FIELD_CHOICES,
         fallback=OPTIONAL_SETTINGS.get('first_name', None),
     )
@@ -1172,8 +1146,6 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
         verbose_name=_('last name'),
         help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT,
         max_length=12,
-        null=True,
-        blank=True,
         choices=OPTIONAL_FIELD_CHOICES,
         fallback=OPTIONAL_SETTINGS.get('last_name', None),
     )
@@ -1181,8 +1153,6 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
         verbose_name=_('location'),
         help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT,
         max_length=12,
-        null=True,
-        blank=True,
         choices=OPTIONAL_FIELD_CHOICES,
         fallback=OPTIONAL_SETTINGS.get('location', None),
     )
@@ -1190,38 +1160,24 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
         verbose_name=_('birth date'),
         help_text=_GET_OPTIONAL_FIELDS_HELP_TEXT,
         max_length=12,
-        null=True,
-        blank=True,
         choices=OPTIONAL_FIELD_CHOICES,
         fallback=OPTIONAL_SETTINGS.get('birth_date', None),
     )
     registration_enabled = FallbackBooleanChoiceField(
-        null=True,
-        blank=True,
-        default=None,
         help_text=_REGISTRATION_ENABLED_HELP_TEXT,
         fallback=app_settings.REGISTRATION_API_ENABLED,
     )
     saml_registration_enabled = FallbackBooleanChoiceField(
-        null=True,
-        blank=True,
-        default=None,
         help_text=_SAML_REGISTRATION_ENABLED_HELP_TEXT,
         verbose_name=_('SAML registration enabled'),
         fallback=app_settings.SAML_REGISTRATION_ENABLED,
     )
     mac_addr_roaming_enabled = FallbackBooleanChoiceField(
-        null=True,
-        blank=True,
-        default=None,
         help_text=_MAC_ADDR_ROAMING_ENABLED_HELP_TEXT,
         verbose_name=_('MAC address roaming enabled'),
         fallback=app_settings.MAC_ADDR_ROAMING_ENABLED,
     )
     social_registration_enabled = FallbackBooleanChoiceField(
-        null=True,
-        blank=True,
-        default=None,
         help_text=_SOCIAL_REGISTRATION_ENABLED_HELP_TEXT,
         fallback=app_settings.SOCIAL_REGISTRATION_ENABLED,
     )
@@ -1239,11 +1195,8 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
     )
     password_reset_url = FallbackCharField(
         verbose_name=_('Password reset URL'),
-        null=True,
-        blank=True,
         max_length=200,
         help_text=_PASSWORD_RESET_URL_HELP_TEXT,
-        default=DEFAULT_PASSWORD_RESET_URL,
         fallback=DEFAULT_PASSWORD_RESET_URL,
         validators=[password_reset_url_validator],
     )
@@ -1271,7 +1224,7 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
         return mobile_prefixes
 
     def clean(self):
-        if self.get_setting('sms_verification') and not self.sms_sender:
+        if self.sms_verification and not self.sms_sender:
             raise ValidationError(
                 {
                     'sms_sender': _(
@@ -1363,13 +1316,6 @@ class AbstractOrganizationRadiusSettings(UUIDModel):
                 }
             )
 
-    def get_setting(self, field_name):
-        value = getattr(self, field_name)
-        field = self._meta.get_field(field_name)
-        if value is None and hasattr(field, 'fallback'):
-            return field.fallback
-        return value
-
     def save_cache(self, *args, **kwargs):
         cache.set(self.organization.pk, self.token)
         cache.set(f'ip-{self.organization.pk}', self.freeradius_allowed_hosts_list)
@@ -1395,14 +1341,15 @@ class AbstractPhoneToken(TimeStampedEditableModel):
     phone_number = PhoneNumberField(blank=False, null=False)
 
     class Meta:
-        abstract = True
         verbose_name = _('Phone verification token')
         verbose_name_plural = _('Phone verification tokens')
         ordering = ('-created',)
+        # index_together = (('user', 'created'), ('user', 'created', 'ip'))
         indexes = [
             models.Index(fields=['user', 'created']),
             models.Index(fields=['user', 'created', 'ip']),
         ]
+        abstract = True
 
     def clean(self):
         if not hasattr(self, 'user'):
@@ -1477,7 +1424,7 @@ class AbstractPhoneToken(TimeStampedEditableModel):
                 )
             )
         org_radius_settings = org_user.organization.radius_settings
-        message = _(org_radius_settings.get_setting('sms_message')).format(
+        message = _(org_radius_settings.sms_message).format(
             organization=org_radius_settings.organization.name, code=self.token
         )
         sms_message = SmsMessage(
@@ -1573,7 +1520,10 @@ class AbstractRegisteredUser(models.Model):
     def unverify_inactive_users(cls):
         if not app_settings.UNVERIFY_INACTIVE_USERS:
             return
-        cls.objects.filter(
+        # Exclude users who have unspecified, manual, or email
+        # registration method because such users don't have an option
+        # to re-verify. See https://github.com/openwisp/openwisp-radius/issues/517
+        cls.objects.exclude(method__in=['', 'manual', 'email']).filter(
             user__is_staff=False,
             user__last_login__lt=timezone.now()
             - timedelta(days=app_settings.UNVERIFY_INACTIVE_USERS),
@@ -1583,8 +1533,16 @@ class AbstractRegisteredUser(models.Model):
     def delete_inactive_users(cls):
         if not app_settings.DELETE_INACTIVE_USERS:
             return
+        cutoff_date = timezone.now() - timedelta(
+            days=app_settings.DELETE_INACTIVE_USERS
+        )
         User.objects.filter(
-            is_staff=False,
-            last_login__lt=timezone.now()
-            - timedelta(days=app_settings.DELETE_INACTIVE_USERS),
+            Q(is_staff=False)
+            & (
+                Q(last_login__lt=cutoff_date)
+                |
+                # There could be manually created users which never logged in.
+                # We use the "date_joined" field for such users.
+                Q(last_login__isnull=True, date_joined__lt=cutoff_date)
+            )
         ).delete()

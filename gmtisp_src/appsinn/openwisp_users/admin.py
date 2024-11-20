@@ -21,7 +21,6 @@ from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
-from openwisp_utils.admin import UUIDAdmin
 from organizations.base_admin import (
     BaseOrganizationAdmin,
     BaseOrganizationOwnerAdmin,
@@ -31,7 +30,8 @@ from organizations.exceptions import OwnershipRequired
 from phonenumber_field.formfields import PhoneNumberField
 from swapper import load_model
 
-# from openwisp_utils.mixins import OrganizationDbAdminMixin
+from openwisp_utils.admin import UUIDAdmin
+
 from . import settings as app_settings
 from .multitenancy import MultitenantAdminMixin, MultitenantOrgFilter
 from .utils import BaseAdmin
@@ -40,9 +40,6 @@ Group = load_model('openwisp_users', 'Group')
 Organization = load_model('openwisp_users', 'Organization')
 OrganizationOwner = load_model('openwisp_users', 'OrganizationOwner')
 OrganizationUser = load_model('openwisp_users', 'OrganizationUser')
-UserPlan = load_model('gmtisp_billing', 'Userplan')
-Plan = load_model('gmtisp_billing', 'Plan')
-
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
@@ -193,50 +190,6 @@ class UserChangeForm(UserFormMixin, BaseUserChangeForm):
     pass
 
 
-class UserPlanInline(admin.StackedInline):
-    model = UserPlan
-    formset = RequiredInlineFormSet
-    view_on_site = False
-
-    def get_formset(self, request, obj=None, **kwargs):
-        """
-        In form dropdowns, display only organizations
-        in which operator `is_admin` and for superusers display all organizations.
-        Also, display only plans that belong to the managed organizations.
-        """
-        formset = super().get_formset(request, obj=obj, **kwargs)
-        if not request.user.is_superuser:
-            managed_org_ids = request.user.organizations_managed
-            formset.form.base_fields['organization'].queryset = Organization.objects.filter(
-                pk__in=managed_org_ids
-            )
-            formset.form.base_fields['plan'].queryset = Plan.objects.filter(
-                organization__pk__in=managed_org_ids
-            )
-            
-            # Programmatically select the organization
-            if len(managed_org_ids) == 1:
-                formset.form.base_fields['organization'].initial = managed_org_ids[0]
-
-        return formset
-
-    def get_queryset(self, request):
-        """
-        Filter queryset to show only plans for the user's organization.
-        Superusers see all plans.
-        """
-        qs = super().get_queryset(request)
-        if not request.user.is_superuser:
-            managed_org_ids = request.user.organizations_managed
-            qs = qs.filter(organization__pk__in=managed_org_ids)
-        return qs
-
-    def get_extra(self, request, obj=None, **kwargs):
-        if not obj:
-            return 1
-        return 0
-
-
 class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
     add_form = UserCreationForm
     form = UserChangeForm
@@ -245,21 +198,19 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
     list_display = [
         'username',
         'email',
-        'get_organization',
         'is_active',
         'is_staff',
         'is_superuser',
         'date_joined',
         'last_login',
     ]
-    inlines = [EmailAddressInline, OrganizationUserInline, UserPlanInline]
+    inlines = [EmailAddressInline, OrganizationUserInline]
     save_on_top = True
     actions = ['delete_selected_overridden', 'make_inactive', 'make_active']
     fieldsets = list(BaseUserAdmin.fieldsets)
 
     # To ensure extended apps use this template.
     change_form_template = 'admin/openwisp_users/user/change_form.html'
-
 
     def require_confirmation(func):
         """
@@ -289,6 +240,9 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
         wrapper.__name__ = func.__name__
         return wrapper
 
+    @admin.action(
+        description=_('Flag selected users as inactive'), permissions=['change']
+    )
     @require_confirmation
     def make_inactive(self, request, queryset):
         queryset.update(is_active=False)
@@ -303,8 +257,9 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
                 messages.SUCCESS,
             )
 
-    make_inactive.short_description = _('Flag selected users as inactive')
-
+    @admin.action(
+        description=_('Flag selected users as active'), permissions=['change']
+    )
     @require_confirmation
     def make_active(self, request, queryset):
         queryset.update(is_active=True)
@@ -318,8 +273,6 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
                 ),
                 messages.SUCCESS,
             )
-
-    make_active.short_description = _('Flag selected users as active')
 
     def get_list_display(self, request):
         """
@@ -392,6 +345,7 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
             del actions['delete_selected']
         return actions
 
+    @admin.action(description=delete_selected.short_description, permissions=['delete'])
     def delete_selected_overridden(self, request, queryset):
         if not request.user.is_superuser:
             users_pk = queryset.values_list('pk', flat=True)
@@ -426,8 +380,6 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
                 queryset = excluded_owners_qs
         return delete_selected(self, request, queryset)
 
-    delete_selected_overridden.short_description = delete_selected.short_description
-
     def get_inline_instances(self, request, obj=None):
         """
         1. Avoid displaying inline objects when adding a new user
@@ -455,7 +407,7 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
             if has_add_perm:
                 return [inline]
         return []
-    
+
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
         obj = self.get_object(request, object_id)
@@ -470,7 +422,6 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
         added/changed via the django-admin interface
         """
         super().save_model(request, obj, form, change)
-        
         if obj.email:
             try:
                 EmailAddress.objects.add_email(
@@ -483,13 +434,6 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
                         type(e), obj.username, obj.email
                     )
                 )
-        
-        # Ensure the new user is associated with the operator's organization
-        if not change and not request.user.is_superuser:
-            org_user_model = load_model('openwisp_users', 'OrganizationUser')
-            org_user_model.objects.create(
-                user=obj, organization_id=request.user.organizations_managed[0], is_admin=False
-            )
 
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)
@@ -514,13 +458,6 @@ class UserAdmin(MultitenantAdminMixin, BaseUserAdmin, BaseAdmin):
         for instance in instances:
             instance.save()
 
-    def get_organization(self, obj):
-        organization_users = OrganizationUser.objects.filter(user=obj)
-        organizations = [org_user.organization.name for org_user in organization_users]
-        return ', '.join(organizations) if organizations else 'No Organization'
-    
-    get_organization.short_description = _('Organization')
-
 
 class OrganizationUserFilter(MultitenantOrgFilter):
     """
@@ -531,14 +468,6 @@ class OrganizationUserFilter(MultitenantOrgFilter):
 
     def queryset(self, request, queryset):
         if self.value():
-            queryset = queryset.filter(
-                openwisp_users_organizationuser__organization=self.value()
-            )
-        return queryset
-
-    def queryset(self, request, queryset):
-        # Check if the organization is saved
-        if self.value() and Organization.objects.filter(pk=self.value()).exists():
             queryset = queryset.filter(
                 openwisp_users_organizationuser__organization=self.value()
             )
@@ -654,6 +583,7 @@ class OrganizationUserAdmin(
             del actions['delete_selected']
         return actions
 
+    @admin.action(description=delete_selected.short_description, permissions=['delete'])
     def delete_selected_overridden(self, request, queryset):
         count = 0
         pks = []
@@ -688,8 +618,6 @@ class OrganizationUserAdmin(
             )
         # otherwise proceed but remove org users from the delete queryset
         return delete_selected(self, request, queryset)
-
-    delete_selected_overridden.short_description = delete_selected.short_description
 
 
 class OrganizationOwnerAdmin(

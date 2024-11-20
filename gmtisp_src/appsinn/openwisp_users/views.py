@@ -1,7 +1,8 @@
+from swapper import load_model
+
 from openwisp_utils.admin_theme.views import (
     AutocompleteJsonView as BaseAutocompleteJsonView,
 )
-from swapper import load_model
 
 from .widgets import SHARED_SYSTEMWIDE_LABEL
 
@@ -44,5 +45,6 @@ class AutocompleteJsonView(BaseAutocompleteJsonView):
         if self.object_list.model == Organization:
             return self.request.user.is_superuser
         return super().get_allow_null()
+
 
 from .views_my import *

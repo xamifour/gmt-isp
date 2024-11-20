@@ -1,5 +1,3 @@
-# views.py
-
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError

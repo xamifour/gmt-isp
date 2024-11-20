@@ -26,7 +26,6 @@ class TestOpenwispVersion(TestCase):
         # The post_migrate signal creates the first OpenwispVersion object
         # and uses the actual modules installed in the Python environment.
         # This would cause tests to fail when other modules are also installed.
-        # import ipdb; ipdb.set_trace()
         OpenwispVersion.objects.update(
             module_version={
                 'OpenWISP Version': '23.0.0a',
@@ -120,10 +119,8 @@ class TestOpenwispVersion(TestCase):
     @patch.object(OpenwispVersion, '_post_metrics')
     @freeze_time('2023-12-01 00:00:00')
     def test_install_not_detected_on_install_event(self, mocked_post, *args):
-        """
-        Checks when the send_usage_metrics is triggered with "Install" category,
-        but there's no actual upgrade.
-        """
+        # Checks when the send_usage_metrics is triggered
+        # with "Install" category, but there's no actual upgrade.
         self.assertEqual(OpenwispVersion.objects.count(), 1)
         tasks.send_usage_metrics(category='Install')
         mocked_post.assert_not_called()
@@ -235,10 +232,7 @@ class TestOpenwispVersion(TestCase):
     @patch.object(OpenwispVersion, '_post_metrics')
     @freeze_time('2023-12-01 00:00:00')
     def test_upgrade_not_detected_on_upgrade_event(self, mocked_post, *args):
-        """
-        Tests send_usage_metrics is triggered with "Upgrade" category
-        but no modules were upgraded.
-        """
+        """Tests send_usage_metrics is triggered with "Upgrade" category but no modules were upgraded."""
         self.assertEqual(OpenwispVersion.objects.count(), 1)
         tasks.send_usage_metrics.delay(category='Upgrade')
         mocked_post.assert_not_called()

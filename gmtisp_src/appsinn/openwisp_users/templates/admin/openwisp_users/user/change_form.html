@@ -7,26 +7,9 @@
     <ul class="messagelist">
         <li class="warning">
         {% blocktrans %}
-        You do not have permission to edit or delete this user because they are owners of an organization.
+        You do not have permission to edit or delete this user because they are owner of an organization.
         {% endblocktrans %}
         </li>
     </ul>
   {% endif %}
-{% endblock %}
-
-<div class="object-tools">
-  {% if has_change_permission %}
-  <form action="{% url 'admin:refill_user' pk=object.pk %}" method="post">
-      {% csrf_token %}
-      <button type="submit" class="button">Refill Account</button>
-  </form>
-  {% endif %}
-  {{ block.super }}
-</div>
-
-{% block submit_buttons_bottom %}
-    <div class="submit-row">
-        {{ block.super }}
-        <a class="button" href="{{ refill_traffic_url }}" style="margin-left: 1em;">Refill Traffic</a>
-    </div>
 {% endblock %}

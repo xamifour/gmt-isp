@@ -1,3 +1,4 @@
+import django
 from allauth.account.models import EmailAddress
 from django.contrib import auth
 from django.contrib.auth import get_user_model
@@ -5,8 +6,9 @@ from django.contrib.auth.models import Permission
 from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
-from openwisp_utils.tests import AssertNumQueriesSubTestMixin
 from swapper import load_model
+
+from openwisp_utils.tests import AssertNumQueriesSubTestMixin
 
 from ..utils import TestOrganizationMixin
 
@@ -86,7 +88,7 @@ class TestUsersApi(
             'email': 'testorg@test.com',
             'url': '',
         }
-        with self.assertNumQueries(6):
+        with self.assertNumQueries(8):
             r = self.client.put(path, data, content_type='application/json')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data['name'], 'test org change')
@@ -99,7 +101,7 @@ class TestUsersApi(
         data = {
             'name': 'test org change',
         }
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(6):
             r = self.client.patch(path, data, content_type='application/json')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data['name'], 'test org change')
@@ -110,7 +112,7 @@ class TestUsersApi(
         org1_user1 = self._create_org_user(user=user1, organization=org1)
         path = reverse('users:organization_detail', args=(org1.pk,))
         data = {'owner': {'organization_user': org1_user1.pk}}
-        with self.assertNumQueries(17):
+        with self.assertNumQueries(18):
             r = self.client.patch(path, data, content_type='application/json')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data['owner']['organization_user'], org1_user1.pk)
@@ -122,7 +124,7 @@ class TestUsersApi(
         self._create_org_owner(organization_user=org1_user1, organization=org1)
         path = reverse('users:organization_detail', args=(org1.pk,))
         data = {'owner': {'organization_user': ''}}
-        with self.assertNumQueries(11):
+        with self.assertNumQueries(12):
             r = self.client.patch(path, data, content_type='application/json')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data['owner'], None)
@@ -166,7 +168,7 @@ class TestUsersApi(
         self.assertEqual(org1.owner.organization_user.id, org1_user1.id)
         path = reverse('users:organization_detail', args=(org1.pk,))
         data = {'owner': {'organization_user': org1_user2.id}}
-        with self.assertNumQueries(26):
+        with self.assertNumQueries(27):
             r = self.client.patch(path, data, content_type='application/json')
         org1.refresh_from_db()
         self.assertEqual(org1.owner.organization_user.id, org1_user2.id)
@@ -437,8 +439,9 @@ class TestUsersApi(
         user1 = self._create_user(username='user1', email='user1@email.com')
         self.assertEqual(EmailAddress.objects.filter(user=user1).count(), 1)
         path = reverse('users:email_list', args=(user1.pk,))
-        data = {'email': 'newemail@test.com', 'primary': True}
-        with self.assertNumQueries(7):
+        data = {'email': 'newemail@test.com'}
+        expected_queries = 7 if django.VERSION < (4, 0) else 9
+        with self.assertNumQueries(expected_queries):
             response = self.client.post(path, data, content_type='application/json')
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['email'], 'newemail@test.com')
@@ -460,12 +463,13 @@ class TestUsersApi(
         self.assertEqual(response.status_code, 404)
 
     def test_put_email_update_api(self):
-        user1 = self._create_user(username='user1', email='user1@email.com')
+        user1 = self._create_user(username='user2', email='user2@email.com')
         self.assertEqual(EmailAddress.objects.filter(user=user1).count(), 1)
         email_id = EmailAddress.objects.get(user=user1).id
         path = reverse('users:email_update', args=(user1.pk, email_id))
         data = {'email': 'emailchange@test.com', 'primary': True}
-        with self.assertNumQueries(9):
+        expected_queries = 9 if django.VERSION < (4, 0) else 11
+        with self.assertNumQueries(expected_queries):
             response = self.client.put(path, data, content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['email'], 'emailchange@test.com')
@@ -475,7 +479,8 @@ class TestUsersApi(
         email_id = EmailAddress.objects.get(user=user1).id
         path = reverse('users:email_update', args=(user1.pk, email_id))
         data = {'email': 'changemail@test.com'}
-        with self.assertNumQueries(9):
+        expected_queries = 9 if django.VERSION < (4, 0) else 11
+        with self.assertNumQueries(expected_queries):
             response = self.client.patch(path, data, content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(

@@ -8,10 +8,12 @@ env.bak/
 venv.bak/
 Pipfile
 
+# Packaging
+__pycache__
+
 # my django stuff
-local_settings.py
+notes.py
 *.log
-Instrutions.txt
 # Ignore database
 # db.sqlite3
 

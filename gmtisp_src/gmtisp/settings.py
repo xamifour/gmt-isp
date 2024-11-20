@@ -20,7 +20,7 @@ DEBUG = env.str('DEBUG') == '1' # 1 means True, 0 means False
 SECRET_KEY = env.str('SECRET_KEY', default='98Yt4}56^&%@!+)7748*&_?><HT]E~lrl%606sm{ticbu20=pv{r')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
-# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', ['*'],]
+# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '*']
 
 TESTING = sys.argv[1] == 'test'
 PARALLEL = '--parallel' in sys.argv
@@ -42,35 +42,6 @@ DJANGO_APPS  = [
     'django.contrib.humanize',
     'django.contrib.sites',
 ]
-THIRD_PARTY_APPS = [
-    'admin_auto_filters', # for autocomplete filter
-    # all-auth
-    'allauth',
-    'allauth.account',  
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.facebook',
-    'allauth.socialaccount.providers.google',
-    # rest framework
-    'rest_framework',
-    # rest framework/registration
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
-    'rest_framework.authtoken', 
-    # 
-    'django_filters',
-    #
-    'private_storage',
-    'drf_yasg',
-    # 'related_admin',
-    # 'payments',
-    'sequences',
-    'django_extensions',
-    # 'integrations',
-    'djangosaml2',
-    'widget_tweaks',
-    'django_recaptcha',
-    # 'registration',
-]
 LOCAL_APPS = [
     # openwisp admin theme must come before the django admin in order to override the admin login page
     'openwisp_utils.admin_theme',
@@ -82,6 +53,31 @@ LOCAL_APPS = [
     'testing_app',   
     'gmtisp_enduser',
     'gmtisp_billing', 
+]
+THIRD_PARTY_APPS = [
+    'admin_auto_filters', # for autocomplete filter
+    # all-auth
+    'allauth',
+    'allauth.account',  
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.facebook',
+    'allauth.socialaccount.providers.google',
+
+    'rest_framework',
+    # rest framework/registration
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+    'rest_framework.authtoken', 
+    # 
+    'django_filters',
+    #
+    'private_storage',
+    'drf_yasg',
+    'sequences',
+    'django_extensions',
+    'djangosaml2',
+    'widget_tweaks',
+    'django_recaptcha',
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 INSTALLED_APPS += ['django.contrib.admin',] # django admin
@@ -97,9 +93,6 @@ AUTH_USER_MODEL = 'openwisp_users.User'
 
 LOGIN_URL = 'account_login'
 LOGIN_REDIRECT_URL = '/dashboard/'
-# LOGOUT_URL = '/logout/'
-# LOGOUT_REDIRECT_URL = 'account_login'
-# BASE_URL='http://127.0.0.1:8000'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -107,15 +100,15 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # 'allauth.account.middleware.AccountMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'sesame.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'djangosaml2.middleware.SamlSessionMiddleware',
     'openwisp_users.middleware.PasswordExpirationMiddleware',
 ]
-# if DEBUG:
-#     MIDDLEWARE.append('debug_toolbar.middleware.DebugToolbarMiddleware')
+if DEBUG:
+    MIDDLEWARE.append('debug_toolbar.middleware.DebugToolbarMiddleware')
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'openwisp_users.password_validation.PasswordReuseValidator'}
@@ -169,19 +162,19 @@ if TESTING:
         }
     }
     
-# if DEBUG:    
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.sqlite3',
-#             'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-#             'ATOMIC_REQUESTS': True,
-#         }
-#     }
+if DEBUG:    
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+            'ATOMIC_REQUESTS': True,
+        }
+    }
 
-try:
-    from .db import *
-except ImportError:
-    raise
+# try:
+#     from .db import *
+# except ImportError:
+#     raise
 
 
 # ---------------------------------------------- logging
@@ -289,9 +282,10 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
     'openwisp_utils.staticfiles.DependencyFinder',
 ]
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
 MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'media')
+PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(os.path.dirname(BASE_DIR), "static"),]
 STATIC_ROOT = os.path.join(os.path.dirname(os.path.dirname((BASE_DIR))), "static_cdn", "static_root")
@@ -581,35 +575,34 @@ RECAPTCHA_PUBLIC_KEY = os.getenv('RECAPTCHA_SITE_KEY')
 RECAPTCHA_PRIVATE_KEY = os.getenv('RECAPTCHA_SECRET_KEY')
 
 # ---------------------------------------------- debug_toolbar
-# debug_toolbar
-# if DEBUG:
-#     INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
+if DEBUG:
+    INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
     
-#     # Rearrange DEBUG_TOOLBAR_PANELS
-#     DEBUG_TOOLBAR_PANELS = [
-#         'debug_toolbar.panels.versions.VersionsPanel',
-#         'debug_toolbar.panels.timer.TimerPanel',
-#         'debug_toolbar.panels.settings.SettingsPanel',
-#         'debug_toolbar.panels.headers.HeadersPanel',
-#         'debug_toolbar.panels.request.RequestPanel',
-#         'debug_toolbar.panels.sql.SQLPanel',
-#         'debug_toolbar.panels.staticfiles.StaticFilesPanel',
-#         'debug_toolbar.panels.templates.TemplatesPanel',
-#         'debug_toolbar.panels.cache.CachePanel',
-#         'debug_toolbar.panels.signals.SignalsPanel',
-#         'debug_toolbar.panels.logging.LoggingPanel',
-#         'debug_toolbar.panels.redirects.RedirectsPanel',
-#     ]
+    # Rearrange DEBUG_TOOLBAR_PANELS
+    DEBUG_TOOLBAR_PANELS = [
+        'debug_toolbar.panels.versions.VersionsPanel',
+        'debug_toolbar.panels.timer.TimerPanel',
+        'debug_toolbar.panels.settings.SettingsPanel',
+        'debug_toolbar.panels.headers.HeadersPanel',
+        'debug_toolbar.panels.request.RequestPanel',
+        'debug_toolbar.panels.sql.SQLPanel',
+        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+        'debug_toolbar.panels.templates.TemplatesPanel',
+        'debug_toolbar.panels.cache.CachePanel',
+        'debug_toolbar.panels.signals.SignalsPanel',
+        'debug_toolbar.panels.logging.LoggingPanel',
+        'debug_toolbar.panels.redirects.RedirectsPanel',
+    ]
 
-#     def show_toolbar(request):
-#         return True
+    def show_toolbar(request):
+        return True
 
-#     DEBUG_TOOLBAR_CONFIG = {
-#         'DISABLE_PANELS': ['debug_toolbar.panels.redirects.RedirectsPanel'], 
-#         'SHOW_TEMPLATE_CONTEXT': True,
-#         'INTERCEPT_REDIRECTS': False,
-#         'SHOW_TOOLBAR_CALLBACK': show_toolbar
-#     }
+    DEBUG_TOOLBAR_CONFIG = {
+        'DISABLE_PANELS': ['debug_toolbar.panels.redirects.RedirectsPanel'], 
+        'SHOW_TEMPLATE_CONTEXT': True,
+        'INTERCEPT_REDIRECTS': False,
+        'SHOW_TOOLBAR_CALLBACK': show_toolbar
+    }
 # ------------------------------------------------------------------ end debug_toolbar
 
 # from .settings_openwisp import *
@@ -625,7 +618,7 @@ if not DEBUG:
     PAYPAL_SECRET_KEY = env('PAYPAL_LIVE_SECRET_KEY')
 
     # Restrict allowed hosts
-    ALLOWED_HOSTS = env.list("ALLOWED_HOSTS_LIVE", default=['example.com'])
+    ALLOWED_HOSTS = env.list("ALLOWED_HOSTS_LIVE", default=['3.91.87.46'])
 
     # Enforce SSL/TLS settings
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

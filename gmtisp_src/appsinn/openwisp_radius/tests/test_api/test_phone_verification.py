@@ -3,6 +3,7 @@ from datetime import timedelta
 from unittest import mock
 
 import swapper
+from allauth.account.models import EmailAddress
 from dateutil import parser
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -114,6 +115,9 @@ class TestPhoneVerification(ApiTokenMixin, BaseTestCase):
 
     def test_register_400_duplicate_user(self):
         self.test_register_201_mobile_phone_verification()
+        # The duplicate email validation error only triggers
+        # when the same email has been verified by another user.
+        EmailAddress.objects.update(verified=True)
         r = self._register_user(expect_201=False, expect_users=None)
         self.assertEqual(r.status_code, 400)
         self.assertIn('username', r.data)
@@ -252,7 +256,7 @@ class TestPhoneVerification(ApiTokenMixin, BaseTestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(
             response.data['cooldown'],
-            self.default_org.radius_settings.get_setting('sms_cooldown'),
+            self.default_org.radius_settings.sms_cooldown,
         )
 
         with freeze_time(start_time + timedelta(seconds=15)):
@@ -270,7 +274,7 @@ class TestPhoneVerification(ApiTokenMixin, BaseTestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(
             response.data['cooldown'],
-            self.default_org.radius_settings.get_setting('sms_cooldown'),
+            self.default_org.radius_settings.sms_cooldown,
         )
 
     @capture_any_output()

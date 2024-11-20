@@ -77,7 +77,10 @@ class TestRadiusAccounting(FileMixin, BaseTestCase):
         radiusaccounting.framed_ipv6_prefix = 'invalid ipv6_prefix'
         self.assertRaises(ValidationError, radiusaccounting.full_clean)
 
-    def convert_called_station_id_tests(self):
+    def _run_convert_called_station_id_tests(self):
+        """
+        Reused by other tests below.
+        """
         radiusaccounting_options = _RADACCT.copy()
         radiusaccounting_options.update(
             {
@@ -161,7 +164,7 @@ class TestRadiusAccounting(FileMixin, BaseTestCase):
             'CALLED_STATION_IDS',
             called_station_ids,
         ):
-            self.convert_called_station_id_tests()
+            self._run_convert_called_station_id_tests()
 
     @capture_any_output()
     @mock.patch.object(
@@ -172,7 +175,7 @@ class TestRadiusAccounting(FileMixin, BaseTestCase):
     @mock.patch.object(app_settings, 'OPENVPN_DATETIME_FORMAT', u'%Y-%m-%d %H:%M:%S')
     @mock.patch.object(app_settings, 'CONVERT_CALLED_STATION_ON_CREATE', True)
     def test_convert_called_station_id_with_organization_slug(self, *args, **kwargs):
-        self.convert_called_station_id_tests()
+        self._run_convert_called_station_id_tests()
 
 
 class TestRadiusCheck(BaseTestCase):
@@ -510,28 +513,6 @@ class TestRadiusGroup(BaseTestCase):
         RadiusGroup.objects.all().delete()  # won't trigger ValidationError
         self._create_radius_group(name='test')
 
-    def test_new_user_default_group(self):
-        user = get_user_model()(username='test', email='test@test.org', password='test')
-        user.full_clean()
-        user.save()
-        self._create_org_user(user=user)
-        user.refresh_from_db()
-        usergroup_set = user.radiususergroup_set.all()
-        self.assertEqual(usergroup_set.count(), 1)
-        ug = usergroup_set.first()
-        self.assertTrue(ug.group.default)
-        return user
-
-    def test_user_multiple_orgs_default_group(self):
-        user = self.test_new_user_default_group()
-        new_org = self._create_org(name='org2', slug='org2')
-        self._create_org_user(user=user, organization=new_org)
-        usergroup_set = user.radiususergroup_set.all()
-        self.assertEqual(usergroup_set.count(), 2)
-        new_ug = usergroup_set.filter(group__organization_id=new_org.pk).first()
-        self.assertIsNotNone(new_ug)
-        self.assertTrue(new_ug.group.default)
-
     def test_groupcheck_auto_name(self):
         g = self._create_radius_group(name='test', description='test')
         c = self._create_radius_groupcheck(
@@ -722,6 +703,30 @@ class TestRadiusGroup(BaseTestCase):
                 )
             else:
                 self.fail('ValidationError not raised')
+
+
+class TestTransactionRadiusGroup(BaseTransactionTestCase):
+    def test_new_user_default_group(self):
+        user = get_user_model()(username='test', email='test@test.org', password='test')
+        user.full_clean()
+        user.save()
+        self._create_org_user(user=user)
+        user.refresh_from_db()
+        usergroup_set = user.radiususergroup_set.all()
+        self.assertEqual(usergroup_set.count(), 1)
+        ug = usergroup_set.first()
+        self.assertTrue(ug.group.default)
+        return user
+
+    def test_user_multiple_orgs_default_group(self):
+        user = self.test_new_user_default_group()
+        new_org = self._create_org(name='org2', slug='org2')
+        self._create_org_user(user=user, organization=new_org)
+        usergroup_set = user.radiususergroup_set.all()
+        self.assertEqual(usergroup_set.count(), 2)
+        new_ug = usergroup_set.filter(group__organization_id=new_org.pk).first()
+        self.assertIsNotNone(new_ug)
+        self.assertTrue(new_ug.group.default)
 
 
 class TestRadiusBatch(BaseTestCase):
@@ -1047,7 +1052,7 @@ class TestChangeOfAuthorization(BaseTransactionTestCase):
             {
                 'User-Name': user.username,
                 'Session-Timeout': '',
-                'ChilliSpot-Max-Total-Octets': '',
+                'CoovaChilli-Max-Total-Octets': '',
             }
         )
         rad_acct.refresh_from_db()
@@ -1063,7 +1068,7 @@ class TestChangeOfAuthorization(BaseTransactionTestCase):
             {
                 'User-Name': user.username,
                 'Session-Timeout': '10800',
-                'ChilliSpot-Max-Total-Octets': '3000000000',
+                'CoovaChilli-Max-Total-Octets': '3000000000',
             }
         )
         rad_acct.refresh_from_db()
@@ -1092,3 +1097,7 @@ class TestChangeOfAuthorization(BaseTransactionTestCase):
         user_radiususergroup.group = power_user_group
         user_radiususergroup.save()
         mocked_radclient.assert_not_called()
+
+
+del BaseTestCase
+del BaseTransactionTestCase

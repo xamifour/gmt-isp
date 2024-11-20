@@ -14,7 +14,6 @@ from django.utils.translation import gettext_lazy as _
 from phonenumber_field.modelfields import PhoneNumberField
 from swapper import load_model
 
-from openwisp_utils.base import UUIDModel
 from .. import settings as app_settings
 
 logger = logging.getLogger(__name__)
@@ -45,26 +44,36 @@ class UserManager(BaseUserManager):
                 email.set_as_primary()
 
 
-class AbstractUser(BaseUser, UUIDModel):
+class AbstractUser(BaseUser):
     """
     OpenWISP User model
     """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(_('email address'), unique=True, blank=True, null=True)
     bio = models.TextField(_('bio'), blank=True)
     url = models.URLField(_('URL'), blank=True)
     company = models.CharField(_('company'), max_length=30, blank=True)
     location = models.CharField(_('location'), max_length=256, blank=True)
-    phone_number = PhoneNumberField(_('phone number'), unique=True, blank=True, null=True)
+    phone_number = PhoneNumberField(
+        _('phone number'), unique=True, blank=True, null=True
+    )
     birth_date = models.DateField(_('birth date'), blank=True, null=True)
-    notes = models.TextField(_('notes'), help_text=_('Notes for internal usage'), blank=True)
-    language = models.CharField(max_length=8, choices=settings.LANGUAGES, default=settings.LANGUAGE_CODE)
+    notes = models.TextField(
+        _('notes'), help_text=_('notes for internal usage'), blank=True
+    )
+    language = models.CharField(
+        max_length=8,
+        choices=settings.LANGUAGES,
+        default=settings.LANGUAGE_CODE,
+    )
     password_updated = models.DateField(_('password updated'), blank=True, null=True)
-    theme = models.CharField(_('theme'), max_length=7, blank=True, null=True, help_text=_('User theme/color in hex format (e.g. #ffffff)'))
-    
+
     objects = UserManager()
 
     class Meta(BaseUser.Meta):
         abstract = True
+        # index_together = ('id', 'email')
         indexes = [models.Index(fields=['id', 'email']), ]
 
     @staticmethod
@@ -190,7 +199,7 @@ class AbstractUser(BaseUser, UUIDModel):
             pass
 
 
-class BaseGroup:
+class BaseGroup(object):
     """
     Proxy model used to move ``GroupAdmin``
     under the same app label as the other models
@@ -202,19 +211,15 @@ class BaseGroup:
         verbose_name_plural = _('groups')
 
 
-class BaseOrganization(UUIDModel):
+class BaseOrganization(models.Model):
     """
     OpenWISP Organization model
     """
-    name = models.CharField(_('name'), max_length=67, unique=True)
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     description = models.TextField(_('description'), blank=True)
-    email = models.EmailField(_('email'), unique=True, blank=True)
-    location = models.CharField(_('location'), max_length=256, blank=True, null=True)
-    phone_number = PhoneNumberField(_('phone number'), unique=True, blank=True, null=True)
+    email = models.EmailField(_('email'), blank=True)
     url = models.URLField(_('URL'), blank=True)
-    logo = models.ImageField(_('logo'), max_length=67, blank=True, null=True, help_text=_('Logo URL'))
-    theme = models.CharField(_('theme'), max_length=7, blank=True, null=True, help_text=_('Primary theme color in hex format (e.g. #ffffff)'))
-    session_quota = models.PositiveIntegerField(_('session quota'), default=0, help_text=_('Number of concurrent sessions allowed'))
 
     def __str__(self):
         value = self.name
@@ -242,10 +247,13 @@ class BaseOrganization(UUIDModel):
         )
 
 
-class BaseOrganizationUser(UUIDModel):
+class BaseOrganizationUser(models.Model):
     """
     OpenWISP OrganizationUser model
     """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     class Meta:
         abstract = True
 
@@ -268,10 +276,12 @@ class BaseOrganizationUser(UUIDModel):
         return self.user.get_full_name() or str(self.user.username)
 
 
-class BaseOrganizationOwner(UUIDModel):
+class BaseOrganizationOwner(models.Model):
     """
     OpenWISP OrganizationOwner model
     """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     def clean(self):
         if self.organization_user.organization.pk != self.organization.pk:

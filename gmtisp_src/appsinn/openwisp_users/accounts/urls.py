@@ -14,6 +14,7 @@ from django.urls import include, path, re_path, reverse_lazy
 from django.views.generic import RedirectView
 from django.views.generic.base import TemplateView
 
+
 from .views import password_change, password_change_success, ProfileView, UserDashboardView
 
 # redirect_view = RedirectView.as_view(url=reverse_lazy('admin:index'))
@@ -27,6 +28,7 @@ urlpatterns = [
     path('inactive/', views.account_inactive, name='account_inactive'),
     # path('accounts/profile/', ProfileView.as_view(), name='profile'),
     path('dashboard/', UserDashboardView.as_view(), name='user_dashboard'),
+    
     # E-mail
     path(
         'confirm-email/',
@@ -81,7 +83,7 @@ urlpatterns = [
 if app_settings.SOCIALACCOUNT_ENABLED:
     urlpatterns += [path('social/', include('allauth.socialaccount.urls'))]
 
-for provider in providers.registry.get_list():
+for provider in providers.registry.get_class_list():
     try:
         prov_mod = import_module(provider.get_package() + '.urls')
     except ImportError:

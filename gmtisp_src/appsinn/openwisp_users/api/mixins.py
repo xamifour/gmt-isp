@@ -1,5 +1,3 @@
-# mixins.py
-
 import swapper
 from django.core.exceptions import ValidationError
 from django.db.models import ForeignKey, ManyToManyField, Q
