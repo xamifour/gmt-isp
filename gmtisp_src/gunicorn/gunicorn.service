@@ -1,0 +1,16 @@
+[Unit]
+Description=gunicorn daemon
+Requires=gunicorn.socket
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/mydev/gmt-isp/gmtisp_src
+ExecStart=/home/ubuntu/mydev/gmt-isp/venv/bin/gunicorn \
+          --access-logfile - \
+          --workers 3 \
+          --bind unix:/run/gunicorn.sock \
+          gmtisp.wsgi:application
+[Install]
+WantedBy=multi-user.target

@@ -16,7 +16,7 @@ env = environ.Env()
 env.read_env() # read the .env file
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.str('DEBUG') == '1' # 1 means True, 0 means False
+DEBUG = env.str('DEBUG') == '0' # 1 means True, 0 means False
 SECRET_KEY = env.str('SECRET_KEY', default='98Yt4}56^&%@!+)7748*&_?><HT]E~lrl%606sm{ticbu20=pv{r')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
@@ -162,19 +162,19 @@ if TESTING:
         }
     }
     
-if DEBUG:    
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-            'ATOMIC_REQUESTS': True,
-        }
-    }
+# if DEBUG:    
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.sqlite3',
+#             'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#             'ATOMIC_REQUESTS': True,
+#         }
+#     }
 
-# try:
-#     from .db import *
-# except ImportError:
-#     raise
+try:
+    from .db import *
+except ImportError:
+    raise
 
 
 # ---------------------------------------------- logging
