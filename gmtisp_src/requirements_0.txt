@@ -1,3 +1,4 @@
+setuptools
 Django
 celery
 django-admin-autocomplete-filter

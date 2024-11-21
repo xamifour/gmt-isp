@@ -1,4 +1,4 @@
-'''Django==5.1.2, Django==4.2.7'''
+'''Django==4.2.9'''
 
 import os
 import sys
@@ -27,7 +27,7 @@ PARALLEL = '--parallel' in sys.argv
 SHELL = 'shell' in sys.argv or 'shell_plus' in sys.argv
 SAMPLE_APP = os.environ.get('SAMPLE_APP', False)
 
-OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '3.91.87.46']
 OPENWISP_RADIUS_COA_ENABLED = True
 OPENWISP_RADIUS_ALLOWED_MOBILE_PREFIXES = ['+44', '+39', '+237', '+595', '+233']
 
@@ -283,12 +283,12 @@ STATICFILES_FINDERS = [
     'openwisp_utils.staticfiles.DependencyFinder',
 ]
 MEDIA_URL = '/media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'media')
 PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
+
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [os.path.join(os.path.dirname(BASE_DIR), "static"),]
-STATIC_ROOT = os.path.join(os.path.dirname(os.path.dirname((BASE_DIR))), "static_cdn", "static_root")
+STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'staticfiles')
+STATICFILES_DIRS = [os.path.join(os.path.dirname(BASE_DIR), 'static'),]
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
