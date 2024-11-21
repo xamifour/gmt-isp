@@ -22,6 +22,6 @@ source "/home/ubuntu/mydev/$PROJECT_MAIN_DIR_NAME/venv/bin/activate"
 
 # Install dependencies
 echo "Installing Python dependencies..."
-pip install -r "/home/ubuntu/mydev/$PROJECT_MAIN_DIR_NAME/requirements.txt"
+pip install -r "/home/ubuntu/mydev/$PROJECT_MAIN_DIR_NAME/requirements_0.txt"
 
 echo "Dependencies installed successfully."

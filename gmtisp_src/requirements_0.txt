@@ -1,5 +1,5 @@
 setuptools
-Django
+Django>4.2,<5.0
 celery
 django-admin-autocomplete-filter
 django-allauth

@@ -98,6 +98,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # for serving static files
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'allauth.account.middleware.AccountMiddleware',
@@ -289,6 +290,12 @@ PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'staticfiles')
 STATICFILES_DIRS = [os.path.join(os.path.dirname(BASE_DIR), 'static'),]
+
+# This is optional but recommended for better file management in production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Add Cache-Control headers for static files
+WHITENOISE_USE_FINDERS = True  # Allows WhiteNoise to find static files with Django's finders
+WHITENOISE_AUTOREFRESH = False  # In production, you typically do not want auto-refresh for static files
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
